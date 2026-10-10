@@ -1,0 +1,74 @@
+diff --git a/runtime/src/machine/mmio.cpp b/runtime/src/machine/mmio.cpp
+index 9205f71..326b3fb 100644
+--- a/runtime/src/machine/mmio.cpp
++++ b/runtime/src/machine/mmio.cpp
+@@ -36,26 +36,33 @@ static std::map<std::tuple<uint32_t, int, char>, uint64_t> g_regs;
+ static std::map<std::pair<std::string, char>, AreaLog> g_areas;
+ static std::map<std::pair<uint32_t, uint32_t>, uint64_t> g_calls;
+ 
++// --watch LO:HI: every address in the range, one by one. The entry points below call it for
++// both directions, so a device the game waits on (the CD block's answers, the VDP2 registers,
++// which are not memory areas) can be watched as well; the value is the word that went out or
++// the word that came back.
++static std::map<std::pair<uint32_t, char>, uint64_t> g_watch;
++static uint32_t g_watch_lo = 1, g_watch_hi = 0;
++
++static void watch_hit(uint32_t a, char rw, uint32_t v, int size) {
++    if (a < g_watch_lo || a > g_watch_hi) return;
++    ++g_watch[{a, rw}];
++    uint64_t blank = sat_vblanks();
++    bool window = g_cfg.watch_from || g_cfg.watch_to != ~0ull;   // --watch-vblanks: printed, --trace or not
++    if (window && blank >= g_cfg.watch_from && blank <= g_cfg.watch_to)
++        sat_note("watch %c %08X = %08X (%d bytes, pr %08X, VBlank %llu)", rw, a, v, size, g_cpu->pr,
++                 (unsigned long long)blank);
++    else if (!window)
++        sat_trace("watch %c %08X = %08X (%d bytes, pr %08X)", rw, a, v, size, g_cpu->pr);
++}
++
+ // A register access costs the CPU a safe point of time: a loop that waits on a
+ // device (a status register, the CD block's answers) lets time move on.
+ static void log_reg(uint32_t a, int size, char rw) {
+     ++g_regs[{a, size, rw}];
+     --g_cpu->budget;
+ }
+-// --watch LO:HI: every address in the range, one by one
+-static std::map<std::pair<uint32_t, char>, uint64_t> g_watch;
+-static uint32_t g_watch_lo = 1, g_watch_hi = 0;
+ 
+ static void log_area(const char* name, uint32_t a, char rw) {
+-    if (a >= g_watch_lo && a <= g_watch_hi) {
+-        ++g_watch[{a, rw}];
+-        uint64_t v = sat_vblanks();
+-        bool window = g_cfg.watch_from || g_cfg.watch_to != ~0ull;   // --watch-vblanks: printed, --trace or not
+-        if (window && v >= g_cfg.watch_from && v <= g_cfg.watch_to)
+-            sat_note("watch %c %08X (pr %08X, VBlank %llu)", rw, a, g_cpu->pr, (unsigned long long)v);
+-        else if (!window)
+-            sat_trace("watch %c %08X (pr %08X)", rw, a, g_cpu->pr);
+-    }
+     AreaLog& l = g_areas[{name, rw}];
+     if (a < l.lo) l.lo = a;
+     if (a > l.hi) l.hi = a;
+@@ -102,7 +109,7 @@ static bool modem_port(uint32_t a) {
+     return (a >= 0x05825000u && a < 0x05825040u) || (a >= 0x05895000u && a < 0x05895040u);
+ }
+ 
+-uint32_t sh2_mmio_read(uint32_t a, int size) {
++static uint32_t mmio_read_body(uint32_t a, int size) {
+     if (a >= 0xFFFFFE00u) { log_reg(a, size, 'R'); return onchip_read(*g_cpu, a, size); }
+     uint32_t area = a >> 29;
+     if (area == 6) { log_area("cache data array", a, 'R'); return mem_rd(g_cache[g_cpu->cpu], a & 0xFFF, size); }
+@@ -126,7 +133,14 @@ uint32_t sh2_mmio_read(uint32_t a, int size) {
+     sat_fatal("%d-byte read of %08X: nothing there", size, a);
+ }
+ 
++uint32_t sh2_mmio_read(uint32_t a, int size) {
++    uint32_t v = mmio_read_body(a, size);
++    watch_hit(a, 'R', v, size);
++    return v;
++}
++
+ void sh2_mmio_write(uint32_t a, uint32_t v, int size) {
++    watch_hit(a, 'W', v, size);
+     if (a >= 0xFFFFFE00u) { log_reg(a, size, 'W'); onchip_write(*g_cpu, a, v, size); return; }
+     uint32_t area = a >> 29;
+     if (area == 6) { log_area("cache data array", a, 'W'); mem_wr(g_cache[g_cpu->cpu], a & 0xFFF, v, size); return; }

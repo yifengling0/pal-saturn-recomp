@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "status": "BLACK_SCENE_IS_VDP2_RBGL_ROTATION_NOT_IMPLEMENTED",
+  "generated_utc": "2026-10-10T05:00:00Z",
+  "platform": "Windows x64 (10.0.26300), upstream saturn-recomp 086c372c67d9e0f94fcc64cedd6e6b63cc5542b5",
+  "source_disc": {
+    "mdf_sha256": "4c76366e3178289c3e73264d8f3a0b9b8b3d78f7baa0862561ce48ce4199d4b5",
+    "mds_sha256": "818eac0d35fdd320d9edf54bbdf38a30dec058686685be23a52cb787a821059b",
+    "raw_bin_copy_sha256": "4c76366e3178289c3e73264d8f3a0b9b8b3d78f7baa0862561ce48ce4199d4b5",
+    "cue_sha256": "27b0f9fd3a6198a7c8369004188775a75b914a13d28ecf44e6494ffc1e8e7b7d",
+    "ip_sha1": "ac4596b35b6962acaa04b92ab0342ff7c21772b9",
+    "product_and_edition_verified": true,
+    "identity": "T-37401H V1.000 19981101 areas JT, title LEGEND OF SWORD AND FAIRY, publisher SOFTSTAR",
+    "identity_note": "与上一提交 RESOURCE_AUDIT.md 引用的 Mednafen 兼容表条目 Xian Jian Qi Xia Zhuan (Taiwan) T-37401H 一致；该条目要求完整 SH-2 cache 仿真"
+  },
+  "modules": [
+    {
+      "name": "P0",
+      "role": "first-read loader",
+      "path": "build/disc-extract/0",
+      "sha256": "51617f1aaf2009def4a5db6b2a3ff915c8b35d7d395ffbbab2af96b37e14cfc5",
+      "bytes": 53068,
+      "iso_lba": 25,
+      "load_address": "0x06004000",
+      "entry_address": "0x06004040",
+      "resident_end": "0x06010F4C",
+      "proof": {
+        "load_address": [
+          "IP.BIN 声明 1st read at 0x06004000（disc --info）",
+          "sh2 --find-base 首位候选 0x06004000（252 次序言命中）",
+          "运行时 boot 行：boot: P0 at 06004000"
+        ],
+        "entry": [
+          "自身引导桩：mov.l @(06004024 的字面量) -> r4=0x06004040; ldc r0,gbr(0x060FFC00); jmp @r4",
+          "反汇编 evidence/p0-disc-001/disasm_0_head.txt",
+          "运行时代码确实自 06004040 起执行（last polls 中 P0:060045CC/0600458C 等均在桩跳转之后）"
+        ]
+      },
+      "recompile_stats": {
+        "funcs": 513,
+        "insns": 24998
+      },
+      "code_data_note": "0x06004000-0x06004040 为引导桩；桩后紧跟字面量池，池中 0x06004094='PROG.BIN'、0x060040A0='TRUE.BIN'"
+    },
+    {
+      "name": "PROG",
+      "role": "main program",
+      "path": "build/disc-extract/PROG.BIN",
+      "sha256": "808acfdb56a885a3949a8f3910705e077edb974d9985327e887acfba20afad6d",
+      "bytes": 399984,
+      "iso_lba": 51,
+      "load_address": "0x06020000",
+      "entry_address": "0x06020040",
+      "resident_end_if_loaded": "0x06081A70",
+      "proof": {
+        "load_address": [
+          "运行时 FATAL：call to 06020040, not an entry of an active module (from pr 06004180)，现场 r6=0x06020000、r8=0x06020040（evidence/p1-boot-002.log）",
+          "装载器 native 码 06004152：r2=0x06020000（目的）、r1=0x06004094（'PROG.BIN'），随后 jsr 0x0600430C 执行装载（build/recomp/p_p0_000.cpp:113-114）"
+        ],
+        "entry": [
+          "同桩家族：0x06020024 池值 = 0x06020040，jmp @r4 目标；运行时跳转即落在该地址"
+        ],
+        "not_yet": [
+          "模块本体尚未真正进入内存：见 open_blocker，装载请求返回 -8 后拷贝被跳过",
+          "因此 0x06020000 的'装载地址'是装载器意图与跳转行为的证明，不等于一次成功的 CD 传输记录"
+        ]
+      },
+      "recompile_stats": {
+        "funcs": 1009,
+        "insns": 136688
+      },
+      "code_data_note": "内含资源文件名表（0x56A10 起：ABC.J/FFF.J/MGO.J/MGO.NEW/RGM.JOE/BALL.NEW/MGOP.JOE/ALLDAT.NEW/AIF.NEW/AIV.NEW/MID.JOE/FB.NEW/MDAIF.JOE/PPAIF.JOE/MAPIC.JOE）"
+    },
+    {
+      "name": "TRUE",
+      "role": "影像/AVI 播放相关候选",
+      "path": "build/disc-extract/TRUE.BIN",
+      "sha256": "41722e108b9091d6b7554a4350a0bf960a668da2879752708d6e5e820baa9d07",
+      "bytes": 134200,
+      "iso_lba": 247,
+      "load_address": null,
+      "entry_address": null,
+      "proof": {
+        "candidate_only": [
+          "P0 内含 'TRUE.BIN' 名字串（0x060040A0）",
+          "自身引导桩入口 = base+0x58，栈指针池值 0x06039520",
+          "sh2 --find-base 首位候选 0x06020000，与 PROG 已证实的地址冲突 → 该候选被否定，真实基址未证明"
+        ]
+      },
+      "code_data_note": "0x0E08 起有 A1.AVI…A6.AVI、PLAYONCE.AVI、PLAYALL.AVI 名字串"
+    }
+  ],
+  "open_blocker": {
+    "id": "PAL-P1-009",
+    "redefined": "2026-10-10 (8th narrowing: supersedes the CD-read and empty-scene-record framing)",
+    "statement": "黑屏不是游戏逻辑卡住，而是运行时未实现 VDP2 的 RBG0/RBG1 旋转合成。黑屏帧 NBG0CFG=0x4300（HLMT+SDTT）、CHCTL0=0x1212（特殊贴图、1/4 缩减），VDP1 VRAM 非零 65,697 字节（约一张 256x256x8bpp 贴图）、VDP1 FB 72,359 字节，而 VDP2 VRAM 只剩 640 字节——该幕背景本来就在 VDP1 VRAM 里。vdp2.cpp:349 的 note_unsupported 与窗口日志 'RBG0/RBG1 (0013) is not done' 对应。",
+    "measured_facts": [
+      "地图幕与洞穴幕完好：build/run/dump-map/shot-2700.png（45° 俯视角，地表/草/石/人物俱全）、build/run/trans/shot-4400.png（带透视的洞穴）。VDP2 单元模式与位图模式在 vdp2.cpp:138/199 都已实现。",
+      "P0 state 全程只 0→1→2→6→8 五次变化，VB4707 后不再变（build/run/flagfa00.log，--watch 0601FA00:0601FA0B）。",
+      "PROG 模式字 [0x06076828] 全程写历史（build/run/scasel.log）：VB59=0, VB1173=1, VB1697=2, VB1765=2, VB2505=6, VB4895=8, VB4929=3, VB5005=4，此后到 VB9100 再无任何写入。成功的换幕都对应模式被写成 1/5/6（→ f_06021E82 返回 P0）。",
+      "[gbr+18] 是帧延时计数而非状态请求：f_0605D670 在 0x0605D678 读它并置 [gbr+19]=[gbr+18]-1，任务循环 0x0605D6B0 在 [gbr+19]>=0 时反复 jsr [gbr+972]。这就是 6-VBlank 周期的来源。",
+      "当前任务槽 [gbr+972] 全程 22 次写（build/run/curtask.log，--watch 060FFFCC:060FFFCD）：P0 任务 0x0600E7BC 于 VB1/6/1195/1222/1616/1643/2527/2554/4815/4842；TRUE 任务 0x060375D0 于 VB1242/1247/1511/2574/2579/4710；空桩 0x06060394 于 VB55/59/1692/1697/4891/4895。VB4895 之后再无任何写入。",
+      "PROG 内 [gbr+972] 的唯一写点是 f_060602D0（0x0606036C-0x06060372，rts 的延迟槽 mov.l r0,@(972,gbr)），且 r0 恒为 0x06060394 —— PROG 从不安装自己的任务。",
+      "脚本游标写入者全history（build/run/cursor.log，--watch 060768E8:060768EB）：全程只出现 0x0000 与 0xFFFF；末态每 3 VBlank 重复 f_060227F8（经 P0:06010A80, pr 06022E4C）写 (1,0xFFFF)，再由 P0:06010A80(pr 06022EFA) 与 PROG:0603237C(pr 06026E74) 清成 (0,0)。",
+      "输入不是出口（两条独立实验）：build/mashmenu.txt 于 VB5200-9000 塞 95 次 START/A/B，VB6000-9000 七帧全等；build/walk.txt 于 VB2800-9400 塞 234 个方向+A 事件，末态仍 state 8 / master pr 0605D6B6，仅人物在黑底上换位换姿势。",
+      "停滞段硬件计数差值（build/run/c5005 与 c6100 的 hw-log.txt）：VDP2 VRAM/W +173528、VDP2 VRAM/R +35840、VDP2 CRAM/W +0、VDP1 VRAM/W +1648609。",
+      "那 173528 次 VDP2 VRAM 写的全部去向（build/run/vramwin.log，--watch 05E00000:05E7FFFF --watch-vblanks 5005:5020）：512 个 32 位写、步长 4、同一 pr 060247BC、落在 VRAM 偏移 0x5C000..0x5C7FC；全程约 339 次同样的 2 KB 突发（f_0602475C → f_0605AE98，目标 0x25E5C000）。",
+      "黑幕帧 VDP2：NBG0/NBG1 为位图模式（CHCTL0=0x1212）、VRAM 仅 640 非零（8 段各 80 B，位于 0x47000..0x47E4F）；地图帧为单元模式（0x1040）、VRAM 413642 非零。",
+      "已排除：脚本门字 [0x0605CFA2]（实测 0x01=开，两幕相同）、构造器再入锁 [0x06076930]（=0）、构造器条目数 [0x060769E6]=0/[0x060769E8]=32（正常遍历 32 条）、缺输入、VDP2 寄存器未配（每帧整块重写 4356 次）、WRAM 损坏、位图模式未实现。"
+    ],
+    "separate_known_gap": "vdp2.cpp 的 note_unsupported() 只测 BGON & 0x30（RBG0/RBG1），RBG2/RBG3(bit6/7) 被静默忽略；即便背景数据填进去，这一幕仍可能缺一层。与'数据没写入'是两件事，分开修。",
+    "next_step": "先在 tools/vdp2_replay.js 里加 RBG0/RBG1 旋转分支，对 build/run/ab_none/dump-6100.bin 离线复原该幕；取数路径确认后再改 vdp2.cpp 作为 patches/0005-vdp2-rbg-rotation.patch。",
+    "criterion": "dump-6100 离线 replay 出可辨认场景；实机窗口按 START 进幕不黑屏；VB5200-30000 的 --shot 不再是恒定黑帧；check_windows.sh 仍 44 tests 0 failed。",
+    "not_yet_claimed": "不宣称已找到根因；不宣称补 VDP2 就有画面。",
+    "repro": [
+      "build/venv/Scripts/python.exe tools/winbuild.py run --out build/run/curtask -- --cue disc/pal_t37401h_13tr.cue --headless --save - --vblanks 6100 --input @build/holdup.txt --watch 060FFFCC:060FFFCD",
+      "build/venv/Scripts/python.exe tools/winbuild.py run --out build/run/cursor -- --cue disc/pal_t37401h_13tr.cue --headless --save - --vblanks 6100 --input @build/holdup.txt --watch 060768E8:060768EB",
+      "build/venv/Scripts/python.exe tools/winbuild.py run --out build/run/walk -- --cue disc/pal_t37401h_13tr.cue --headless --save - --vblanks 9500 --input @build/walk.txt --peek 0601FA00:1,06076828:1 --shot 6000,7000,8000,9000"
+    ],
+    "tool_notes": [
+      "--peek 支持逗号分隔的多条 ADDR[:词数]（machine.cpp 的 peek() 按 , 切分）；先前\"只有最后一条生效\"的记录是错的。",
+      "--watch 看不见 VDP2/VDP1 寄存器：mmio.cpp 的 area_of() 没有 VDP2 寄存器段条目，寄存器写走 log_reg() 而非 log_area()，所以 --watch 05F80000:... 恒为空是工具盲区。要看寄存器改读 --out/hw-log.txt 的 reg 普查。",
+      "--out 目录不会被自动创建；不存在时 --shot/--dump/hw-log.txt 静默丢失。跑前先 mkdir -p。"
+    ],
+    "negative_results": [
+      "injecting P0 task into [gbr+972] at VB5200 (--write 5200:060FFFCC=0600E7BC) does NOT recover the game: still state 8, frames stay the stall frames (build/run/inj.log). P0 task 0x0600E7BC is a parked coroutine resumed by the game task switcher, not a callable entry, so cold jsr into it does nothing.",
+      "forcing the scene by input is out: 95 START/A/B (build/mashmenu.txt) and 234 walk events (build/walk.txt) both leave state 8 / mode 4 unchanged."
+    ],
+    "corrected_this_session": [
+      "[0x0607682A]/[0x0607682C] 是手柄状态字（按下为 0），不是场景命令字：非 0xFFFF 取值只出现在 VB2504-2515（bit11，对应 START@2500-2512）与 VB6007-6034+（bit13，对应 UP@6000-6500），与 build/holdup.txt 的按键窗口逐帧吻合。PROG:06022190 每帧从 SMPC 刷新。",
+      "f_06022D5C 不是场景脚本解释器，而是按键→动作扫描器：f_060227F8 先 not([0x0607682A]) 再逐个 cmp/eq 0x800/0x400/0x100/…，命中即把动作号写进 [r14+8]，f_06022D5C 用它把 0x06089B00 的 14 槽表标成 3。",
+      "[0x060768E8]/[0x060768EA] 是 f_06022D5C 的两个入参**地址**（f_06026D84 在 L_06026E48 传的是 0x060768E8 / 0x060768EA 本身），其语义未证实，不得再称\"脚本游标\"。"
+    ],
+    "hypothesis": "黑幕 = 构造器 f_06035410 确实在遍历 0x0609EED0 的 32 条记录（再入锁 0、条目数 0、上界 32 均实测），但整段停滞期对 VDP2 VRAM 的唯一产出是 f_0602475C 往 0x25E5C000 上传 2 KB，而该帧 NBG0/NBG1 为位图模式、需要的是 f_060225A4 刚清掉的 0x20000 起 0x1C000（114 KB）。结合 VB4700 之后再无 CD 读，推断记录表内容是残留而非新幕数据。",
+    "disproved_this_round": [
+      "[gbr+972] task-slot theory: PROG and P0 both install rts;nop there; TRUE installs a real routine",
+      "waiting-for-CD theory: at VB5200-5220 the only CD access is one HIRQ read/frame (0x07D5), zero command writes",
+      "idle-spin theory: 81 PROG functions first run inside VB4700-8000"
+    ],
+    "measured_facts_add": [
+      "f_06026B88@06026BBC and f_06026744@0602675C both set [0x06076A04]=0x25E20000; f_06026F90@06026FAC sets [0x06076A09]=-1",
+      "peek: VB5220 [0x06076A04]=25E20000 [0x06076A09]=FF ; VB2600 same dst but [0x06076A09]=0",
+      "only clearer of the arm flag: f_06022D06..D1A, needs [0x06089B00]==0",
+      "VDP1 submit queue 0x0605D8F4 (8x20B): VB2600 entry0 live, VB5220 all zero",
+      "P0 references 0x060768DC nowhere: the request block is PROG-internal"
+    ],
+    "tooling": "patches/0004-watch-covers-register-accesses.patch: --watch now covers registers, with values, both directions",
+    "superseded_claims": [
+      "4.11/4.12: 'VDP2 VRAM only 640 non-zero bytes means the background was never uploaded' - wrong, this scene keeps its background in VDP1 VRAM",
+      "4.12/4.13: 'no CD read was issued for the new scene / scene records empty / [0x06076A04] armed but unfulfilled' - wrong reading of a renderer gap",
+      "4.13: 'the 8-entry table at 0x0605D8F4 being empty proves nothing was submitted to VDP1' - VDP1 FB holds 72 KB of content in the same frame"
+    ],
+    "still_valid": [
+      "input reaches PROG's mode-4 loop; mode 4 is the action dispatcher",
+      "[gbr+972] holds each module's idle stub (PROG and P0 both rts;nop)",
+      "81 PROG functions first run inside VB4700-8000"
+    ]
+  },
+  "required_for_each_module": [
+    "actual extracted relative path and SHA-256",
+    "load address plus loader trace or crt0 evidence",
+    "entry address plus control-flow or runtime transfer evidence",
+    "module size, overlay lifetime, other resident dependencies",
+    "code/data boundaries and unresolved targets",
+    "cache-through mapping and any code mutation/SMC evidence",
+    "trace/log/disassembly filenames and line or offset references"
+  ],
+  "do_not_treat_as_proof": [
+    "BIN filename extension",
+    "the load address declared in IP.BIN alone",
+    "a high score from --find-base alone",
+    "toolchain self-tests or a synthetic demo"
+  ],
+  "sh2_module_entry_proof": {
+    "verdict": "PROVEN_BY_RUNTIME",
+    "how": "PROG activated by a call to 06020040 时不再出现 \"its data differs from the image's\"，即 0x06020000 的 RAM 与盘上 PROG.BIN 逐字节一致；随后 PROG 自身代码连续执行 1150 帧无 FATAL。",
+    "log": [
+      "evidence/p1-boot-003.log",
+      "evidence/p1-boot-004.log"
+    ],
+    "date": "2026-10-10"
+  },
+  "resolved_blocker": {
+    "id": "PAL-P1-001",
+    "status": "RESOLVED",
+    "root_cause": "上游 runtime/src/machine/cdrom.cpp 的 CueFile 只有一个 audio 标志，但每读到一条 TRACK 行都执行 f.audio = cur_audio（f 为\"当前 FILE\"）。本盘是一个 BIN 内 13 轨（1 条 MODE1/2352 + 12 条 AUDIO），最后一条 AUDIO 使整个文件 audio=true，于是 cdrom_is_audio(166)（数据区）返回真，cdblock 的 cd_tick() 只走音频分支，deliver_sector() 永不调用，扇区永远进不了缓冲：Get Part Size(0x51) 的 out[3] 恒为 0，游戏无限轮询 Get Status(0x00)/0x51。",
+    "contradiction_evidence": "同一文件里轨级的 audio（CueTrack::audio -> ctrladr 0x41/0x01，TOC 侧）是正确的，运行时内部自相矛盾，故判为缺陷而非设计。",
+    "fix": "patches/0001-cdrom-is-audio-per-track.patch —— cdrom_is_audio() 改为按轨（起始地址不超过 fad 的最后一条轨）判定；对一轨一文件的 CUE 新旧结果一致。",
+    "verification": {
+      "before": "evidence/p1-trace-cd-001.log：CD-DA: play track 1, FAD 166-167；cmd 00 x1284 + cmd 51 x864，51 的 out[3] 恒 0",
+      "after": "build/cd60.log：CD: read FAD 166-167 into filter 0 -> cmd 61/62 -> CD: read FAD 170-172 -> CD: read FAD 201-397",
+      "regression": "evidence/p1-check-after-cuefix.log：SCRIPT_EXIT=0；Python 200 passed/6 failed（与修复前逐条相同，均为 Windows 平台缺陷）；optest 775 functions/9300 vectors/0 failures；runtime tests 44 tests/0 failed（默认与 SATURN_VDP1_GPL=ON）",
+      "test_gap": "上游无\"单文件多轨混合模式 CUE\"用例（tests/test_disc.py:41 只有一条 AUDIO），因此该缺陷不被现有测试覆盖"
+    },
+    "p1_006_true_overlay_swap": {
+      "id": "PAL-P1-006",
+      "status": "RESOLVED 2026-10-10",
+      "root_cause": "the game swaps TRUE.BIN in over PROG.BIN at 0x06020000; game.toml declared only PROG, so the runtime kept executing PROG's recompiled code, which read TRUE's header word 0x06040C40 as the length of its {30, pointer} SCU-DMA triple table and built 21,912 records, running past the end of work RAM at 0x060FFFFF into the 1 MiB mirror at 0x06100320 - which folds onto the BIOS service slots 0x06000320..0x0600034C that PROG then calls through",
+      "not_the_cause": [
+        "game data being bad",
+        "the WRAM mirror model",
+        "the BIOS slot range being too wide"
+      ],
+      "fix": "configuration layer only: [[module]] TRUE (base 0x06020000, seed 0x06020058 from the image header)",
+      "verification": [
+        "runtime prints 'program start 1: TRUE at 06020000'",
+        "--shot frames stop being black: the opening earth appears (MD5 f4f674fd69ab30268b692bb8049e74f0, 215 KB PNG)",
+        "3000 VBlanks with no FATAL; the 68000 comes with it ('68000 on, pc 0010DA', 732,176 non-silent samples)",
+        "one learn iteration (seed TRUE 0603548C) then 3000 VBlanks clean (evidence/p1-true-007-learn-002.log)"
+      ],
+      "evidence": [
+        "evidence/p1-watch-rawalias-001.log",
+        "evidence/p1-true-001-watch-len.log",
+        "evidence/p1-true-002-copyargs.log",
+        "evidence/p1-true-003-request-block.log",
+        "evidence/p1-true-004-loop-regs.log",
+        "evidence/p1-true-005-boot-2500.log"
+      ]
+    },
+    "p1_007_program_return": {
+      "id": "PAL-P1-007",
+      "status": "RESOLVED 2026-10-10",
+      "root_cause": "core.cpp treats any call to a module base as a program start and throws ProgramStart, unwinding the host stack. This game's loader does 06004200 mov.l #0x06020000,r8 / 06004202 jsr @r8 and expects a return to 06004206, so the program's rts landed nowhere: 'FATAL the program at 06020000 returned' whenever a key ended the opening movie",
+      "fix": "patches/0003-call-into-swapped-module-returns.patch (14 lines): where the image at the base identifies a known module that has an entry at that address, make it an ordinary nested call (activate, then call); otherwise keep the program-start semantics",
+      "verification": [
+        "before: evidence/p1-map-001/p1-007-program-returned-fatal.log",
+        "after: hook P0:06004206 hits once at vb=1616 (the return), P0 re-activates PROG at 28.148 s, and the game reaches a map",
+        "no-input path unchanged: shot-1800/shot-2900 still the same earth MD5 as before the patch",
+        "regression with all three patches applied: 200 passed / 6 known Windows failures (identical to unpatched), optest 775 functions 9300 vectors 0 failures, runtime tests 44/0 twice (evidence/p1-check-after-3patches.log)"
+      ]
+    }
+  },
+  "corrections": [
+    "0x25890008 是 CD Block 的 HIRQ（hw.py 区 0x05800000-0x05900000 +0x90008），不是 SMPC 状态；f_060045CC 实测返回 0，早期\"它返回 -1/-2/-5 卡住\"的推测不成立。",
+    "--watch 的 in ?:00000000 只说明 host_function() 的上界归属解析失败，不等于\"由运行时内部写\"：已实测一条确实由 P0:060047B8 指令完成的 store 被打成 ?。",
+    "SH-2 的 tst 是\"结果为 0 则 T=1\"；早期把 f_06004758 的分支方向判反，据此得出的\"必须 (r5&3)!=0\"结论作废（实测以 hook 分支走向为准）。",
+    "2026-10-10: 'the last polls in' counts are a snapshot of the most recent 4096 safe-point polls, not cumulative totals - they cannot by themselves show that execution froze; the trace timestamps are what showed the scene waiting.",
+    "2026-10-10: an earlier draft of this round said 'directional input moves the character' from frame MD5 differences alone; the --peek differential shows no state change from UP/LEFT, so that claim is withdrawn - the frames change because the scene is scripted.",
+    "2026-10-10: '--peek ADDR:WORDS' parses WORDS in decimal, not hex; 40000 covers only 160 KiB. Use 262144 for the whole 1 MiB high work RAM.",
+    {
+      "claim": "PAL-P1-008: the post-title movie scene is black because VDP2 line scroll (SCRCTL) is not implemented",
+      "status": "withdrawn 2026-10-10",
+      "evidence": "tools/vdp2_replay.js reproduces build/run/dump-movie/shot-3900.png from the --dump alone; the scene rendered correctly and the real stall starts at VB4886 (PAL-P1-009)"
+    },
+    {
+      "claim": "the character in the black scene is a VDP1 sprite over an unrenderable VDP2 background",
+      "status": "partly withdrawn",
+      "evidence": "in the working map/movie scenes VDP1 is nearly empty (293 non-zero bytes) and the picture comes from VDP2 NBG0 read as 16M-RGB; only in the stalled scene does VDP1 hold content while VDP2 VRAM is empty"
+    },
+    {
+      "claim": "the game is stuck in the sound driver's Tick loop (deadlock)",
+      "status": "withdrawn",
+      "evidence": "--watch shows gbr+19 decremented every VBlank by PROG:0605CECC through the end of the run: that loop is the driver's normal wait-for-next-VBlank spin, not a deadlock"
+    },
+    {
+      "claim": "directional input is broken because the map scene ignores UP/RIGHT",
+      "status": "downgraded to unproven",
+      "evidence": "three runs (no key / UP / RIGHT) give byte-identical frames at VB2900-3700, but that stretch is a self-running scripted opening, so it cannot prove or disprove the input path; START and A do respond on the title"
+    },
+    "PAL-P1-009 旧表述'游戏在等一个永不到来的事件（候选 SCSP→主 CPU 中断）'作废：MCIEB 从不被写，SOUND_REQ 全程 0 次，且主循环以 6 帧周期正常自走。",
+    "'停滞幕任何键都无响应'作废：那是按键时点造成的假阴性；停滞幕按住 UP 人物会换位换姿势。",
+    "'CD 投递速率过慢/分区恒空导致停滞'作废：最后一次读盘 16 扇区全部投递完成，之后游戏不再读盘。",
+    "新增已验证：镜像轨表与 MDS TOC 吻合、字面量池未过期、回调槽空桩是驱动正常状态。"
+  ],
+  "withdrawn_blocker": {
+    "id": "PAL-P1-008",
+    "why_withdrawn": "the claim 'the movie scene is black because VDP2 SCRCTL is not implemented' is falsified: feeding the VB3900 --dump (VDP2 VRAM+CRAM+registers) to an independent re-implementation of the runtime's compose (tools/vdp2_replay.js) reproduces the mountain-and-clouds picture that the runtime itself shot (build/run/dump-movie/shot-3900.png). That scene was rendered correctly; the 'SCRCTL is not done' note only means one effect is ignored.",
+    "previous_text_kept_for_audit": {
+      "id": "PAL-P1-008",
+      "summary": "the movie scene after the title needs VDP2 line scroll / vertical cell scroll, which the pinned runtime does not implement: the character (VDP1) draws, the background composes black, and the game state stops advancing",
+      "measured": [
+        "minimal key sequence proven: START@VB1500 ends the opening movie (the program rts-es to P0 at vb=1616), START@VB2500 + A@VB2600 pass the title, VB2700 is already a top-down map with the character (evidence/p1-map-002-minpath/)",
+        "in the black scene the game is alive: t>84s still has 321 full CD read cycles (52/53/61/06/62), one SCU indirect DMA per frame, VDP1 drawing every frame, and 4.19M writes into VDP2 VRAM (evidence/p1-vdp2-002-trace-in-scene.log, hw-log)",
+        "the runtime prints 'VDP2: line or vertical cell scroll (SCRCTL) (0002) is not done' - only when a frame is actually composed, so --shot is required to see it",
+        "register dump at that moment (temporary instrumentation, reverted; evidence/p1-vdp2-003-regs.txt): SCRCTL(0x9A)=0x0002, LSTA0U/L(0xA0/0xA2)=12F2/E08E (a line-scroll coefficient table is prepared), SMRSTA(0x04)=0002, BGON(0x20)=0043, NBG0/NBG1 scroll and increments set (SCY=FFF4, SXINC=SYINC=1)"
+      ],
+      "not_yet_claimed": "that implementing SCRCTL makes the movie appear - that is the test to run, not a conclusion",
+      "separate_fact": "directional input is NOT answered in the scenes reached so far: three runs (no key / hold UP / hold LEFT over VB3100-3400) differ in only 3 words of the whole 1 MiB high work RAM (a timer-like cell at 0x0600C8C0 and copies at 0x06034348/0x0605CFCC). These scenes are scripted; the point where control passes to the player is unmeasured.",
+      "next_in_order": [
+        "implement VDP2 SCRCTL (line scroll + vertical cell scroll, table bases LSTA/VCSTA) with the smallest change, and work out which BGON bit is being silently ignored",
+        "reach a genuinely player-controlled scene and only then locate the position/orientation cells with the --peek differential method",
+        "fill docs/P0_MOVEMENT_BASELINE.md section 3 before writing any walking constant",
+        "keep learning seeds; declare further same-address overlays from their image headers"
+      ],
+      "evidence": [
+        "evidence/p1-map-002-minpath/run.log",
+        "evidence/p1-map-002-minpath/input.txt",
+        "evidence/p1-vdp2-001-regdump.log",
+        "evidence/p1-vdp2-003-regs.txt",
+        "evidence/p1-vdp2-002-trace-in-scene.log",
+        "evidence/p1-check-after-3patches.log"
+      ]
+    }
+  }
+}

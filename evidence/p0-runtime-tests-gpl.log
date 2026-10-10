@@ -1,0 +1,74 @@
+ok     gradation_blurs_the_second_image_along_the_line
+ok     line_colour_a_line
+ok     line_colour_is_the_second_image_where_lnclen_names_the_top
+ok     transparent_shadow_needs_tpsdsl
+ok     msb_shadow_halves_the_sprite_itself
+ok     shadow_needs_a_priority_over_the_screen
+ok     normal_shadow_halves_an_enabled_screen
+ok     higher_priority_wins_and_nbg0_wins_ties
+ok     colour_calculation_at_ratio_0_still_shows_the_second_image
+ok     colour_calculation_mixes_by_ratio
+ok     window_outside_hides_the_rest
+ok     window_inside_hides_the_layer
+ok     bitmap_dot_zero_is_transparent
+ok     back_screen_shows_with_no_layers
+ok     display_off_is_black
+ok     a_write_over_a_save_needs_r7_zero
+ok     a_damaged_file_keeps_the_saves_before_the_damage
+ok     saves_default_to_a_folder_per_disc_in_the_data_directory
+ok     save_dash_keeps_saves_for_the_run_alone
+ok     a_run_that_saves_nothing_writes_no_file
+ok     deleting_the_last_save_leaves_none
+ok     saves_are_kept_by_name
+ok     a_save_is_read_back_by_the_next_run
+ok     with_one_multitap_port_2_holds_pad_7
+ok     port_2_is_empty_until_a_script_drives_pad_2
+ok     a_controller_beyond_the_last_player_drives_nothing
+ok     a_reconnecting_model_gets_its_slot_back_only_when_unambiguous
+ok     a_controller_leaving_moves_nobody_else
+ok     controllers_take_the_lowest_free_player
+ok     a_touch_setting_changes_in_place_and_the_comments_stay
+ok     the_touch_settings_take_only_their_words
+ok     settings_are_written_whole_and_read_back
+ok     changed_settings_are_written_over_the_players_file
+ok     one_models_gamepad_section_starts_from_the_gamepad_defaults
+ok     values_that_do_not_read_keep_their_default
+ok     a_file_sets_what_it_names_and_leaves_the_rest
+ok     settings_default_to_the_documented_file
+ok     fingers_together_hold_all_they_press
+ok     the_dpad_gives_eight_directions_and_rests_in_the_middle
+ok     a_finger_between_a_and_b_presses_the_nearer
+ok     one_unit_is_one_size_on_a_small_screen_and_a_big_one
+ok     a_unit_too_big_for_the_screen_still_fits_it
+ok     the_buttons_stay_on_the_screen_and_apart
+ok     each_button_is_pressed_on_its_centre_and_nothing_between_them
+44 tests, 0 failed
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote SAME (10 bytes)
+[   0.000 M] BUP: wrote SAME (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote GOOD (10 bytes)
+[   0.000 M] BUP: wrote LATER (4000 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin is damaged after 1 saves; the rest are left out
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-1234H_V1.001/backup.bin
+[   0.000 M] BUP: wrote DEFAULT (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-9999H_V1.001/backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-1234H_V1.001/backup.bin
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] BUP: wrote RUN_ONLY (10 bytes)
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote ONLY (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote FIRST (10 bytes)
+[   0.000 M] BUP: wrote SECOND (20 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\nested\backup.bin
+[   0.000 M] BUP: wrote BOMB_TEST (300 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\nested\backup.bin
+[   0.000 M] pad 7: 0100
+[   0.000 M] pad 6: 0200
+[   0.000 M] pad 2: 0400

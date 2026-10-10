@@ -1,0 +1,534 @@
+== Python tests (upstream, pinned third_party/saturn-recomp)
+FFFF.................................F.....F............................ [ 34%]
+........................................................................ [ 69%]
+..............................................................           [100%]
+================================== FAILURES ===================================
+_________________ test_steps_and_keeps_presses_as_input_steps _________________
+
+saturn = 'C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_steps_and_keeps_presses_a0\\saturn'
+tmp_path = WindowsPath('C:/Users/liufeng/AppData/Local/Temp/pytest-of-liufeng/pytest-11/test_steps_and_keeps_presses_a0')
+
+    def test_steps_and_keeps_presses_as_input_steps(saturn, tmp_path):
+>       with agent.start(saturn, [], str(tmp_path / "run")) as run:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+third_party\saturn-recomp\tests\test_agent.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+third_party\saturn-recomp\src\saturnrecomp\agent.py:131: in start
+    return Run(saturn, args, out)
+           ^^^^^^^^^^^^^^^^^^^^^^
+third_party\saturn-recomp\src\saturnrecomp\agent.py:53: in __init__
+    self._proc = subprocess.Popen([saturn, "--out", out, "--agent", str(theirs.fileno()), *args],
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\p...>
+args = ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_steps_and_keeps_presses_a0\\saturn', '-...\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_steps_and_keeps_presses_a0\\run', '--agent', '1300']
+executable = None, preexec_fn = None, close_fds = True, pass_fds = [1300]
+cwd = None, env = None, startupinfo = None, creationflags = 0, shell = False
+p2cread = Handle(1308), p2cwrite = -1, c2pread = -1, c2pwrite = Handle(1332)
+errread = -1, errwrite = Handle(1328), unused_restore_signals = True
+unused_gid = None, unused_gids = None, unused_uid = None, unused_umask = -1
+unused_start_new_session = False, unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+>       assert not pass_fds, "pass_fds not supported on Windows."
+               ^^^^^^^^^^^^
+E       AssertionError: pass_fds not supported on Windows.
+
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1448: AssertionError
+________________________ test_reads_memory_and_frames _________________________
+
+saturn = 'C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_reads_memory_and_frames0\\saturn'
+tmp_path = WindowsPath('C:/Users/liufeng/AppData/Local/Temp/pytest-of-liufeng/pytest-11/test_reads_memory_and_frames0')
+
+    def test_reads_memory_and_frames(saturn, tmp_path):
+>       with agent.start(saturn, [], str(tmp_path / "run")) as run:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+third_party\saturn-recomp\tests\test_agent.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+third_party\saturn-recomp\src\saturnrecomp\agent.py:131: in start
+    return Run(saturn, args, out)
+           ^^^^^^^^^^^^^^^^^^^^^^
+third_party\saturn-recomp\src\saturnrecomp\agent.py:53: in __init__
+    self._proc = subprocess.Popen([saturn, "--out", out, "--agent", str(theirs.fileno()), *args],
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\p...>
+args = ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_reads_memory_and_frames0\\saturn', '--o...s\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_reads_memory_and_frames0\\run', '--agent', '1288']
+executable = None, preexec_fn = None, close_fds = True, pass_fds = [1288]
+cwd = None, env = None, startupinfo = None, creationflags = 0, shell = False
+p2cread = Handle(1360), p2cwrite = -1, c2pread = -1, c2pwrite = Handle(1364)
+errread = -1, errwrite = Handle(1368), unused_restore_signals = True
+unused_gid = None, unused_gids = None, unused_uid = None, unused_umask = -1
+unused_start_new_session = False, unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+>       assert not pass_fds, "pass_fds not supported on Windows."
+               ^^^^^^^^^^^^
+E       AssertionError: pass_fds not supported on Windows.
+
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1448: AssertionError
+________________ test_a_refused_command_raises_and_is_not_kept ________________
+
+saturn = 'C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_refused_command_raises_0\\saturn'
+tmp_path = WindowsPath('C:/Users/liufeng/AppData/Local/Temp/pytest-of-liufeng/pytest-11/test_a_refused_command_raises_0')
+
+    def test_a_refused_command_raises_and_is_not_kept(saturn, tmp_path):
+>       with agent.start(saturn, [], str(tmp_path / "run")) as run:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+third_party\saturn-recomp\tests\test_agent.py:69: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+third_party\saturn-recomp\src\saturnrecomp\agent.py:131: in start
+    return Run(saturn, args, out)
+           ^^^^^^^^^^^^^^^^^^^^^^
+third_party\saturn-recomp\src\saturnrecomp\agent.py:53: in __init__
+    self._proc = subprocess.Popen([saturn, "--out", out, "--agent", str(theirs.fileno()), *args],
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\p...>
+args = ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_refused_command_raises_0\\saturn', '-...\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_refused_command_raises_0\\run', '--agent', '1376']
+executable = None, preexec_fn = None, close_fds = True, pass_fds = [1376]
+cwd = None, env = None, startupinfo = None, creationflags = 0, shell = False
+p2cread = Handle(1392), p2cwrite = -1, c2pread = -1, c2pwrite = Handle(1396)
+errread = -1, errwrite = Handle(1400), unused_restore_signals = True
+unused_gid = None, unused_gids = None, unused_uid = None, unused_umask = -1
+unused_start_new_session = False, unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+>       assert not pass_fds, "pass_fds not supported on Windows."
+               ^^^^^^^^^^^^
+E       AssertionError: pass_fds not supported on Windows.
+
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1448: AssertionError
+___________________ test_a_run_that_stops_raises_run_ended ____________________
+
+saturn = 'C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_run_that_stops_raises_r0\\saturn'
+tmp_path = WindowsPath('C:/Users/liufeng/AppData/Local/Temp/pytest-of-liufeng/pytest-11/test_a_run_that_stops_raises_r0')
+
+    def test_a_run_that_stops_raises_run_ended(saturn, tmp_path):
+>       run = agent.start(saturn, [], str(tmp_path / "run"))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+third_party\saturn-recomp\tests\test_agent.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+third_party\saturn-recomp\src\saturnrecomp\agent.py:131: in start
+    return Run(saturn, args, out)
+           ^^^^^^^^^^^^^^^^^^^^^^
+third_party\saturn-recomp\src\saturnrecomp\agent.py:53: in __init__
+    self._proc = subprocess.Popen([saturn, "--out", out, "--agent", str(theirs.fileno()), *args],
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\p...>
+args = ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_run_that_stops_raises_r0\\saturn', '-...\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_run_that_stops_raises_r0\\run', '--agent', '1172']
+executable = None, preexec_fn = None, close_fds = True, pass_fds = [1172]
+cwd = None, env = None, startupinfo = None, creationflags = 0, shell = False
+p2cread = Handle(1324), p2cwrite = -1, c2pread = -1, c2pwrite = Handle(1368)
+errread = -1, errwrite = Handle(1364), unused_restore_signals = True
+unused_gid = None, unused_gids = None, unused_uid = None, unused_umask = -1
+unused_start_new_session = False, unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+>       assert not pass_fds, "pass_fds not supported on Windows."
+               ^^^^^^^^^^^^
+E       AssertionError: pass_fds not supported on Windows.
+
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1448: AssertionError
+_______ test_a_session_is_sent_while_playing_and_once_more_when_it_ends _______
+
+tmp_path = WindowsPath('C:/Users/liufeng/AppData/Local/Temp/pytest-of-liufeng/pytest-11/test_a_session_is_sent_while_p0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000231112F78C0>
+endpoint = 'http://127.0.0.1:49686'
+
+    def test_a_session_is_sent_while_playing_and_once_more_when_it_ends(tmp_path, monkeypatch, endpoint):
+        monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+        monkeypatch.setattr(session, "SEND_AFTER_CHECKPOINT", 0.1)
+        saturn = tmp_path / "saturn"
+        saturn.write_text(FAKE_SATURN.format(python=sys.executable))
+        saturn.chmod(saturn.stat().st_mode | stat.S_IEXEC)
+    
+>       out = session.play(str(saturn), "disc.cue", {"product": "MK-81070_V1.003", "build": "20261007-abcdef12"}, endpoint, "code")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+third_party\saturn-recomp\tests\test_playtest.py:56: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+third_party\saturn-recomp\src\saturnrecomp\playtest\session.py:63: in play
+    process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ['C:\\Users\\liufeng\\AppData\\Local\\Temp\\p...>
+args = 'C:\\Users\\liufeng\\AppData\\Local\\Temp\\pytest-of-liufeng\\pytest-11\\test_a_session_is_sent_while_p0\\saturn --cue...g\\AppData\\Roaming\\saturn-recomp\\MK-81070_V1.003\\sessions\\20261010-115800-5d184c18\\coverage.txt --checkpoint 600'
+executable = None, preexec_fn = None, close_fds = False, pass_fds = ()
+cwd = None, env = None
+startupinfo = <subprocess.STARTUPINFO object at 0x00000231110F8500>
+creationflags = 0, shell = False, p2cread = Handle(1464), p2cwrite = -1
+c2pread = -1, c2pwrite = Handle(1444), errread = -1, errwrite = Handle(1580)
+unused_restore_signals = True, unused_gid = None, unused_gids = None
+unused_uid = None, unused_umask = -1, unused_start_new_session = False
+unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+        assert not pass_fds, "pass_fds not supported on Windows."
+    
+        if isinstance(args, str):
+            pass
+        elif isinstance(args, bytes):
+            if shell:
+                raise TypeError('bytes args is not allowed on Windows')
+            args = list2cmdline([args])
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = list2cmdline([args])
+        else:
+            args = list2cmdline(args)
+    
+        if executable is not None:
+            executable = os.fsdecode(executable)
+    
+        # Process startup details
+        if startupinfo is None:
+            startupinfo = STARTUPINFO()
+        else:
+            # bpo-34044: Copy STARTUPINFO since it is modified above,
+            # so the caller can reuse it multiple times.
+            startupinfo = startupinfo.copy()
+    
+        use_std_handles = -1 not in (p2cread, c2pwrite, errwrite)
+        if use_std_handles:
+            startupinfo.dwFlags |= _winapi.STARTF_USESTDHANDLES
+            startupinfo.hStdInput = p2cread
+            startupinfo.hStdOutput = c2pwrite
+            startupinfo.hStdError = errwrite
+    
+        attribute_list = startupinfo.lpAttributeList
+        have_handle_list = bool(attribute_list and
+                                "handle_list" in attribute_list and
+                                attribute_list["handle_list"])
+    
+        # If we were given an handle_list or need to create one
+        if have_handle_list or (use_std_handles and close_fds):
+            if attribute_list is None:
+                attribute_list = startupinfo.lpAttributeList = {}
+            handle_list = attribute_list["handle_list"] = \
+                list(attribute_list.get("handle_list", []))
+    
+            if use_std_handles:
+                handle_list += [int(p2cread), int(c2pwrite), int(errwrite)]
+    
+            handle_list[:] = self._filter_handle_list(handle_list)
+    
+            if handle_list:
+                if not close_fds:
+                    warnings.warn("startupinfo.lpAttributeList['handle_list'] "
+                                  "overriding close_fds", RuntimeWarning)
+    
+                # When using the handle_list we always request to inherit
+                # handles but the only handles that will be inherited are
+                # the ones in the handle_list
+                close_fds = False
+    
+        if shell:
+            startupinfo.dwFlags |= _winapi.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = _winapi.SW_HIDE
+            if not executable:
+                # gh-101283: without a fully-qualified path, before Windows
+                # checks the system directories, it first looks in the
+                # application directory, and also the current directory if
+                # NeedCurrentDirectoryForExePathW(ExeName) is true, so try
+                # to avoid executing unqualified "cmd.exe".
+                comspec = os.environ.get('ComSpec')
+                if not comspec:
+                    system_root = os.environ.get('SystemRoot', '')
+                    comspec = os.path.join(system_root, 'System32', 'cmd.exe')
+                    if not os.path.isabs(comspec):
+                        raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
+                if os.path.isabs(comspec):
+                    executable = comspec
+            else:
+                comspec = executable
+    
+            args = '{} /c "{}"'.format (comspec, args)
+    
+        if cwd is not None:
+            cwd = os.fsdecode(cwd)
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        # Start the process
+        try:
+>           hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                                     # no special security
+                                     None, None,
+                                     int(not close_fds),
+                                     creationflags,
+                                     env,
+                                     cwd,
+                                     startupinfo)
+E                                    OSError: [WinError 193] %1 不是有效的 Win32 应用程序。
+
+C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\subprocess.py:1538: OSError
+________________________ test_no_ffmpeg_is_only_a_note ________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000231112F4290>
+
+    def test_no_ffmpeg_is_only_a_note(monkeypatch):
+        monkeypatch.setattr(prereqs.shutil, "which", lambda tool: None if tool == "ffmpeg" else "/usr/bin/" + tool)
+        monkeypatch.setattr(prereqs, "probe", lambda: (None, "3.4.14"))
+        notes = []
+>       assert prereqs.check(log=notes.append) == []
+E       AssertionError: assert ['Windows is ...upported yet'] == []
+E         
+E         Left contains one more item: 'Windows is not supported yet'
+E         Use -v to get more diff
+
+third_party\saturn-recomp\tests\test_prereqs.py:17: AssertionError
+=========================== short test summary info ===========================
+FAILED third_party\saturn-recomp\tests\test_agent.py::test_steps_and_keeps_presses_as_input_steps
+FAILED third_party\saturn-recomp\tests\test_agent.py::test_reads_memory_and_frames
+FAILED third_party\saturn-recomp\tests\test_agent.py::test_a_refused_command_raises_and_is_not_kept
+FAILED third_party\saturn-recomp\tests\test_agent.py::test_a_run_that_stops_raises_run_ended
+FAILED third_party\saturn-recomp\tests\test_playtest.py::test_a_session_is_sent_while_playing_and_once_more_when_it_ends
+FAILED third_party\saturn-recomp\tests\test_prereqs.py::test_no_ffmpeg_is_only_a_note
+6 failed, 200 passed in 3.82s
+note: upstream Python tests reported Windows-only failures; see above
+== instruction self-test: generate SH-2 program and vectors
+OPTEST      775 functions     2130 instructions   2 files  0.1 s
+total: 1 modules, 775 functions, 2130 instructions, 3 files, 0.7 s
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/build/check/optest-build
+ninja: Entering directory `build/check/optest-build'
+[1/2] Building CXX object CMakeFiles/saturn_machine.dir/C_/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/third_party/saturn-recomp/runtime/src/machine/cdrom.cpp.obj
+[2/2] Linking CXX executable saturn.exe
+build/check/optest/selftest/optest.txt: 775 functions, 9300 vectors, 0 failures
+== runtime unit tests
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/build/check/runtime-tests
+ninja: Entering directory `build/check/runtime-tests'
+[1/2] Building CXX object CMakeFiles/saturn_machine.dir/C_/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/third_party/saturn-recomp/runtime/src/machine/cdrom.cpp.obj
+[2/2] Linking CXX executable runtime_tests.exe
+ok     gradation_blurs_the_second_image_along_the_line
+ok     line_colour_a_line
+ok     line_colour_is_the_second_image_where_lnclen_names_the_top
+ok     transparent_shadow_needs_tpsdsl
+ok     msb_shadow_halves_the_sprite_itself
+ok     shadow_needs_a_priority_over_the_screen
+ok     normal_shadow_halves_an_enabled_screen
+ok     higher_priority_wins_and_nbg0_wins_ties
+ok     colour_calculation_at_ratio_0_still_shows_the_second_image
+ok     colour_calculation_mixes_by_ratio
+ok     window_outside_hides_the_rest
+ok     window_inside_hides_the_layer
+ok     bitmap_dot_zero_is_transparent
+ok     back_screen_shows_with_no_layers
+ok     display_off_is_black
+ok     a_write_over_a_save_needs_r7_zero
+ok     a_damaged_file_keeps_the_saves_before_the_damage
+ok     saves_default_to_a_folder_per_disc_in_the_data_directory
+ok     save_dash_keeps_saves_for_the_run_alone
+ok     a_run_that_saves_nothing_writes_no_file
+ok     deleting_the_last_save_leaves_none
+ok     saves_are_kept_by_name
+ok     a_save_is_read_back_by_the_next_run
+ok     with_one_multitap_port_2_holds_pad_7
+ok     port_2_is_empty_until_a_script_drives_pad_2
+ok     a_controller_beyond_the_last_player_drives_nothing
+ok     a_reconnecting_model_gets_its_slot_back_only_when_unambiguous
+ok     a_controller_leaving_moves_nobody_else
+ok     controllers_take_the_lowest_free_player
+ok     a_touch_setting_changes_in_place_and_the_comments_stay
+ok     the_touch_settings_take_only_their_words
+ok     settings_are_written_whole_and_read_back
+ok     changed_settings_are_written_over_the_players_file
+ok     one_models_gamepad_section_starts_from_the_gamepad_defaults
+ok     values_that_do_not_read_keep_their_default
+ok     a_file_sets_what_it_names_and_leaves_the_rest
+ok     settings_default_to_the_documented_file
+ok     fingers_together_hold_all_they_press
+ok     the_dpad_gives_eight_directions_and_rests_in_the_middle
+ok     a_finger_between_a_and_b_presses_the_nearer
+ok     one_unit_is_one_size_on_a_small_screen_and_a_big_one
+ok     a_unit_too_big_for_the_screen_still_fits_it
+ok     the_buttons_stay_on_the_screen_and_apart
+ok     each_button_is_pressed_on_its_centre_and_nothing_between_them
+44 tests, 0 failed
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote SAME (10 bytes)
+[   0.000 M] BUP: wrote SAME (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote GOOD (10 bytes)
+[   0.000 M] BUP: wrote LATER (4000 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin is damaged after 1 saves; the rest are left out
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-1234H_V1.001/backup.bin
+[   0.000 M] BUP: wrote DEFAULT (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-9999H_V1.001/backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-1234H_V1.001/backup.bin
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] BUP: wrote RUN_ONLY (10 bytes)
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote ONLY (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote FIRST (10 bytes)
+[   0.000 M] BUP: wrote SECOND (20 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\nested\backup.bin
+[   0.000 M] BUP: wrote BOMB_TEST (300 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\nested\backup.bin
+[   0.000 M] pad 7: 0100
+[   0.000 M] pad 6: 0200
+[   0.000 M] pad 2: 0400
+== runtime unit tests, VDP1 by Mednafen's rules (SATURN_VDP1_GPL)
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/build/check/runtime-tests-gpl
+ninja: Entering directory `build/check/runtime-tests-gpl'
+[1/2] Building CXX object CMakeFiles/saturn_machine.dir/C_/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/third_party/saturn-recomp/runtime/src/machine/cdrom.cpp.obj
+[2/2] Linking CXX executable runtime_tests.exe
+ok     gradation_blurs_the_second_image_along_the_line
+ok     line_colour_a_line
+ok     line_colour_is_the_second_image_where_lnclen_names_the_top
+ok     transparent_shadow_needs_tpsdsl
+ok     msb_shadow_halves_the_sprite_itself
+ok     shadow_needs_a_priority_over_the_screen
+ok     normal_shadow_halves_an_enabled_screen
+ok     higher_priority_wins_and_nbg0_wins_ties
+ok     colour_calculation_at_ratio_0_still_shows_the_second_image
+ok     colour_calculation_mixes_by_ratio
+ok     window_outside_hides_the_rest
+ok     window_inside_hides_the_layer
+ok     bitmap_dot_zero_is_transparent
+ok     back_screen_shows_with_no_layers
+ok     display_off_is_black
+ok     a_write_over_a_save_needs_r7_zero
+ok     a_damaged_file_keeps_the_saves_before_the_damage
+ok     saves_default_to_a_folder_per_disc_in_the_data_directory
+ok     save_dash_keeps_saves_for_the_run_alone
+ok     a_run_that_saves_nothing_writes_no_file
+ok     deleting_the_last_save_leaves_none
+ok     saves_are_kept_by_name
+ok     a_save_is_read_back_by_the_next_run
+ok     with_one_multitap_port_2_holds_pad_7
+ok     port_2_is_empty_until_a_script_drives_pad_2
+ok     a_controller_beyond_the_last_player_drives_nothing
+ok     a_reconnecting_model_gets_its_slot_back_only_when_unambiguous
+ok     a_controller_leaving_moves_nobody_else
+ok     controllers_take_the_lowest_free_player
+ok     a_touch_setting_changes_in_place_and_the_comments_stay
+ok     the_touch_settings_take_only_their_words
+ok     settings_are_written_whole_and_read_back
+ok     changed_settings_are_written_over_the_players_file
+ok     one_models_gamepad_section_starts_from_the_gamepad_defaults
+ok     values_that_do_not_read_keep_their_default
+ok     a_file_sets_what_it_names_and_leaves_the_rest
+ok     settings_default_to_the_documented_file
+ok     fingers_together_hold_all_they_press
+ok     the_dpad_gives_eight_directions_and_rests_in_the_middle
+ok     a_finger_between_a_and_b_presses_the_nearer
+ok     one_unit_is_one_size_on_a_small_screen_and_a_big_one
+ok     a_unit_too_big_for_the_screen_still_fits_it
+ok     the_buttons_stay_on_the_screen_and_apart
+ok     each_button_is_pressed_on_its_centre_and_nothing_between_them
+44 tests, 0 failed
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote SAME (10 bytes)
+[   0.000 M] BUP: wrote SAME (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote GOOD (10 bytes)
+[   0.000 M] BUP: wrote LATER (4000 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin is damaged after 1 saves; the rest are left out
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-1234H_V1.001/backup.bin
+[   0.000 M] BUP: wrote DEFAULT (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-9999H_V1.001/backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test/saturn-recomp/T-1234H_V1.001/backup.bin
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] BUP: wrote RUN_ONLY (10 bytes)
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote ONLY (10 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] BUP: wrote FIRST (10 bytes)
+[   0.000 M] BUP: wrote SECOND (20 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\backup.bin
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\nested\backup.bin
+[   0.000 M] BUP: wrote BOMB_TEST (300 bytes)
+[   0.000 M] backup memory: C:\Users\liufeng\AppData\Local\Temp\saturn-bup-test\nested\backup.bin
+[   0.000 M] pad 7: 0100
+[   0.000 M] pad 6: 0200
+[   0.000 M] pad 2: 0400

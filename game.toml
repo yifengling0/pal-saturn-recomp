@@ -1,0 +1,516 @@
+# game.toml — 《仙剑奇侠传》土星版 (T-37401H V1.000, areas JT, "LEGEND OF SWORD AND FAIRY")
+#
+# 本文件里的每个地址都来自这张盘实测，不是从别的游戏抄的：
+#   base 0x06004000  = IP.BIN 声明的 1st read 装载地址（`saturnrecomp.disc --info`，见
+#                      evidence/p0-disc-001/disc_info.txt）；`saturnrecomp.sh2 0 --find-base` 独立
+#                      给出的首选候选同为 0x06004000（252 处序言命中）。
+#   seed 0x06004040  = /0 自带引导桩的跳转目标（0x06004024 的字面量池 -> jmp @r4，
+#                      反汇编见 evidence/p0-disc-001/disasm_0_head.txt）。
+#   PROG.BIN 的 0x06020000 目前只是 find-base 候选（581 处序言命中），尚未由运行时装载行为证明，
+#   因此这里先注释掉，等 learn 或 CD 读取日志证明后再启用。
+[game]
+name = "Legend of Sword and Fairy (Saturn, T-37401H V1.000)"
+seeds = "tools/seeds.json"
+build = "build"
+cmake = ["SATURN_EXTRA=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/src/pal_game/pal_game.cmake",
+         "SDL3_DIR=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/third_party/sdl3/SDL3-3.4.18/cmake"]
+
+[[module]]
+name = "P0"
+file = "build/disc-extract/0"
+base = 0x06004000
+seeds = [0x06004040]
+
+# 待运行时证明后启用：
+# [[module]]
+# name = "PROG"
+# file = "build/disc-extract/PROG.BIN"
+# base = 0x06020000
+# seeds = [0x06020040]
+
+# 2026-10-10 实测启用（evidence/p1-boot-002.log）：
+#   [13.730 FATAL] call to 06020040, not an entry of an active module (from pr 06004180)
+#   r6 06020000  r8 06020040
+# /0 在装载 PROG.BIN 之后直接跳进 0x06020040，因此 base 与入口都由运行行为证明，
+# 不再是 --find-base 的启发式候选。
+[[module]]
+name = "PROG"
+file = "build/disc-extract/PROG.BIN"
+base = 0x06020000
+seeds = [0x06020040]
+
+# 2026-10-10 PAL-P1-006 的实测结论：游戏在 VBlank 1227 把 0x06020000 处的 PROG.BIN **换入成
+# TRUE.BIN**（同址覆盖装载），而 game.toml 里只有 PROG，运行时就继续跑 PROG 的本机码。
+# 证据链（全部本机实测，见 evidence/p1-true-*.log）：
+#   1) --watch 06020088:06020090 打到 0002 补丁后报出两次整块覆盖，写入者 P0:06007E90（pr 06007FDE）：
+#        VB11   -> 00004FF8 / 0001DFD0 / 00008000   (=PROG.BIN 文件同址字节)
+#        VB1227 -> 06040C40 / 060552A0 / 06020E38   (=TRUE.BIN 文件同址字节)
+#   2) hook 06007E96 打印的装载请求块 [r9=0601875C]：+00=06020000 目标、+04=00021000 长度、
+#      +08=已搬运进度、+18=00000042(=66) 扇区数；每块 0x800 字节，源 = CD 缓冲区 0x25818000。
+#      66 扇区 = 135,168 字节，盘上唯一落在 (65,66] 扇区的文件是 TRUE.BIN(134,200 字节)。
+#   3) TRUE.BIN 与 PROG.BIN 的引导桩逐指令相同，只是字面量池不同：
+#        [0x1C] 数据指针 0x06039520（PROG 为 0x060663D0）、[0x24] 入口 0x06020058（PROG 为 0x06020040）。
+#      入口取自镜像自身头部，和 PROG 的 0x06020040 同源，因此 seed 由镜像证明而非猜测。
+# 后果（已验证）：PROG 的 0605FD92 把换入镜像头部的 0x06040C40 当成自己那张 {30,指针} 表的长度，
+#   从 060C0000 起连铺 2 万+ 条记录，铺过 WRAM 尾（060FFFFF）后按 1MiB 镜像落到 0x06100320，
+#   折叠进 BIOS 服务向量 0x06000320..0x0600034C，于是 06059C3A 的 `jsr @r1` 取到 0x1E 而 FATAL。
+[[module]]
+name = "TRUE"
+file = "build/disc-extract/TRUE.BIN"
+base = 0x06020000
+seeds = [0x06020058]
+
+
+# 诊断 hook（游戏层 src/pal_game/pal_diag.cpp 用 PAL_HOOKS 选择启用哪些）：
+# P0 的装载器把文件名/目的地交给 0600430C，再由 06004950 查询、06004EB0 搬运。
+# hook 只能落在 jsr 之后的那条指令上（emit.py 不允许把 hook 插在 jsr/延迟槽语句里）：
+# 06004164 = 装载调用返回后，06004334 = 06004950 的状态写回后，06004364 = 06004EB0 的结果写回后。
+[[hook]]
+module = "P0"
+at = 0x06004164
+
+[[hook]]
+module = "P0"
+at = 0x06004334
+
+[[hook]]
+module = "P0"
+at = 0x06004364
+
+[[hook]]
+module = "P0"
+at = 0x06004950
+
+[[hook]]
+module = "P0"
+at = 0x06004EB0
+
+# 2026-10-10 追 PAL-P1-001 追加（反汇编见 evidence/p1-disasm-06004580.txt、p1-disasm-06004950.txt、
+# p1-disasm-06004740.txt）：
+#   060045CC = f_060045CC 入口，r4 即它等待的 CD Block HIRQ 位掩码（读 0x25890008 并与 0x06010F50
+#              的历史值合并后比较）；返回 -1 = 位还没齐。
+#   060045AE = 它返回后（jsr @r0 的延迟槽是 060045AC 的 nop，所以这条合法），r0 = 结果。
+#   06004758 = f_06004758 入口：r4=槽位号(1..24)、r5=写入 0x06018848 的指针、r6→r8。
+#   060047B8 = `mov.l r10,@r9`（r9=0x06018848）之后，直接看这条到底有没有执行、写了什么。
+#   060042E4 = 060042E0 `jsr @r8` 返回后，r0 = 装载包装函数的返回值。
+[[hook]]
+module = "P0"
+at = 0x060045CC
+
+[[hook]]
+module = "P0"
+at = 0x060045AE
+
+[[hook]]
+module = "P0"
+at = 0x06004758
+
+[[hook]]
+module = "P0"
+at = 0x060047B8
+
+[[hook]]
+module = "P0"
+at = 0x060042E4
+
+# 定位 f_06004758 的分支走向（06004784 = and r10,r1 / tst 之后，r1 即 (r5 & 3)；
+# 060047AC = 走“继续”分支的第一条）。
+[[hook]]
+module = "P0"
+at = 0x06004784
+
+[[hook]]
+module = "P0"
+at = 0x060047AC
+
+# 装载链的“就绪位”与安装器（见 evidence/p1-disasm-06004740.txt、build/p0_full.asm）：
+# f_06004758 在 jsr f_060065A8 之后读 [base+0xC4]&1：为 0 就直接返回 -2，不会调用
+# f_060057F8→f_060048EC 去写 [base+0x98]/[base+0xA0]；而 f_06004950 正是要求
+# [base+0x98]==1 且 [base+0xA0]!=0，否则返回 -8。下面四个 hook 用来确认链在哪一环断掉。
+[[hook]]
+module = "P0"
+at = 0x060047D8
+
+[[hook]]
+module = "P0"
+at = 0x060047EE
+
+[[hook]]
+module = "P0"
+at = 0x060048EC
+
+[[hook]]
+module = "P0"
+at = 0x060057F8
+
+# f_060057F8 之所以没走到 f_060048EC，是因为 0600581C 的 jsr f_06006F94 返回了负数。
+# 下面记录这条握手链的每一环返回值：
+#   0600581E = f_06006F94 返回后（r0）
+#   06006FDA = f_0600960C 返回后（==3 时 f_06006FAC 返回 -22）
+#   060091C0 = f_06009160“命令入队”的统一出口（-5/-1/0）
+#   06009D00 = 命令真正执行例程的入口
+[[hook]]
+module = "P0"
+at = 0x0600581E
+
+[[hook]]
+module = "P0"
+at = 0x06006FDA
+
+[[hook]]
+module = "P0"
+at = 0x060091C0
+
+[[hook]]
+module = "P0"
+at = 0x06009D00
+
+# f_060057F8 走的是 byte[0x06000CCC] != 1 的分支（0600580A bf/s -> 06005854），
+# 之后 r8 = f_06005E50(record) 必须 > 0 才会调用 f_060048EC。逐步取返回值：
+#   06005854 确认分支；06005876 = f_06005E50 的返回值 r8；
+#   f_06005E50 内部：06005E66 = f_06005D5C 的 r0，06005E74 = f_06005A0C 的 r0，
+#   06005E82 = f_06005C38 的 r0（r8），06005EA2 = f_06006E68 的 r0。
+[[hook]]
+module = "P0"
+at = 0x06005854
+
+[[hook]]
+module = "P0"
+at = 0x06005876
+
+[[hook]]
+module = "P0"
+at = 0x06005E66
+
+[[hook]]
+module = "P0"
+at = 0x06005E74
+
+[[hook]]
+module = "P0"
+at = 0x06005E82
+
+[[hook]]
+module = "P0"
+at = 0x06005EA2
+
+# 2026-10-10 PAL-P1-006：PROG 在 06059C3A 用 `mov.l @r1,r1`（r1=06000344，BIOS 服务向量
+# SYS_CHGSCUIM）取到 0000001E 并 FATAL。启动时 bios.cpp 把它写成 00001344，而整轮 --watch
+# 06000344 只报出这一次写。所以在这个 hook 处直接把向量区打出来，判断是内存被改了还是读路径不对。
+[[hook]]
+module = "PROG"
+at = 0x06059C34
+
+# 每帧同步点（PROG 的主循环），用来按 VBlank 采样向量区 06000300..06000340，
+# 找出 06000320/06000324/0600032C.. 被写成 0000001E / 25CAB3xx 的确切时刻。
+[[hook]]
+module = "PROG"
+at = 0x0605D670
+
+# PAL-P1-006 的写入者已用打了 0002 补丁后的 --watch 抓到：store 报的原始地址是 06100320/24、
+# 0610032C/30、06100338/3C、06100344/48（=WRAM-H 的 1MiB 镜像别名，折叠后正是 0600 那张向量表），
+# 值成对 {0000001E, 25CAB3xx}，宿主码归属 PROG:0605FD92、pr=0605FE56。反汇编（build/prog_full.asm
+# 0605FD92..0605FF82）里这个函数唯一形状吻合的是 0605FE64 的循环：
+#   0605FE56 mov.l [060663D8] 的地址->r3 ; 0605FE5A mov.l @r3,r3   ; r3 = 表基址
+#   0605FE58 mov.l [06020088] 的地址->r1; 0605FE5C mov.l @r1,r1   ; r1 = 长度
+#   0605FE5E mov #25C00060->r0 ; 0605FE60 add r3,r1               ; r1 = 结束地址
+#   循环体 0605FE64 st32(r3+4,r0) ; 0605FE66 st32(r3,r2=30) ; r3+=12 ; cmp/ge r1,r3; bf/s
+# 所以还差的实测量只有：本次的基址 r3 与结束地址 r1（即"表被铺到了 0610 这一镜像"还是"长度失控"）。
+[[hook]]
+module = "PROG"
+at = 0x0605FE56
+
+# 循环开始前一行：r3=基址、r1=基址+长度、r0=首个 25C0xxxx 指针。一次调用命中一次。
+[[hook]]
+module = "PROG"
+at = 0x0605FE60
+
+# 循环体首：逐条记录打印写入地址 r3（PAL_LIMIT 限制次数），确认写入序列的起点与步长。
+[[hook]]
+module = "PROG"
+at = 0x0605FE64
+
+# P0 的通用块拷贝例程（build/p0_full.asm 06007E90）：
+#   r4=目标地址, r6=源地址, [r14+8]=字数, r5/r7=目标/源步长；06007FDE 是它的调用点回返地址，
+#   --watch 06020088 报出的两次整块覆盖（VB11 写回 00004FF8/0001DFD0/00008000=PROG.BIN 原字节，
+#   VB1227 写成 06040C40/060552A0/06020E38）都归到这里。hook 在序言之后打印参数，定位 VB1227
+#   那次到底把什么拷到了哪里、拷了多少。
+[[hook]]
+module = "P0"
+at = 0x06007E96
+
+# 060041F6..06004204（build/p0_full.asm）：P0 主循环读 [0x0601FA00]，不等于 7 就
+#   mov.l #0x06020000,r8 ; jsr @r8   —— 也就是**调用**换入的程序并等它返回。
+# 06004206 是程序 rts 之后 P0 执行的下一条指令，hook 它就是"程序正常返回装载器"的证据
+# （上游原本把调用模块基址一律当 program start 展开宿主栈，返回即 FATAL，见 patches/0003）。
+[[hook]]
+module = "P0"
+at = 0x06004206
+
+# PAL-P1-009 探针：停滞段（VB4886 之后）独有的 VDP2 VRAM 写函数。
+# 来源是 --coverage 两窗差集（build/run/cov-4880.txt vs cov-6200.txt）里，
+# 函数体中引用 0x25E00000/0x25E20000/0x25E5C000 的那些 PROG 入口地址；
+# 06026D84 每帧都跑（--watch 见它把 gbr+18 置 3/6），其余几个只在停滞段被调用。
+# 地址都是函数入口（非分支、非延迟槽），符合 [[hook]] 的落点要求。
+[[hook]]
+module = "PROG"
+at = 0x0602313C
+
+[[hook]]
+module = "PROG"
+at = 0x060232A4
+
+[[hook]]
+module = "PROG"
+at = 0x0602335C
+
+[[hook]]
+module = "PROG"
+at = 0x06023914
+
+[[hook]]
+module = "PROG"
+at = 0x0602475C
+
+[[hook]]
+module = "PROG"
+at = 0x06024FD8
+
+[[hook]]
+module = "PROG"
+at = 0x06026B88
+
+[[hook]]
+module = "PROG"
+at = 0x06026D84
+
+# PAL-P1-009 第三次收窄（2026-10-10，证据见 docs/P1_RECOMP_REPORT.md §4.10）：
+# --watch 05E00000:05E80000 的按写入者统计显示，停滞段里
+#   TRUE:0602DC58（上一幕的逐帧背景搬移）1,013,760 次写、全部非零，但只到 VB4679；
+#   PROG:060225A4 在 VB5200/5600 写 131,072 次**全零**（= 整屏 512KB 清零）；
+#   PROG:060223C0 在 VB5100-5399 写 5,592 次非零（VRAM 0x20000-0x3FFFF，约 22KB 真数据），
+#     随后就被 VB5600 的清零抹掉；VB5661 之后整轮再没有任何 VDP2 VRAM 写入。
+# 所以问题从"背景数据从未写入"改成"写了，又被清掉，之后再没有第二次写"。
+# 下面三个 hook 打在图形对象处理链的判定点上（都是 jsr 返回后的那条指令，符合落点要求）：
+#   TRUE:060229B6 = f_0602BEDC（图形对象处理器，反汇编 p_true_000.cpp:4065）调用返回后；
+#   TRUE:0602C28C = f_0602BEDC 内 `jsr @r1`(f_0602E55C) 返回后，紧接着是 `tst r9,r9`，
+#                  r9==0 就直接跳到 0602C362 跳过整段上载（p_true_002.cpp:5021）；
+#   TRUE:0602CCA0 = VRAM 写入者本身的入口（上一幕每帧都会进它；0602C326 那条是 bra，
+#                  emit.py 不允许，所以改打入口）。
+[[hook]]
+module = "TRUE"
+at = 0x060229B6
+
+[[hook]]
+module = "TRUE"
+at = 0x0602C28C
+
+[[hook]]
+module = "TRUE"
+at = 0x0602CCA0
+
+# 实测（evidence/p1-objchain-001）：上面三个 hook 的命中全部止于 VB4679，之后一次都不再进来。
+# 所以门在 f_0602296C（图形对象处理器的直接调用者，p_true_000.cpp:4031）之上或它的第一个分支上：
+#   TRUE:06022240 = 每帧循环里 `jsr @r0`(f_0602296C) 返回后 —— 数 f_0602296C 到底还被不被调用；
+#   TRUE:06022984 = f_0602296C 内 `jsr @r0`(f_0602BC60) 返回后，紧接着 `tst r8,r8`，
+#                   r8!=0 就走 060229D4 而**不会**走到 060229B2 的处理器调用。
+# 两者的命中差就能判定：是"上层不再调用"，还是"被 f_0602BC60 的返回值拦下"。
+[[hook]]
+module = "TRUE"
+at = 0x06022240
+
+[[hook]]
+module = "TRUE"
+at = 0x06022984
+
+# 实测（evidence/p1-objchain-002）：06022984 与 060229B6 命中数完全相同（560 次，VB1286→4679），
+# 说明 f_0602BC60 从不拦路，是 **f_0602296C 本身在 VB4679 之后不再被调用**；
+# 而调用点 0602223C 只贡献 2 次，主力来自别的宿主函数。
+# f_0602296C 的宿主层（p_true_000.cpp 行号→函数）：
+#   06021EB8 在 f_06021E18 内；0602223C 与 060222B8 在 f_06022170 内；06022B58/06022B6C 在 f_06022AF4 内。
+# 下面打这三个宿主函数的入口（函数入口是合法落点）+ 060222BC，一次跑完就能判定
+# 是"哪个上层循环停了"，还是"循环还在但内部分支改道"。
+[[hook]]
+module = "TRUE"
+at = 0x06021E18
+
+[[hook]]
+module = "TRUE"
+at = 0x06022170
+
+[[hook]]
+module = "TRUE"
+at = 0x06022AF4
+
+[[hook]]
+module = "TRUE"
+at = 0x060222BC
+
+# 实测（evidence/p1-objchain-003）：三个宿主函数入口加起来只有 06021E18=2、06022170=2、06022AF4=0，
+# 而 06022984（f_0602296C 内部）命中 560 次 —— 说明 f_0602296C 几乎全是被**动态派发**（对象里的
+# 处理函数指针，走 sh2_call）调进来的，静态字面量调用点只占 4 次。
+# 所以打它自己的入口：hook 打印的 pr 就是那个真正遍历对象数组的循环的返回地址。
+[[hook]]
+module = "TRUE"
+at = 0x0602296C
+
+# 实测（evidence/p1-objchain-004）：560 次 f_0602296C 调用的 pr 全部是 06021EBC，
+# 即来自 f_06021E18 内 06021EB8 的 `jsr @r0`；而 f_06021E18 入口整轮只进 2 次
+# （VB1287、VB2619）却在 VB1286→4679 持续派发 —— 它是**自带内层循环的子场景循环**，
+# 每次进入会连着跑上千个 VBlank。f_06021E18 的调用者是 f_06021FB8（06022010 与 06022062），
+# 且 06022014 处 `tst r9,r9`：f_06021E18 返回 0 就整块跳过。
+# 下面三个落点用来判定：VB4679 之后是 f_06021FB8 不再进来，还是 f_06021E18 的内层循环退出后不再继续。
+[[hook]]
+module = "TRUE"
+at = 0x06021FB8
+
+[[hook]]
+module = "TRUE"
+at = 0x06022014
+
+[[hook]]
+module = "TRUE"
+at = 0x06021E3C
+
+# 实测（evidence/p1-objchain-005）：f_06021FB8（场景运行器）整轮只进入 2 次
+# （VB1254、VB2586），它调用的 f_06021E18 在 06022014 处返回的时刻是 VB1501 与 VB4683；
+# 也就是"洞穴那一幕"从 VB2586 跑到 VB4683 就正常返回，之后再没有任何人启动下一幕的运行器。
+# f_06021FB8 的调用者是**顶层场景调度器 f_06020E38**，它在 6 个场景分支里都会 `jsr @r0`(f_06021FB8)，
+# 返回点分别是 06020F72 / 06020FB8 / 06020FE2 / 06021028 / 0602106A / 06021120（都紧跟 `mov #0,r8`）。
+# 下面打调度器入口 + 这 6 个返回点，判定 VB4683 之后调度器走的是哪条边、还是整个不再回来。
+[[hook]]
+module = "TRUE"
+at = 0x06020E38
+
+[[hook]]
+module = "TRUE"
+at = 0x06020F72
+
+[[hook]]
+module = "TRUE"
+at = 0x06020FB8
+
+[[hook]]
+module = "TRUE"
+at = 0x06020FE2
+
+[[hook]]
+module = "TRUE"
+at = 0x06021028
+
+[[hook]]
+module = "TRUE"
+at = 0x0602106A
+
+[[hook]]
+module = "TRUE"
+at = 0x06021120
+
+# 实测（evidence/p1-sched-001）：调度器 f_06020E38 从 VB2574 进去后一直没返回；
+# VB4686 走完第 6 幕分支（06020FE2），VB4707 由 PROG:060662D8 把 0x0601FA00 写成 8（下一幕号），
+# VB4710 之后 6 个派发分支的返回点一次都没再命中。
+# 读 f_06020E38 的状态机（p_true_000.cpp:1440-1472）看到确切的门：
+#   06020EF0 r12 = f_060219D0(...)        —— 先取两个池句柄
+#   06020EFA r11 = f_060219D0(r4=0x40, r5=0x18, r6=0)
+#   06020F1C r0  = f_06021240(r4=r12, r5=r11, r6=0x40)
+#   06020F22 cmp/gt r1=-1, r0 ；**r0 <= -1 就直接 bra 0602113A 跳过整段场景派发**，
+#   只有 r0 > -1 才进 06020F2A：state = (0x0601FA00 - 1) 夹到 0..11，查 0x06020F4C 跳转表派发。
+# 所以"第 8 幕永不启动"等价于"f_06021240 一直返回负数"。下面三个落点直接取这两个句柄和返回值。
+[[hook]]
+module = "TRUE"
+at = 0x06020EF4
+
+[[hook]]
+module = "TRUE"
+at = 0x06020EFE
+
+[[hook]]
+module = "TRUE"
+at = 0x06020F20
+
+# 尾段（0602113A 起）逐点取"最后走到哪一条"：
+#   0602116C = f_0602950C 返回后；06021174 = f_06035264 返回后；
+#   0602117E = `jsr @[0x06000344]`(r4=-1,r5=4) 返回后；0602118A = `jsr @[0x06000300]`(r4=0x42) 返回后；
+#   06021192 = 第二次 f_06035264 返回后（其后是 101 次 f_06034EDA 然后 rts 回 P0）。
+[[hook]]
+module = "TRUE"
+at = 0x0602116C
+
+[[hook]]
+module = "TRUE"
+at = 0x06021174
+
+[[hook]]
+module = "TRUE"
+at = 0x0602117E
+
+[[hook]]
+module = "TRUE"
+at = 0x0602118A
+
+[[hook]]
+module = "TRUE"
+at = 0x06021192
+
+# 2026-10-10 PAL-P1-010（第四次收窄，实测证据见 build/run/{statewatch,flagwatch,queuewatch,loads2,gchain2}.log）：
+#   1) P0 主循环 0x06004138 跳转表（从 build/disc-extract/0 的 0x138 偏移静态解码，13 项）：
+#        state 0/2/3/4/7/8 -> 0x06004152（装载 "PROG.BIN"@0x06004094，jsr @0x06020040）
+#        state 1/5/6/9/11/12 -> 0x060041CE（装载 "TRUE.BIN"@0x060040A0，[0x0601FA00]!=7 时 jsr @0x06020000）
+#        state 10 及 >12      -> 0x06004254（空转）
+#   2) --watch 0601FA00:0601FA01 实测状态轨迹 0(VB5)->1(VB1173)->2(VB1501)->6(VB2505)->8(VB4707)，
+#      与 build/run/loads2.log 的装载序列 PROG(VB11)/TRUE(VB1227)/PROG(VB1648)/TRUE(VB2559)/PROG(VB4847) 一一对应。
+#   3) 三次 PROG.BIN 装载都完整：请求块 [0x0601875C] +04=0x00062000、+18=0xC4(196 扇区)，
+#      VB4886 时 +08 走到 0x00061800/+1C=0xC3 —— 装载路径无问题（已验证）。
+#   4) VB4886 之后 P0 阻塞在 jsr @0x06020040 之内（栈上 0x06004180 未弹出），PROG 每帧仍在跑：
+#      --watch 060FFC10:060FFC18 打到 PROG:06026D84 在 VB6096 仍写 [18,gbr]=6（pr 0x06022354），
+#      且 [19,gbr] 每 VB 由 PROG:0605CECC 递减并回卷（5..0,FF），主从队列 060FFC44/48 一写一应（从机健康）。
+#   5) 但 --peek 06076B3C:6 在 VB6100 读到 [0x06076B42]=0x014A，而 f_060344A0 入口无条件把
+#      [0x06076B42] 清 0（0x060344DE/0x060344E2）—— 说明 f_0603440C 这条帧例程在 VB4886 后不再跑到头。
+#      下面把 f_06026D84 -> f_06033654 -> f_0603440C -> {f_06033DD8,f_060344A0,f_06032C64,f_06034FA0,f_0602222C}
+#      每个 jsr 的返回点都挂上，用命中次数直接指出哪一次调用没有返回。判据：某个返回点命中数远小于上游。
+[[hook]]
+module = "PROG"
+at = 0x06026E58
+
+[[hook]]
+module = "PROG"
+at = 0x06026E74
+
+[[hook]]
+module = "PROG"
+at = 0x06026E7A
+
+[[hook]]
+module = "PROG"
+at = 0x06034438
+
+[[hook]]
+module = "PROG"
+at = 0x06034456
+
+[[hook]]
+module = "PROG"
+at = 0x0603445C
+
+[[hook]]
+module = "PROG"
+at = 0x06034462
+
+[[hook]]
+module = "PROG"
+at = 0x06034468
+
+# 2026-10-10 PAL-P1-009 落点收敛（§4.10 ⑨⑩ 之后）：--watch 06076B48:06076B4C 与
+# build/run/oqueue.log 合起来说明：P0 的状态写入服务 P0:06010A80 在停滞幕**每帧都被调一次**
+# （pr 0x06022EFA，即 f_06022D5C 里 0x06022EF6 那次调用），而 VB1173 写 1、VB2505 写 6 也出自同一个点。
+# 所以差别只可能在入参 r4 上。这里把它的入口挂上，比对"改了状态的那两次"与"每帧这 71 次"的 r4/r5/r6。
+# 判据：若每帧那批 r4 与改状态那两次不同，就去找 PROG 侧是谁在挑 r4；若相同，则门在 06010A80 内部。
+[[hook]]
+module = "P0"
+at = 0x06010A80
+
+# 2026-10-10 最后一环未测：VB4707 把 [0x0601FA00] 写成 8 的指令是 PROG:0x060662D8（pr 0x06020FEC，
+# 即 TRUE 调度器 f_06020E38 的分派块内）。挂上入口直读 r0..r7，判断 8 是算出来的还是被读坏的。
+[[hook]]
+module = "PROG"
+at = 0x060662D8

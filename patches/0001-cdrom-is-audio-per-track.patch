@@ -1,0 +1,20 @@
+diff --git a/runtime/src/machine/cdrom.cpp b/runtime/src/machine/cdrom.cpp
+index 1f3fdc8..1769274 100644
+--- a/runtime/src/machine/cdrom.cpp
++++ b/runtime/src/machine/cdrom.cpp
+@@ -81,8 +81,13 @@ static const CueFile* file_of(uint32_t fad) {
+ }
+ 
+ bool cdrom_is_audio(uint32_t fad) {
+-    const CueFile* f = file_of(fad);
+-    return f && f->audio;
++    // The last track that starts at or before fad, the way a drive's TOC resolves it. CueFile::audio
++    // cannot answer this: one BIN holding several tracks (a Mode 1 data track followed by CD-DA
++    // tracks, as Saturn discs are ripped) would take the mode of whichever TRACK line came last.
++    const CueTrack* cur = nullptr;
++    for (const CueTrack& t : g_tracks)
++        if (fad >= t.fad && (!cur || t.fad >= cur->fad)) cur = &t;
++    return cur && cur->audio;
+ }
+ 
+ bool cdrom_read(uint32_t fad, uint8_t* raw) {

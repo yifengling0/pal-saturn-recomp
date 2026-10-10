@@ -1,0 +1,5 @@
+0x06004000  252 prologue hits
+0x06014000  88 prologue hits
+0x06011000  53 prologue hits
+0x06018000  51 prologue hits
+0x06016000  50 prologue hits

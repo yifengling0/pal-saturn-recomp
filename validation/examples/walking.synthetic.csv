@@ -1,0 +1,6 @@
+game_tick,vblank,world_x,world_y,camera_x,camera_y,animation_frame,input,map_id,render_present_count
+0,0,0,0,0,0,A,RIGHT,SYNTHETIC,0
+1,2,2,0,1,0,A,RIGHT,SYNTHETIC,4
+2,4,4,0,2,0,B,RIGHT,SYNTHETIC,8
+3,6,6,0,3,0,B,RIGHT,SYNTHETIC,12
+4,8,8,0,4,0,C,RIGHT,SYNTHETIC,16

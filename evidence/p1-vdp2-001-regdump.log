@@ -1,0 +1,76 @@
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] IP.BIN: T-37401H   V1.000, areas JT        ; 1st read file 0, 53068 bytes at 06004000
+[   0.000 M] boot: P0 at 06004000
+[   0.838 M] PROG activated by a call to 06020040
+[  25.023 M] pad: 0800
+[  25.240 M] pad: 0000
+[  28.148 M] PROG activated by a call to 06020040
+[  41.723 M] pad: 0800
+[  41.923 M] pad: 0000
+[  43.374 M] pad: 0400
+[  43.574 M] pad: 0000
+[  46.711 M] pad: 0400
+[  46.911 M] pad: 0000
+[  48.713 M] pad: 0400
+[  48.913 M] pad: 0000
+[  50.715 M] pad: 0400
+[  50.915 M] pad: 0000
+[  52.717 M] pad: 0400
+[  52.917 M] pad: 0000
+[  54.719 M] pad: 0400
+[  54.919 M] pad: 0000
+[  56.721 M] pad: 0400
+[  56.921 M] pad: 0000
+[  58.723 M] pad: 0400
+[  58.923 M] pad: 0000
+[  60.725 M] pad: 0400
+[  60.925 M] pad: 0000
+[  62.726 M] pad: 0400
+[  62.927 M] pad: 0000
+[  64.728 M] pad: 0400
+[  64.929 M] pad: 0000
+[  66.730 M] pad: 0400
+[  66.931 M] pad: 0000
+[  68.732 M] pad: 0400
+[  68.933 M] pad: 0000
+[  70.734 M] pad: 0400
+[  70.935 M] pad: 0000
+[  72.736 M] pad: 0400
+[  72.937 M] pad: 0000
+[  74.738 M] pad: 0400
+[  74.939 M] pad: 0000
+[  76.740 M] pad: 0400
+[  76.940 M] pad: 0000
+[  78.742 M] pad: 0400
+[  78.943 M] pad: 0000
+[  80.744 M] pad: 0400
+[  80.945 M] pad: 0000
+[  81.517 M] PROG activated by a call to 06020040
+[  82.763 M] pad: 0400
+[  82.963 M] pad: 0000
+[  84.782 M] pad: 0400
+[  84.982 M] pad: 0000
+[  86.784 M] pad: 0400
+[  86.984 M] pad: 0000
+[  88.786 M] pad: 0400
+[  88.986 M] pad: 0000
+[  90.788 M] pad: 0400
+[  90.988 M] pad: 0000
+[  92.790 M] pad: 0400
+[  92.990 M] pad: 0000
+[  94.792 M] pad: 0400
+[  94.992 M] pad: 0000
+[  96.794 M] pad: 0400
+[  96.994 M] pad: 0000
+[  98.796 M] pad: 0400
+[  98.996 M] pad: 0000
+[ 100.798 M] pad: 0400
+[ 100.931 M] VDP2: line or vertical cell scroll (SCRCTL) (0002) is not done
+  VDP2 regs at the first gap: 00=8100 04=0002 0C=0100 0E=1327 10=44FE 12=EEEE 14=55FE 16=EEEE 18=FEEE 1A=EEEE 1C=FEEE 1E=EEEE 20=0043 28=1212 2A=1000 2C=0306 30=800C 32=C00C 34=C000 36=C000 38=C000 3C=0010 40=3B3B 42=3B3B 44=3D3C 46=3F3E 50=2020 52=2020 54=2020 56=2020 58=2020 5A=2020 5C=2020 5E=2020 60=2828 62=2828 64=2828 66=2838 68=2828 6A=2828 6C=2828 6E=2828 74=FFF4 78=0001 7C=0001 84=FFF4 88=0001 8C=0001 9A=0002 A0=12F2 A2=E08E AC=0001 AE=FFFF BC=0001 BE=FF80 C2=000C C4=0278 C6=00D4 CC=027E CE=00DF D0=000C D4=0300 E0=2122 EC=0043 F0=0503 F2=0505 F4=0505 F6=0505 F8=0604 FA=0102 FC=0004
+[ 100.998 M] pad: 0000
+[ 101.765 M] stopped (VBlank limit) after 6100 VBlanks, 101.765 s, 0 program starts, 4365 VDP1 frame changes, 4365 draws
+  interrupts taken: 40:6097 41:6097 42:929520 47:5419 4A:1840 4B:1150 4D:4360
+  master pr 0605D6B6, sr 101
+  stack (cpu 0, r15 060FFBAC): 06022354 06034468 060FFBC0 06026E7A 060FFBD8 06021E7E 060FFBE8 06004164 06020062 060FFBF8 06004180 060FFBEC 0605EC80 060E37D8 060E37D8 060E37A4 060D47E0 060C51F8 0609CE80 060ED408 06040102 060FFE1C 0605D8F4 0605D994
+  last polls in: PROG:0605D68A x4052 PROG:060344A0 x16 PROG:06060016 x12 PROG:0605E398 x8 PROG:06034FA0 x4 PROG:06052048 x2 PROG:06025C28 x2
+  sound: 4487823 samples, 2037791 not silent; 68000 on, pc 0010EA

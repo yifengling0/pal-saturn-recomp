@@ -1,0 +1,19 @@
+hardware   SEGA SEGASATURN
+maker      SEGA TP T-374
+product    T-37401H  version V1.000  date 19981101
+device     CD-1/1
+areas      JT  (Japan, Asia NTSC)
+peripheral J  (control pad)
+title      LEGEND OF SWORD AND FAIRY
+IP size    0x1800
+stacks     master 0x00000000  slave 0x00000000
+1st read   at 0x06004000, size whole file
+area block 0x0E04  'For JAPAN.'
+volume     'LEGEND_OF_SWORD_AND_FAIRY'  system 'SEGA SEGASATURN'  243943 sectors
+publisher  'SOFTSTAR'  preparer 'SOFTSTAR'
+app        ''
+cpy/abs/bib 'SMP_CPY.TXT' 'SMP_ABS.TXT' 'SMP_BIB.TXT'  created 1998120410235800
+1st read file /0 (53068 bytes, lba 25)
+tracks:
+  01 MODE1/2352 lba      0  131988 frames  29:19.84
+  02 AUDIO      lba 131988  111805 frames  24:50.73

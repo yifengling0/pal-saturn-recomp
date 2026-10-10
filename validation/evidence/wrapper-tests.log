@@ -1,0 +1,31 @@
+test_bin_is_not_a_proven_module (test_harness.InputTests.test_bin_is_not_a_proven_module) ... ok
+test_cue_absolute_path_rejected (test_harness.InputTests.test_cue_absolute_path_rejected) ... ok
+test_cue_symlink_escape_rejected (test_harness.InputTests.test_cue_symlink_escape_rejected) ... ok
+test_cue_traversal_rejected (test_harness.InputTests.test_cue_traversal_rejected) ... ok
+test_cue_windows_drive_rejected (test_harness.InputTests.test_cue_windows_drive_rejected) ... ok
+test_empty_bin_rejected (test_harness.InputTests.test_empty_bin_rejected) ... ok
+test_explicit_pregap_not_silently_lost (test_harness.InputTests.test_explicit_pregap_not_silently_lost) ... ok
+test_good_cue_with_spaces_and_stable_hash (test_harness.InputTests.test_good_cue_with_spaces_and_stable_hash) ... ok
+test_initial_report_never_claims_port (test_harness.InputTests.test_initial_report_never_claims_port) ... ok
+test_inventory_only_does_not_execute_upstream (test_harness.InputTests.test_inventory_only_does_not_execute_upstream) ... ok
+test_missing_image_has_machine_report (test_harness.InputTests.test_missing_image_has_machine_report) ... ok
+test_missing_referenced_bin (test_harness.InputTests.test_missing_referenced_bin) ... ok
+test_missing_toolchain_is_error (test_harness.InputTests.test_missing_toolchain_is_error) ... ok
+test_output_inside_inputs_rejected (test_harness.InputTests.test_output_inside_inputs_rejected) ... ok
+test_path_safety (test_harness.InputTests.test_path_safety) ... ok
+test_refuse_reuse_output_directory (test_harness.InputTests.test_refuse_reuse_output_directory) ... ok
+test_source_mutation_cannot_return_success (test_harness.InputTests.test_source_mutation_cannot_return_success) ... ok
+test_unsupported_file_type_rejected (test_harness.InputTests.test_unsupported_file_type_rejected) ... ok
+test_upstream_requires_explicit_checkout (test_harness.InputTests.test_upstream_requires_explicit_checkout) ... ok
+test_capture_gaps_are_excluded (test_harness.WalkingTests.test_capture_gaps_are_excluded) ... ok
+test_fps_independence (test_harness.WalkingTests.test_fps_independence) ... ok
+test_logic_tick_reset_rejected (test_harness.WalkingTests.test_logic_tick_reset_rejected) ... ok
+test_map_transition_is_excluded (test_harness.WalkingTests.test_map_transition_is_excluded) ... ok
+test_missing_columns (test_harness.WalkingTests.test_missing_columns) ... ok
+test_nonfinite_coordinates_rejected (test_harness.WalkingTests.test_nonfinite_coordinates_rejected) ... ok
+test_unknown_world_position_stays_unavailable (test_harness.WalkingTests.test_unknown_world_position_stays_unavailable) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 0.012s
+
+OK

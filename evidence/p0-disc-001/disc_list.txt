@@ -1,0 +1,52 @@
+/0                                          53068 lba     25
+/02.WAV                                  24059904 lba 132138  CD-DA, track 02
+/03.WAV                                  20670464 lba 144036  CD-DA, track 02
+/04.WAV                                  20940800 lba 154279  CD-DA, track 02
+/05.WAV                                  23529472 lba 164654  CD-DA, track 02
+/06.WAV                                  22159360 lba 176293  CD-DA, track 02
+/07.WAV                                  21540864 lba 187263  CD-DA, track 02
+/08.WAV                                  16820224 lba 197931  CD-DA, track 02
+/09.WAV                                  26617856 lba 206294  CD-DA, track 02
+/10.WAV                                   5623808 lba 219441  CD-DA, track 02
+/11.WAV                                   2770944 lba 222337  CD-DA, track 02
+/12.WAV                                  23351296 lba 223840  CD-DA, track 02
+/13.WAV                                  17512448 lba 235392  CD-DA, track 02
+/A1.AVI                                   2658574 lba  92291
+/A2.AVI                                  13442844 lba  93590
+/A3.AVI                                   5175212 lba 100154
+/A4.AVI                                   2016828 lba 102681
+/A5.AVI                                  30645980 lba 103666
+/A6.AVI                                  27049084 lba 118630
+/ABC.J                                    6748160 lba    697
+/AIF.NEW                                  6443008 lba  65648
+/AIV.NEW                                    20850 lba  68794
+/ALLDAT.NEW                                 32084 lba  48314
+/ASCFONT.15                                  3840 lba  35670
+/BALL.NEW                                  143916 lba  12410
+/CERROR.TXT                                   632 lba  77679
+/CM.FNT                                     88842 lba    622
+/CM.IDX                                    111012 lba    313
+/CM.MSG                                    239616 lba    505
+/CM.NOR                                     63256 lba    666
+/CM.SEC                                    279432 lba    368
+/FB.NEW                                     60518 lba  77744
+/FBP.PX                                   3801088 lba  10059
+/FFF.J                                     559104 lba   3992
+/FIREN.AV                                 9414656 lba  43717
+/LOG1.PX                                    64512 lba  77680
+/LOG2.PX                                    64512 lba  77712
+/MAPIC.JOE                                1597440 lba  89174
+/MDAIF.JOE                               23347200 lba  77774
+/MGO.J                                   11866112 lba   4265
+/MGO.NEW                                 16476160 lba  35672
+/MGOP.JOE                                47491072 lba  12481
+/MID.JOE                                 18173952 lba  68805
+/PPAIF.JOE                                4786176 lba  89954
+/PROG.BIN                                  399984 lba     51
+/RGM.JOE                                  1013760 lba  11915
+/RNG.AV                                  35444736 lba  48330
+/RNG.PAL                                    22528 lba  65637
+/SMP_ABS.TXT                                   83 lba     23
+/SMP_BIB.TXT                                   27 lba     24
+/SMP_CPY.TXT                                   44 lba     22
+/TRUE.BIN                                  134200 lba    247

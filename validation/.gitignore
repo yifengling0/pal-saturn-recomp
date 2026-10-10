@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+build/
+.venv/
+# Do not commit user game media, BIOS, save data, extracted copyrighted content.
+*.cue
+*.bin
+*.iso
+*.chd
+*.BIN

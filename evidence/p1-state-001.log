@@ -1,0 +1,10 @@
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] IP.BIN: T-37401H   V1.000, areas JT        ; 1st read file 0, 53068 bytes at 06004000
+[   0.000 M] boot: P0 at 06004000
+[   0.084 M] CD-DA: play track 1, FAD 166-167, repeat 0
+[  13.678 M] stopped (VBlank limit) after 820 VBlanks, 13.678 s, 0 program starts, 819 VDP1 frame changes, 819 draws
+  interrupts taken: 40:819 41:819 42:72795 47:818 4A:6 4D:816
+  master pr 0600BA56, sr 001
+  stack (cpu 0, r15 060FFBC8): 0600AE6E 06004100 060FFBEC 06004062 060FFBF8 0600D0A8 060E37D8 060E37D8 060E37A4 060D47E0 060C51F8 060ED408 060FFE1C
+  last polls in: P0:060045CC x779 P0:060093E4 x537 P0:0600458C x517 P0:060062C0 x419 P0:0600A228 x277 P0:06005010 x140 P0:0600BA2A x139 P0:0600A034 x139
+  sound: 603189 samples, 0 not silent; 68000 off, pc 000000

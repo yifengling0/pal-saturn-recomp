@@ -1,0 +1,26 @@
+diff --git a/runtime/include/saturn/sh2.h b/runtime/include/saturn/sh2.h
+index 21e65cb..0f713db 100644
+--- a/runtime/include/saturn/sh2.h
++++ b/runtime/include/saturn/sh2.h
+@@ -73,8 +73,20 @@ void     sh2_mmio_write(uint32_t a, uint32_t v, int size);
+ // runtime's --watch over a work-RAM range. Length 0, the default: none.
+ extern uint32_t g_sh2_watch_lo, g_sh2_watch_len;
+ void sh2_watch_store(uint32_t a, uint32_t v, int size);
++
++// The address a store really lands on: the cache-through alias without its bit,
++// and Work RAM High's MiB mirrors folded into 0x06000000 (st8/16/32 route those
++// through sh2_io_write, which masks to 0xFFFFF). Without the fold a store through
++// 0x061xxxxx hits the same bytes as 0x060xxxxx but slips past --watch unnoticed.
++static inline uint32_t sh2_watch_addr(uint32_t a) {
++    uint32_t p = a & 0xDFFFFFFFu;
++    if (p >= 0x06000000u && p < 0x08000000u) return 0x06000000u | (p & 0xFFFFFu);
++    return p;
++}
++
+ #define SH2_WATCH(a, v, size) \
+-    do { if (SH2_UNLIKELY(((a) & 0xDFFFFFFFu) - g_sh2_watch_lo < g_sh2_watch_len)) sh2_watch_store(a, v, size); } while (0)
++    do { uint32_t wa = sh2_watch_addr(a); \
++         if (SH2_UNLIKELY(wa - g_sh2_watch_lo < g_sh2_watch_len)) sh2_watch_store(a, v, size); } while (0)
+ 
+ static inline uint32_t ld8(uint32_t a) {
+     if (SH2_IS_WRAM_H(a)) return g_wram_h[a & 0xFFFFFu];

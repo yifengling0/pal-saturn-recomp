@@ -1,0 +1,17 @@
+iteration 1: seed TRUE 0603548C
+$ cmake -S C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp -B C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build -G Ninja -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CXX_FLAGS=-static -DCMAKE_EXE_LINKER_FLAGS=-static -DSATURN_EXTRA=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/src/pal_game/pal_game.cmake
+  configuring the build: exit 0 in 1.4 s
+$ ninja -C C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build
+  the build: exit 0 in 10.8 s
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] IP.BIN: T-37401H   V1.000, areas JT        ; 1st read file 0, 53068 bytes at 06004000
+[   0.000 M] boot: P0 at 06004000
+[   0.838 M] PROG activated by a call to 06020040
+[  20.691 M] program start 1: TRUE at 06020000 (r4 00000000, r5 060FFB48)
+[  50.047 M] stopped (VBlank limit) after 3000 VBlanks, 50.047 s, 1 program starts, 2439 VDP1 frame changes, 2439 draws
+  interrupts taken: 40:2998 41:2998 42:478602 47:2978 4A:632 4B:177 4D:2435
+  master pr 0602A18C, sr 101
+  stack (cpu 0, r15 060FFB34): 06021E68 060FFBB4 060FFB68 06022014 060FFB68 060FFB68 06020E08 060BF548 060BEDC8 060BEC38 060BEBD8 060BF530 060BF518 06096C30 06020F72 060FFBD8 060BFD00 060BF6F8 060395C4 0602007A 060FFBF8 06004206 060FFBEC 06035EBC
+  last polls in: TRUE:06021E18 x2557 TRUE:0602A0CC x730 TRUE:0602A76C x367 TRUE:06029DEC x367 TRUE:06037252 x75
+  sound: 2207071 samples, 732176 not silent; 68000 on, pc 0010DA
+

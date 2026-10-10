@@ -1,0 +1,57 @@
+iteration 1: seed PROG 0605E0D4
+$ cmake -S C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp -B C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build -G Ninja -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CXX_FLAGS=-static -DCMAKE_EXE_LINKER_FLAGS=-static -DSATURN_EXTRA=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/src/pal_game/pal_game.cmake
+  configuring the build: exit 0 in 1.4 s
+$ ninja -C C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build
+  the build: exit 0 in 6.5 s
+[   0.000 M] backup memory: kept for this run alone
+[   0.000 M] IP.BIN: T-37401H   V1.000, areas JT        ; 1st read file 0, 53068 bytes at 06004000
+[   0.000 M] boot: P0 at 06004000
+[   0.838 M] PROG activated by a call to 06020040
+[  25.023 M] pad: 0800
+[  25.240 M] pad: 0000
+[  26.691 M] pad: 0400
+[  26.891 M] pad: 0000
+[  28.148 M] PROG activated by a call to 06020040
+[  28.376 M] pad: 0100
+[  29.477 M] pad: 0000
+[  30.044 M] pad: 1000
+[  30.245 M] pad: 0000
+[  31.713 M] pad: 4000
+[  31.913 M] pad: 0000
+[  33.381 M] pad: 8000
+[  33.581 M] pad: 0000
+[  35.049 M] pad: 2000
+[  35.249 M] pad: 0000
+[  36.718 M] pad: 0008
+[  36.918 M] pad: 0000
+[  38.386 M] pad: 0080
+[  38.586 M] pad: 0000
+[  40.054 M] pad: 0040
+[  40.254 M] pad: 0000
+[  41.723 M] pad: 0800
+[  41.923 M] pad: 0000
+[  43.374 M] pad: 0400
+[  43.574 M] pad: 0000
+[  45.042 M] pad: 0100
+[  45.243 M] pad: 0000
+[  46.711 M] pad: 1000
+[  46.911 M] pad: 0000
+[  48.379 M] pad: 4000
+[  48.579 M] pad: 0000
+[  50.047 M] pad: 8000
+[  50.247 M] pad: 0000
+[  51.716 M] pad: 2000
+[  51.916 M] pad: 0000
+[  53.384 M] pad: 0008
+[  53.584 M] pad: 0000
+[  55.052 M] pad: 0080
+[  55.252 M] pad: 0000
+[  56.721 M] pad: 0040
+[  56.921 M] pad: 0000
+[  58.389 M] stopped (VBlank limit) after 3500 VBlanks, 58.389 s, 0 program starts, 2552 VDP1 frame changes, 2552 draws
+  interrupts taken: 40:3497 41:3497 42:534342 47:3415 49:24 4A:1262 4B:610 4D:2547
+  master pr 06021EF2, sr 101
+  stack (cpu 0, r15 060FFB4C): 06022014 060FFB68 060FFB68 06020E18 060BF548 060BEDC8 060BEC38 060BEBD8 060BF530 060BF518 060922BC 060B1190 06020FE2 060FFBD8 060BFD00 060BF6F8 060395C4 0602007A 060FFBF8 06004206 060FFBEC 06035EBC 060E37D8 060E37D8
+  last polls in: TRUE:06021E18 x3583 TRUE:0602D5C8 x188 TRUE:0602D78C x184 TRUE:06037252 x75 TRUE:060312F4 x32 TRUE:06035680 x7 TRUE:0602E55C x7 TRUE:060261BC x6
+  sound: 2574936 samples, 1255996 not silent; 68000 on, pc 001110
+

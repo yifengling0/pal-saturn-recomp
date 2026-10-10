@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "purpose": "Linux feasibility evidence; not a completed PAL1 port",
+  "input_kind": "user_provided",
+  "provenance": {
+    "user_note": null,
+    "note_is_self_declared": true,
+    "copyright_or_ownership_verified": false
+  },
+  "pal1_identity_status": "unverified",
+  "synthetic_is_game_evidence": false,
+  "stages": {
+    "input_inventory": {
+      "status": "blocked",
+      "reason": "Missing input: supply your lawful Saturn PAL1 CUE plus every referenced BIN track"
+    },
+    "toolchain_identity": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_structure": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_info": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_list": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_extract": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "extracted_inventory": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "sh2_module_entry_proof": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "game_boot": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "map_input": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "walking_baseline": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "native_ohos": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    }
+  },
+  "missing_inputs": [
+    "Missing input: supply your lawful Saturn PAL1 CUE plus every referenced BIN track"
+  ],
+  "warnings": [],
+  "commands": [],
+  "claims": {
+    "game_ported": false,
+    "game_booted": false,
+    "walking_bug_identified": false,
+    "walking_fix_validated": false,
+    "native_ohos_validated": false
+  },
+  "created_utc": "2026-10-10T01:27:37.158465+00:00",
+  "output_directory": "/workspace/shared/pal-saturn-linux/project/build/missing-input"
+}

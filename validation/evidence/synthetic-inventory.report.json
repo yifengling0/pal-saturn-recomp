@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "purpose": "Linux feasibility evidence; not a completed PAL1 port",
+  "input_kind": "synthetic",
+  "provenance": {
+    "user_note": "Self-authored upstream-worker fixture; not PAL1 or a real commercial game dump",
+    "note_is_self_declared": true,
+    "copyright_or_ownership_verified": false
+  },
+  "pal1_identity_status": "unverified",
+  "synthetic_is_game_evidence": false,
+  "stages": {
+    "input_inventory": {
+      "status": "passed",
+      "reason": "Input files readable; SHA-256 recorded"
+    },
+    "toolchain_identity": {
+      "status": "not_run",
+      "reason": "Pass --run-upstream with --toolchain to run the reviewed pinned source"
+    },
+    "disc_structure": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_info": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_list": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "disc_extract": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "extracted_inventory": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "sh2_module_entry_proof": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "game_boot": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "map_input": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "walking_baseline": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    },
+    "native_ohos": {
+      "status": "not_run",
+      "reason": "Prerequisite evidence is missing"
+    }
+  },
+  "missing_inputs": [
+    "Independent confirmation of this image's PAL1 edition/product identity and provenance",
+    "Evidence-backed SH-2 module boundaries, load addresses and entry points",
+    "Actual PAL1 boot, playable map and input replay evidence",
+    "Reference and recompiled walking captures aligned by verified game logic ticks"
+  ],
+  "warnings": [
+    "SYNTHETIC INPUT: no stage establishes PAL1 game compatibility"
+  ],
+  "commands": [],
+  "claims": {
+    "game_ported": false,
+    "game_booted": false,
+    "walking_bug_identified": false,
+    "walking_fix_validated": false,
+    "native_ohos_validated": false
+  },
+  "created_utc": "2026-10-10T01:27:37.198696+00:00",
+  "output_directory": "/workspace/shared/pal-saturn-linux/project/build/synthetic-inventory",
+  "input_files": [
+    {
+      "path": "/workspace/shared/pal-saturn-linux/toolchain/fixtures/synthetic.cue",
+      "bytes": 72,
+      "sha256": "e7192c2bf152c0058bff44e03c7af9e6b62615325311e6bb7d43db88d8a24d0c"
+    },
+    {
+      "path": "/workspace/shared/pal-saturn-linux/toolchain/fixtures/synthetic.iso",
+      "bytes": 40960,
+      "sha256": "9dbe6cc3e4be24b30203b44160b2f1236b606c1ecd37ffe4fae95c28e90e9ba1"
+    }
+  ],
+  "input_hashes_unchanged": true
+}

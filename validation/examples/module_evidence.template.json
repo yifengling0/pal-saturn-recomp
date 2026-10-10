@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "template_only_no_pal1_addresses_or_modules_known",
+  "source_disc_sha256": null,
+  "product_and_edition_verified": false,
+  "modules": [],
+  "required_for_each_module": [
+    "actual extracted relative path and SHA-256",
+    "load address plus loader trace or crt0 evidence",
+    "entry address plus control-flow or runtime transfer evidence",
+    "module size, overlay lifetime, other resident dependencies",
+    "code/data boundaries and unresolved targets",
+    "cache-through mapping and any code mutation/SMC evidence",
+    "trace/log/disassembly filenames and line or offset references"
+  ],
+  "do_not_treat_as_proof": [
+    "BIN filename extension",
+    "the load address declared in IP.BIN alone",
+    "a high score from --find-base alone",
+    "toolchain self-tests or a synthetic demo"
+  ]
+}

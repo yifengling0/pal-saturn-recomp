@@ -1,0 +1,174 @@
+{
+ "areas": "JT",
+ "audio": {
+  "02": {
+   "frames": 111805,
+   "sha1": "6b2c9dcf5dced33788a730f032e50747ef7e7cde"
+  }
+ },
+ "files": {
+  "/0": {
+   "sha1": "a3ea291fe81e4a6f1bb5987eeea9afaa5e026ea6",
+   "size": 53068
+  },
+  "/A1.AVI": {
+   "sha1": "2d2f73ca470a5fc4d7badd76758b31250c9f1780",
+   "size": 2658574
+  },
+  "/A2.AVI": {
+   "sha1": "730558b43e0fe08cf9a6cc9c30ee70069ba3cb28",
+   "size": 13442844
+  },
+  "/A3.AVI": {
+   "sha1": "e249caf4f816c3359982b9d20b30e414138ec434",
+   "size": 5175212
+  },
+  "/A4.AVI": {
+   "sha1": "b73862fdfdffffad7ae7e63695592847b55f66bb",
+   "size": 2016828
+  },
+  "/A5.AVI": {
+   "sha1": "81c844814266e85563d28ff89987c2c7402d70b0",
+   "size": 30645980
+  },
+  "/A6.AVI": {
+   "sha1": "0bfc622115afde71e8759e232e22fc5cc9a19600",
+   "size": 27049084
+  },
+  "/ABC.J": {
+   "sha1": "31c0ebe6cfcf30e69b02d02161008306aeea9737",
+   "size": 6748160
+  },
+  "/AIF.NEW": {
+   "sha1": "7008d882f2b0e8b08136bd421f5538cf5cc797d7",
+   "size": 6443008
+  },
+  "/AIV.NEW": {
+   "sha1": "7d18b2540a9a33a6c2bcc18aaf78aaa011aadd1e",
+   "size": 20850
+  },
+  "/ALLDAT.NEW": {
+   "sha1": "a1cfb9661459f59a90a1ff26b43be004bb3d7fb5",
+   "size": 32084
+  },
+  "/ASCFONT.15": {
+   "sha1": "98f52b1e4e5b96ffc3bafa49481d3a62624f1486",
+   "size": 3840
+  },
+  "/BALL.NEW": {
+   "sha1": "d2ab3a39125f4b10d2ac297c22252d7f955b7db9",
+   "size": 143916
+  },
+  "/CERROR.TXT": {
+   "sha1": "17d8057b444adf3e1f7579b45917d49967282c12",
+   "size": 632
+  },
+  "/CM.FNT": {
+   "sha1": "215af19e525a7d08f27f44b5d27a5dd4adc982a4",
+   "size": 88842
+  },
+  "/CM.IDX": {
+   "sha1": "6341db4808219524b959ead0801f2286d2ecc693",
+   "size": 111012
+  },
+  "/CM.MSG": {
+   "sha1": "74f19dd0a3841f36897e62f8ab47955461be052d",
+   "size": 239616
+  },
+  "/CM.NOR": {
+   "sha1": "f4adb4a5ca69c564f69b04c383e1fa28fd4a3705",
+   "size": 63256
+  },
+  "/CM.SEC": {
+   "sha1": "5e2b19f36290ac1dc95be405da225c89a858ae90",
+   "size": 279432
+  },
+  "/FB.NEW": {
+   "sha1": "1cf9e98d3aa6c3d676e9bff1386dd7d399646d07",
+   "size": 60518
+  },
+  "/FBP.PX": {
+   "sha1": "6158bb3038be97b14092581c02887d08bdff529d",
+   "size": 3801088
+  },
+  "/FFF.J": {
+   "sha1": "86e52b8b17dd5da89df26d0ccb75f1bc10ee58ed",
+   "size": 559104
+  },
+  "/FIREN.AV": {
+   "sha1": "048ac9d457d69d2f51d462520db2e1f6df9fd149",
+   "size": 9414656
+  },
+  "/LOG1.PX": {
+   "sha1": "11974085d162f650c9a940762afe9aea63a4b4a6",
+   "size": 64512
+  },
+  "/LOG2.PX": {
+   "sha1": "6b5decfe699f1316de9d691c361c80d5a79fa2ee",
+   "size": 64512
+  },
+  "/MAPIC.JOE": {
+   "sha1": "a0a58651d8891fc9c9310001f1c80c0a96efd1b3",
+   "size": 1597440
+  },
+  "/MDAIF.JOE": {
+   "sha1": "bc97d35c310ff19169c73d75e87b82d64f6f018c",
+   "size": 23347200
+  },
+  "/MGO.J": {
+   "sha1": "8cfb194f9711027bf846a7c53c5279511fecd0a7",
+   "size": 11866112
+  },
+  "/MGO.NEW": {
+   "sha1": "03df313f82cfc580aa498a108f43ed5f029468a2",
+   "size": 16476160
+  },
+  "/MGOP.JOE": {
+   "sha1": "5657731e16debc4abefe462224b0dbd6e65fbb9e",
+   "size": 47491072
+  },
+  "/MID.JOE": {
+   "sha1": "1eb79a5480a796a7582cb3442f5e07652edc2d38",
+   "size": 18173952
+  },
+  "/PPAIF.JOE": {
+   "sha1": "0ff1940f7480697ee2c864b1f2ef21d521948f2c",
+   "size": 4786176
+  },
+  "/PROG.BIN": {
+   "sha1": "dec43974e4e91d54bf845b8517cfa76e467e861b",
+   "size": 399984
+  },
+  "/RGM.JOE": {
+   "sha1": "0cb981314930c9cf36b30e7d2ccb3bb306c1b722",
+   "size": 1013760
+  },
+  "/RNG.AV": {
+   "sha1": "f32a322744ebe7eb7a47c209b394b607b69f5898",
+   "size": 35444736
+  },
+  "/RNG.PAL": {
+   "sha1": "a1ffe0d03ed1654e6b81e3153f9a6878cdc40060",
+   "size": 22528
+  },
+  "/SMP_ABS.TXT": {
+   "sha1": "4ffb3bc0180963e4a36daba044485ad812a9f2bd",
+   "size": 83
+  },
+  "/SMP_BIB.TXT": {
+   "sha1": "ddbab022b1ad4e7808ecfd98dc8aa6ca5d7de5ec",
+   "size": 27
+  },
+  "/SMP_CPY.TXT": {
+   "sha1": "0546a7abd3cd45c799517fcba1863511d237f30b",
+   "size": 44
+  },
+  "/TRUE.BIN": {
+   "sha1": "1b1a643b809a49d71f2dd73458c248e26f33b1c9",
+   "size": 134200
+  }
+ },
+ "ip_sha1": "ac4596b35b6962acaa04b92ab0342ff7c21772b9",
+ "product": "T-37401H",
+ "version": "V1.000"
+}

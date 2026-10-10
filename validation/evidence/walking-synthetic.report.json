@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "input_kind": "synthetic",
+  "synthetic_is_game_evidence": false,
+  "samples": 5,
+  "game_tick_span": 4,
+  "excluded_tick_pairs": 0,
+  "exclusion_policy": "Exclude nonconsecutive game ticks, map transitions, and changed input",
+  "metrics": {
+    "world": {
+      "status": "measured",
+      "units": "observed_coordinate_units_per_game_logic_tick",
+      "eligible_tick_pairs": 4,
+      "deltas_xy_per_tick": [
+        [
+          2.0,
+          0.0
+        ],
+        [
+          2.0,
+          0.0
+        ],
+        [
+          2.0,
+          0.0
+        ],
+        [
+          2.0,
+          0.0
+        ]
+      ],
+      "median_distance_per_tick": 2.0,
+      "mean_distance_per_tick": 2.0,
+      "path_length_observed": 8.0,
+      "zero_delta_fraction": 0.0
+    },
+    "camera": {
+      "status": "measured",
+      "units": "observed_coordinate_units_per_game_logic_tick",
+      "eligible_tick_pairs": 4,
+      "deltas_xy_per_tick": [
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "median_distance_per_tick": 1.0,
+      "mean_distance_per_tick": 1.0,
+      "path_length_observed": 4.0,
+      "zero_delta_fraction": 0.0
+    },
+    "animation": {
+      "status": "measured",
+      "eligible_tick_pairs": 4,
+      "transition_count": 2,
+      "transition_fraction_per_tick": 0.5
+    }
+  },
+  "presentation_only": {
+    "vblank_span": 8,
+    "render_present_span": 16
+  },
+  "limits": [
+    "CSV origin and memory-coordinate meaning must be verified separately",
+    "A zero world delta can be normal collision, idle or a low-rate update; it is not a diagnosis",
+    "Animation labels are opaque; a transition count alone does not establish cycle length",
+    "No root cause, correct speed, baseline match or fix is inferred"
+  ],
+  "walking_bug_identified": false,
+  "walking_fix_validated": false
+}

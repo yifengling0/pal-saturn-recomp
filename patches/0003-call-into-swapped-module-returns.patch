@@ -1,0 +1,25 @@
+diff --git a/runtime/src/core/core.cpp b/runtime/src/core/core.cpp
+index 3d6cd4d..e87da92 100644
+--- a/runtime/src/core/core.cpp
++++ b/runtime/src/core/core.cpp
+@@ -179,7 +179,19 @@ static bool is_base(uint32_t addr) {
+ 
+ void sh2_call(SH2Context& c, uint32_t addr) {
+     if (addr >> 29 == 1) addr &= 0x1FFFFFFFu;
+-    if (SH2_UNLIKELY(is_base(addr))) { sh2_program_start(c, addr); return; }
++    if (SH2_UNLIKELY(is_base(addr))) {
++        // A loader may also jsr into a program it just swapped in at that address
++        // and expect it to return (SEGA's library does: the initial program calls
++        // the loaded one). Where the image there is a known module with an entry
++        // at addr, that call is ordinary: activating the module and unwinding
++        // would drop the loader's own host frames, so its rts would land nowhere.
++        if (const SH2Module* m = sh2_identify(addr)) {
++            sh2_activate(m);
++            if (SH2Func f = sh2_lookup(addr)) { f(c); return; }
++        }
++        sh2_program_start(c, addr);
++        return;
++    }
+     if (SH2Func f = sh2_lookup(addr)) f(c);
+     else sh2_call_unknown(c, addr);
+ }

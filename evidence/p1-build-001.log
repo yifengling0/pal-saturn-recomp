@@ -1,0 +1,11 @@
+note: SDL3 not found: this build has no window, pads or sound (headless runs only)
+verdict for win32: can build
+recompiling: asked to
+note: SDL3 not found: this build has no window, pads or sound (headless runs only)
+P0          512 functions    24996 instructions   5 files  0.4 s
+total: 1 modules, 512 functions, 24996 instructions, 6 files, 0.4 s
+$ cmake -S C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp -B C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build -G Ninja -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CXX_FLAGS=-static -DCMAKE_EXE_LINKER_FLAGS=-static
+  configuring the build: exit 0 in 1.4 s
+$ ninja -C C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build
+  the build: exit 0 in 12.9 s
+built: C:\Users\liufeng\Downloads\Palhero.net-pal-ss\PAL-Saturn-Recomp\build\recomp-build\saturn.exe

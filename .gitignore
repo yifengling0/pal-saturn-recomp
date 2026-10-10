@@ -1,0 +1,18 @@
+# 构建产物与本地版权输入不入库
+build/
+disc/
+*.bin
+*.cue
+*.mdf
+*.mds
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 上游与第三方依赖不入库：按 README 的固定提交自行拉取，再打上 patches/*
+third_party/
+
+# 体积过大的原始 trace（结论已在 docs/ 与 evidence/*.json 里给出复现命令）
+evidence/p1-trace-824.log
+evidence/p1-vdp2-002-trace-in-scene.log
+evidence/p1-true-009-trace-3000.log
