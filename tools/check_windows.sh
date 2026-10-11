@@ -4,7 +4,7 @@
 # Requires Git Bash plus cmake, ninja and a C++20 compiler on PATH.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-RT=third_party/saturn-recomp
+RT=third_party/saturn-recomp-pal
 PY=${PY:-build/venv/Scripts/python.exe}
 CXX=${CXX:-g++}
 B=build/check
@@ -13,10 +13,12 @@ B=build/check
 CMAKE=(-G Ninja -DCMAKE_CXX_COMPILER="$CXX" -DSATURN_NO_SDL=ON -DCMAKE_CXX_FLAGS=-static -DCMAKE_EXE_LINKER_FLAGS=-static)
 
 echo "== Python tests (upstream, pinned $RT)"
-# Upstream's agent/playtest harness hands a file descriptor to the child with subprocess
-# pass_fds, which Windows does not support, and prereqs.check labels Windows unsupported.
-# Both are the harness, not the recompiler: record the result and keep going.
-"$PY" -m pytest "$RT/tests" -q || echo "note: upstream Python tests reported Windows-only failures; see above"
+# Fail on every failure. Some upstream harness tests may need Windows fixes;
+# their failure must remain visible rather than being reported as a green run.
+"$PY" tools/prepare_linux_runtime.py
+"$PY" -m pytest "$RT/tests" -q
+"$PY" -m unittest discover -s validation/tests
+"$PY" -m pytest tools/tests -q
 
 echo "== instruction self-test: generate SH-2 program and vectors"
 "$PY" -m saturnrecomp.recomp --out "$B/optest" --optest

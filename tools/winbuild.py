@@ -24,6 +24,8 @@ untouched; the patch is monkeypatching inside this process only.
 """
 from __future__ import annotations
 import argparse
+import hashlib
+from pathlib import Path
 import json
 import os
 import shutil
@@ -42,6 +44,46 @@ CXX = os.environ.get("CXX", "g++")
 # -static: see gap 2 above. Also what makes the build portable to a plain Windows box (P3).
 STATIC = ["-DCMAKE_CXX_FLAGS=-static", "-DCMAKE_EXE_LINKER_FLAGS=-static"]
 LOG = []
+OPTIONS = False
+JOBS = 2
+REQUIRE_SDL = False
+PATCHED_RUNTIME = Path(ROOT) / "third_party/saturn-recomp-pal/runtime"
+
+
+def win_stale(game):
+    """Upstream game.saturn omits .exe; test the actual Windows binary."""
+    if not os.path.isfile(exe(game)):
+        return ["no build yet"]
+    try:
+        before = json.loads(Path(build._stamp(game)).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ["no record of the last recompile's inputs"]
+    now = build.inputs(game)
+    return [key for key in sorted(set(before) | set(now)) if before.get(key) != now.get(key)]
+
+
+def verify_options_runtime():
+    # This helper is platform-neutral despite its historical filename. It
+    # preserves a clean parser checkout and verifies the exact five-patch diff.
+    from prepare_linux_runtime import prepare, PIN
+    expected = PATCHED_RUNTIME.parent / "src/saturnrecomp/build.py"
+    if Path(build.__file__).resolve() != expected.resolve():
+        raise SystemExit("Wrong imported generator: install with python -m pip install -e third_party/saturn-recomp-pal")
+    clean = Path(ROOT) / "third_party/saturn-recomp"
+    patches = [next((Path(ROOT) / "patches").glob(f"{n:04d}-*.patch")) for n in range(1, 6)]
+    prepare(clean, PATCHED_RUNTIME.parent, PIN, patches)
+
+
+def option_build_manifest(game):
+    """Only a successful linked executable receives its launch capability proof."""
+    from pal_options import VERSION, MANIFEST
+    binary = Path(exe(game))
+    injected = Path(game.build) / "recomp" / MANIFEST
+    data = {"schema": 1, "version": VERSION,
+            "exe_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+            "instrumentation_manifest_sha256": hashlib.sha256(injected.read_bytes()).hexdigest(),
+            "features": ["input_v4", "effect_wait_v3"]}
+    (binary.parent / "pal-options-build.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def log(msg=""):
@@ -60,7 +102,8 @@ def prereq_verdict(cxx=CXX):
         if failed:
             problems.append(failed)
         elif not sdl:
-            notes.append("SDL3 not found: this build has no window, pads or sound (headless runs only)")
+            (problems if REQUIRE_SDL else notes).append(
+                "SDL3 not found: no window, pads or sound; supply --sdl-dir or explicitly use --headless")
         else:
             notes.append(f"ok: SDL3 {sdl}")
     return problems, notes
@@ -92,7 +135,20 @@ def win_recompile(game, log=log):
         specs.append((m.name, m.file, m.base, sorted(seeds)))
     tasks = (game.tasks.setjmp, game.tasks.longjmp) if game.tasks else None
     out = os.path.join(game.build, "recomp")
+    if OPTIONS:
+        proof = Path(game.build) / "recomp-build/pal-options-build.json"
+        if proof.exists():
+            proof.unlink()
+        # Recreate only these dedicated, reproducible build inputs. Never mutate
+        # the clean parser or patched source runtime, nor the baseline build.
+        for directory in (Path(out), Path(game.build) / "runtime"):
+            if directory.exists():
+                shutil.rmtree(directory)
+        shutil.copytree(PATCHED_RUNTIME, Path(game.build) / "runtime")
     generate(specs, out, log=log, hooks=game.hooks, tasks=tasks)
+    if OPTIONS:
+        from pal_options import prepare_options
+        prepare_options(Path(out), Path(game.build) / "runtime", Path(ROOT))
     build_dir = os.path.join(game.build, "recomp-build")
     cache = os.path.join(build_dir, "CMakeCache.txt")
     if os.path.exists(cache):
@@ -106,7 +162,12 @@ def win_recompile(game, log=log):
 
 def win_build(game):
     build_dir = os.path.join(game.build, "recomp-build")
-    _run("the build", ["ninja", "-C", build_dir], build_dir)
+    proof = Path(build_dir) / "pal-options-build.json"
+    if OPTIONS and proof.exists():
+        proof.unlink()  # A failed rebuild must not leave an old capability proof.
+    _run("the build", ["cmake", "--build", build_dir, "--target", "saturn", "--parallel", str(JOBS)], build_dir)
+    if OPTIONS:
+        option_build_manifest(game)
 
 
 def _run(what, args, build_dir):
@@ -126,7 +187,7 @@ def _run(what, args, build_dir):
 
 
 def win_ensure(game, recompile_all=False):
-    changed = ["asked to"] if recompile_all else build.stale(game)
+    changed = ["asked to"] if recompile_all else win_stale(game)
     if changed:
         log("recompiling: " + ", ".join(changed))
         win_recompile(game)
@@ -148,6 +209,7 @@ def run_args(game, args, out=None):
 
 
 def main(argv=None):
+    global OPTIONS, JOBS, REQUIRE_SDL
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--" in argv:                        # saturn's own flags start at the first bare --
         cut = argv.index("--")
@@ -160,7 +222,25 @@ def main(argv=None):
     ap.add_argument("--out", default=None)
     ap.add_argument("--limit", type=int, default=40)
     ap.add_argument("--recompile", action="store_true")
+    ap.add_argument("--pal-options", action="store_true", help="Build both default-off PAL options in an isolated executable")
+    ap.add_argument("--build-dir", type=Path, help="Dedicated output under this repository's build directory")
+    ap.add_argument("--sdl-dir", type=Path, help="Directory containing SDL3Config.cmake")
+    ap.add_argument("--headless", action="store_true", help="Explicitly compile without window/audio support")
+    ap.add_argument("--jobs", type=int, default=2)
     a = ap.parse_args(argv)
+    OPTIONS, JOBS = a.pal_options, a.jobs
+    REQUIRE_SDL = (OPTIONS or a.sdl_dir is not None) and not a.headless
+    if a.jobs < 1:
+        ap.error("--jobs must be positive")
+    if a.sdl_dir and a.headless:
+        ap.error("--sdl-dir and --headless are mutually exclusive")
+    # Venv executables are siblings of this Python on both Windows and Linux.
+    os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", "")
+    if a.sdl_dir:
+        a.sdl_dir = a.sdl_dir.resolve()
+        if not (a.sdl_dir / "SDL3Config.cmake").is_file():
+            ap.error("--sdl-dir must contain SDL3Config.cmake")
+        os.environ["SDL3_DIR"] = a.sdl_dir.as_posix()
     os.chdir(ROOT)
     args = saturn_args
 
@@ -174,6 +254,41 @@ def main(argv=None):
         return 1 if problems else 0
 
     game = config.load(a.config)
+    # Machine paths do not belong in game.toml. Preserve unrelated game flags.
+    game.cmake = [x for x in game.cmake if not x.startswith(("SATURN_EXTRA=", "SDL3_DIR=", "SATURN_RUNTIME=", "SATURN_NO_SDL="))]
+    game.cmake.append("SATURN_EXTRA=" + (Path(ROOT) / "src/pal_game/pal_game.cmake").as_posix())
+    if a.sdl_dir:
+        game.cmake.append("SDL3_DIR=" + a.sdl_dir.as_posix())
+    game.cmake.append("SATURN_NO_SDL=" + ("ON" if a.headless else "OFF"))
+    if OPTIONS:
+        output = (a.build_dir or Path(ROOT) / "build/windows-pal-options").resolve()
+        if output == Path(ROOT) / "build" or not output.is_relative_to(Path(ROOT) / "build"):
+            ap.error("Option output must be a dedicated directory under ROOT/build")
+        owner = output / "pal-options-root.json"
+        owner_data = {"schema": 1, "kind": "pal-windows-options-generated-build"}
+        if output.exists() and any(output.iterdir()):
+            try:
+                owned = json.loads(owner.read_text(encoding="utf-8")) == owner_data
+            except (OSError, ValueError):
+                owned = False
+            if not owned:
+                ap.error("Refusing to replace an existing unowned build directory; choose a new --build-dir")
+        game.build = str(output)
+        game.cmake.append("SATURN_RUNTIME=" + (output / "runtime").as_posix())
+        if a.what != "run":
+            verify_options_runtime()
+            output.mkdir(parents=True, exist_ok=True)
+            owner.write_text(json.dumps(owner_data) + "\n", encoding="utf-8")
+        original_inputs = build.inputs
+        def option_inputs(game):
+            data = original_inputs(game)
+            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
+                data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            return data
+        build.inputs = option_inputs
+    elif a.build_dir:
+        ap.error("--build-dir requires --pal-options")
+    build.stale = win_stale
     build.recompile = win_recompile          # upstream stays untouched on disk
     build.build = win_build
     if a.what == "build":
