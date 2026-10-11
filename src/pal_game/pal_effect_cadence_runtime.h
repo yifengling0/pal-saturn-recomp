@@ -8,18 +8,7 @@ extern uint64_t sat_vblanks();
 extern bool pal_effect_cadence_scope_supported() noexcept;
 extern uint8_t g_vdp2_regs[0x200];
 namespace pal_effect_cadence {
-// Safety stop: shortened sync can skip the original VDP1 swap/DMA phase.
-// Keep the failed candidates and tests; restore acceleration only after complete
-// relative-to-original sprite/effect visibility regression passes.
-inline Speed speed() noexcept {
-    static const Speed s=[] {
-        const Speed requested=parse_speed(std::getenv("PAL_EFFECT_ANIMATION_SPEED"));
-        if(requested!=Speed::original)
-            std::fprintf(stderr,"PAL_EFFECT_ANIMATION_SPEED: rates above 1 temporarily disabled (missing-sprite regression); using original rate 1.\n");
-        return Speed::original;
-    }();
-    return s;
-}
+inline Speed speed() noexcept { static const Speed s=parse_speed(std::getenv("PAL_EFFECT_ANIMATION_SPEED"));return s; }
 inline uint8_t raw8(uint32_t a) noexcept {
     const uint32_t p=a&0x1FFFFFFFu;
     if(p>=0x06000000u && p<0x06100000u)return g_wram_h[p&0xFFFFF];
@@ -104,7 +93,7 @@ struct Wait {
     Wait(const Wait&)=delete;Wait& operator=(const Wait&)=delete;
 };
 struct Sync {
-    Sync* previous;SH2Context* c=nullptr;uint64_t start=0;bool cut=false;unsigned fields=2;
+    Sync* previous;SH2Context* c=nullptr;Wait* owner=nullptr;uint32_t base=0;uint64_t start=0;bool switched=false;unsigned fields=2;
     explicit Sync(SH2Context& x) noexcept:previous(sync) {
         sync=nullptr;
         if(!wait || !wait->owner || wait->owner!=frame || !frame->owner ||
@@ -114,21 +103,26 @@ struct Sync {
         // Fail closed for a different scheduler phase. No forced catch-up,
         // no interval mutation, and never skip a real composed-field sync.
         if(fields!=1 || raw8(x.gbr+18)!=2 || raw8(x.gbr+19)!=1)return;
-        c=&x;start=sat_vblanks();sync=this;
+        c=&x;owner=wait;base=x.gbr&0x1FFFFFFFu;start=sat_vblanks();sync=this;
     }
-    ~Sync() noexcept {sync=previous;}
+    ~Sync() noexcept {if(c)std::fprintf(stderr,"PAL_CADENCE_SYNC vb=%llu end=%llu actual_vb=%llu requested=%u applied=%u\n",(unsigned long long)start,(unsigned long long)sat_vblanks(),(unsigned long long)(sat_vblanks()-start),fields,unsigned(switched));sync=previous;}
     Sync(const Sync&)=delete;Sync& operator=(const Sync&)=delete;
 };
-inline void shorten_sync(SH2Context& c) noexcept {
-    if(sync && sync->c==&c && c.t && c.r[0]==0 && sat_vblanks()>sync->start) {
-        c.t=false;sync->cut=true;
+inline void prepare_sync(SH2Context& c) noexcept {
+    if(sync && sync->c==&c && !sync->switched &&
+       sync->owner==wait && wait && wait->owner==frame && frame &&
+       frame->owner==cast && cast && cast->armed &&
+       (c.gbr&0x1FFFFFFFu)==sync->base && sat_vblanks()==sync->start &&
+       raw8(c.gbr+18)==2 && raw8(c.gbr+19)==1 &&
+       (raw8(c.gbr+176)&0x90u)==0 && (raw8(c.gbr+27)&2u)==0 &&
+       raw8(c.gbr+168)!=0 && (raw8(c.gbr+188)&4u)!=0 &&
+       (ld16(0x25F80004u)&8u)==0 && (ld16(0x25D00002u)&3u)>=2u) {
+        // Queue the original manual erase phase ahead of the next OUT. The
+        // unchanged OUT handler then queues change + DMA, and OUT N+1
+        // consumes erase + change together. Never force the wait to return.
+        // These two stores contain no SH2 safe point. A later unwind cannot
+        // roll back the hardware request; destructors only release scopes.
+        st16(0x25D00002u,2);st8(c.gbr+19,0);sync->switched=true;
     }
-}
-inline void finish_sync(SH2Context& c) noexcept {
-    // The original instruction still performs the only guest countdown write.
-    // Its residual is zero after the early field; subtract just that saved field
-    // so the following ordinary sync keeps the normal countdown=1 phase.
-    // If asynchronous work already consumed another field, leave it original.
-    if(sync && sync->c==&c && sync->cut && c.r[0]==2 && raw8(c.gbr+19)==0)c.r[0]=1;
 }
 } // namespace pal_effect_cadence

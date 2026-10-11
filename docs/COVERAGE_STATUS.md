@@ -132,3 +132,35 @@ subtests pass. See [INTRO_AUDIO_STREAMING.md](INTRO_AUDIO_STREAMING.md) for
 causal evidence, exact commands, binary hash and remaining Windows/audio bounds.
 This does not establish original-hardware BIOS state or fix the separate
 Windows synthetic selftest 0xC0000409 report, whose failure evidence is pending.
+
+
+## Guarded battle-animation replacement (2026-10-11)
+
+The earlier accelerated missing-sprite candidate remains rejected. A new
+manual erase/change-pair implementation preserves the original IRQ and DMA
+submission path rather than forcing a shortened wait to return. Four spells at
+four rates have complete per-index visual checks, including post-effect cleanup;
+12 legal victory/save/load closures passed. Second Sword-cast differences are
+complete original enemy idle poses, verified by full texture hashes and draw
+commands. Default full RAM/video/BUP parity passed.
+
+Fresh integrated builds include the cold opening fix: headless SHA256
+`4a514371d87c829e9791540e0e322ed481dac28c365d28205a7e786687ffefba`, SDL
+`8ccacd88375f8b80a8ae24e674adc8a0b4f7ddaa74c27edd71593ba6548c4446`.
+Each passes four Thunder profiles with300/300 same-VB reference images and
+same-profile BUP parity. The complete build also retains10 corrected opening,
+12 first-battle,94 precise walking and44 quick group-spell reference images,
+plus gameplay BUP parity.72 tool tests and6 subtests pass.
+
+The new launcher requires `effect_cadence_v4_manual_pair` for rates above1 and
+rejects the old unsafe `effect_cadence_v1` capability. Default remains1.
+See [EFFECT_ANIMATION_SPEED.md](EFFECT_ANIMATION_SPEED.md) for the limited effect
+whitelist, non-equivalent idle/RNG timing,2x Thunder release-tail boundary, and
+unproven arbitrary post-submission ProgramStart recovery. No full-game or
+physical Windows sound-device pass follows from these tests.
+
+One maximum-options first-round smoke also passed: precise + paired walking +
+CD4 + quick preparation + animation2, compared with animation1 under the same
+other options. All7 effect frames and all entities remain complete, damage60
+and7MP cost occur, and the command menu returns. This does not assert every
+option combination or whole-battle completion for this specific new replay.

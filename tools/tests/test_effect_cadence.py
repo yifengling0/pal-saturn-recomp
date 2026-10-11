@@ -15,7 +15,7 @@ def test_cadence_policy_and_runtime_scope():
             str(ROOT/'tools/tests/effect_cadence_test.cpp'), '-o', str(exe)], check=True, capture_output=True)
         for speed in ('1', '1.25', '1.5', '2', 'bad'):
             result = subprocess.run([str(exe)], env=dict(os.environ, PAL_EFFECT_ANIMATION_SPEED=speed), check=True, capture_output=True)
-            assert (b'temporarily disabled' in result.stderr) == (speed in ('1.25', '1.5', '2'))
+            assert b'temporarily disabled' not in result.stderr
 
 
 def test_runtime_fiber_modes_fail_closed():

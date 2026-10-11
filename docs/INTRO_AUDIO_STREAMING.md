@@ -94,8 +94,9 @@ accepts both 0 and 1 as non-errors. A1 includes 19
 zero-length repeated-picture chunks, so 1195 processed chunks do not mean 1195
 unique pictures. The broken baseline consumed only A1's first 43 video chunks;
 its final decode was VB1451, first final static presentation VB1453. A 19000 VB
-unattended warm-reentry check triggered the correction only once and remained
-at the normal title. START 1600 still reaches the same title by VB1900.
+unattended title soak remained at the normal title. The observed warm TRUE
+reentry is A1→A2, where the now-valid cache is not changed again; the entire
+run triggers the correction only once. START 1600 still reaches the same title by VB1900.
 
 Native Windows execution and physical sound-device output still need the
 user's local verification. Rebuild the generated game after updating; replacing

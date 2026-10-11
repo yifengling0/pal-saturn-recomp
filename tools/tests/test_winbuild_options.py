@@ -79,7 +79,7 @@ class WindowsDraftTests(unittest.TestCase):
         self.m.option_build_manifest(self.game)
         proof=json.loads((binary.parent/'pal-options-build.json').read_text())
         self.assertEqual(proof['exe_sha256'],hashlib.sha256(binary.read_bytes()).hexdigest())
-        self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed','effect_cadence_v1','paired_frame_queue_v3'])
+        self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed','effect_cadence_v4_manual_pair','paired_frame_queue_v3'])
     def test_new_game_layer_cpp_is_fingerprinted(self):
         source=self.root/'src/pal_game/pal_audio_stream_init.cpp'
         source.parent.mkdir(parents=True);source.write_text('// fixture one')

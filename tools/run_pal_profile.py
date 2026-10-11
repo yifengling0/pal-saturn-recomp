@@ -49,9 +49,6 @@ def main(argv=None):
     args = parser.parse_args(own)
     if args.paired_frames and args.profile != 'precise':
         parser.error('--paired-frames requires precise profile (without experimental timing wake/align)')
-    if args.effect_animation_speed != '1':
-        print('Animation rates above 1 are temporarily disabled: verified missing-sprite frames. Use --effect-animation-speed 1; preparation and input options remain separate.', file=sys.stderr)
-        return 3
     exe = args.exe.resolve()
     if not exe.is_file():
         print(f'Missing executable: {exe}', file=sys.stderr)
@@ -60,7 +57,7 @@ def main(argv=None):
     if args.data_cd_speed != '1':
         required.append('data_cd_speed')
     if args.effect_animation_speed != '1':
-        required.append('effect_cadence_v1')
+        required.append('effect_cadence_v4_manual_pair')
     if args.paired_frames:
         required.append('paired_frame_queue_v3')
     try:

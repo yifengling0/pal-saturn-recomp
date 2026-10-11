@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-effect-v3-cadence-v3-safety-stop-queue-v3-1'
+VERSION = 'pal-options-input-v4-effect-v3-cadence-v4-manual-pair-queue-v3-1'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
@@ -136,8 +136,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     changed_cadence.add(function(texts, '060223C0', lambda text: instruction(text, '06022426',
         before='{ pal_effect_cadence::Wait pal_cadence_wait(c);', after='}', expected='f_0603E818(c)')))
     def cadence_sync(text):
-        text = instruction(text, '0605D6BA', before='pal_effect_cadence::shorten_sync(c);', expected='if (c.t)')
-        return instruction(text, '0605D770', before='pal_effect_cadence::finish_sync(c);', expected='st8(c.gbr + 19, c.r[0])')
+        return instruction(text, '0605D6B0', before='pal_effect_cadence::prepare_sync(c);', expected='c.r[0] = ld32(c.gbr + 972)')
     changed_cadence.add(function(texts, '0605D68A', cadence_sync))
     for p in changed_cadence:
         texts[p] = '#include "pal_effect_cadence_runtime.h"\n' + texts[p]

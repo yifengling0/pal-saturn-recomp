@@ -82,7 +82,7 @@ def option_build_manifest(game):
     data = {"schema": 1, "version": VERSION,
             "exe_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
             "instrumentation_manifest_sha256": hashlib.sha256(injected.read_bytes()).hexdigest(),
-            "features": ["input_v4", "effect_wait_v3", "data_cd_speed", "effect_cadence_v1", "paired_frame_queue_v3"]}
+            "features": ["input_v4", "effect_wait_v3", "data_cd_speed", "effect_cadence_v4_manual_pair", "paired_frame_queue_v3"]}
     (binary.parent / "pal-options-build.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 

@@ -93,7 +93,12 @@ class InjectionTests(unittest.TestCase):
         self.assertIn('${CMAKE_CURRENT_LIST_DIR}/../runtime', (self.recomp / 'CMakeLists.txt').read_text())
         self.assertEqual(manifest['defaults']['PAL_EFFECT_ANIMATION_SPEED'], '1')
         self.assertEqual({v for k,v in manifest['defaults'].items() if k != 'PAL_EFFECT_ANIMATION_SPEED'}, {'0'})
-        self.assertEqual(text.count('pal_effect_cadence::shorten_sync(c);'), 1)
+        self.assertEqual(text.count('pal_effect_cadence::prepare_sync(c);'), 1)
+        self.assertNotIn('pal_effect_cadence::shorten_sync', text)
+        self.assertNotIn('pal_effect_cadence::finish_sync', text)
+        sync_body=text.split('void f_0605D68A(SH2Context& c) {',1)[1].split('\nvoid ',1)[0]
+        self.assertLess(sync_body.index('pal_input_sync_enter(c);'), sync_body.index('pal_effect_cadence::prepare_sync(c);'))
+        self.assertLess(sync_body.index('pal_effect_cadence::prepare_sync(c);'), sync_body.index('c.r[0] = ld32(c.gbr + 972)'))
         for name in m.HEADERS:
             self.assertEqual((self.recomp / name).read_bytes(), (REPO / 'src/pal_game' / name).read_bytes())
         self.assertNotIn('pal_battle_probe', text)

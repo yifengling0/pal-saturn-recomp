@@ -1,11 +1,8 @@
 # Windows 本地验证：输入与施法选项
 
-> **Safety update 2026-10-11:** animation rates above1 are temporarily blocked by
-> the launcher. Direct environment requests also warn and fall back to1 after
-> rebuilding. Real Thunder footage revealed missing character/enemy frames at
->1.5/2; prior same-mode replay equality did not prove original-picture integrity.
-> Keep animation1. Quick preparation and precise input are separate options.
-> Historical measurements below remain evidence, not current accelerated-mode acceptance.
+动画1仍为默认。新的 manual-pair 版本修正了旧加速版人物闪失问题；请求1.25/1.5/2
+必须使用重新编译、带 effect_cadence_v4_manual_pair 能力标记的 executable。
+启动器会拒绝旧 effect_cadence_v1 程序。快准备、精准输入与演出倍率仍可分别选择。
 
 
 这份步骤面向现有 Windows / MinGW-w64 `g++` 环境。Windows 实机运行、声卡和
@@ -20,7 +17,7 @@
 A2 的 930 个视频块并到标题，原首战/精准行走/快速施法回归一致。
 这项修复默认启用，必须重新生成并编译；旧 executable 不会随脚本更新自动获得。
 详细无输入验证命令见 [INTRO_AUDIO_STREAMING.md](INTRO_AUDIO_STREAMING.md)。
-Windows 实机声卡仍待你复验；动画倍率大于1的安全限制继续有效。
+Windows 实机声卡仍待你复验；旧加速 executable 的拒绝检查继续有效。
 
 ## 包含什么
 
@@ -39,9 +36,10 @@ Windows 实机声卡仍待你复验；动画倍率大于1的安全限制继续�
   改动，会增加 NPC/脚本/RNG 执行机会，不是推荐的精准输入基本档。
 - 可选数据CD读取倍率见 [DATA_CD_SPEED.md](DATA_CD_SPEED.md)：`--data-cd-speed 1/2/4`，
   默认1，仅改变数据扇区就绪时间，CDDA与全局时钟不加速。
-- 演出倍率当前仅允许 `--effect-animation-speed 1`；大于1明确拒绝并退出，
-  重建后的直接环境变量请求也会警告并回退1。详见
-  [EFFECT_ANIMATION_SPEED.md](EFFECT_ANIMATION_SPEED.md)。快准备仍可单独开启。
+- 演出倍率 `--effect-animation-speed 1/1.25/1.5/2` 默认1；只有新 manual-pair
+  构建允许大于1，旧危险版本被拒绝。详见
+  [EFFECT_ANIMATION_SPEED.md](EFFECT_ANIMATION_SPEED.md)。倍率仅覆盖已测四招，
+  未识别效果/不满足安全条件时走原时序。2倍雷咒约2.87毫秒音尾差异仍保留。
 - 可选完整配对画面 `precise --paired-frames`，默认关闭；详见
   [PAIRED_FRAME_QUEUE.md](PAIRED_FRAME_QUEUE.md)。三帧收益属于有边界的实验呈现路径。
 - 已弃用的仅切 VDP1 buffer 早显原型不在此构建中。

@@ -24,3 +24,12 @@ def test_registered_movie_sound_cache_callback():
             str(ROOT/'src/pal_game/pal_audio_stream_init.cpp'),'-o',str(exe)],
             check=True,capture_output=True)
         subprocess.run([str(exe)],check=True,capture_output=True)
+
+
+def test_default_game_layer_registers_true_hook_and_source():
+    import tomllib
+    game=tomllib.loads((ROOT/'game.toml').read_text())
+    hooks=[h for h in game['hook'] if h.get('at')==0x06021C1E]
+    assert hooks==[{'module':'TRUE','at':0x06021C1E}]
+    cmake=(ROOT/'src/pal_game/pal_game.cmake').read_text()
+    assert cmake.count('${CMAKE_CURRENT_LIST_DIR}/pal_audio_stream_init.cpp')==1
