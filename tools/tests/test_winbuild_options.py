@@ -99,7 +99,7 @@ class WindowsDraftTests(unittest.TestCase):
     def test_wrong_imported_generator_is_rejected_before_prepare(self):
         self.fakebuild.__file__ = str(self.root / 'wrong-checkout/src/saturnrecomp/build.py')
         prepare = Mock()
-        with patch.dict(sys.modules, {'prepare_linux_runtime': SimpleNamespace(prepare=prepare, PIN='fixture')}):
+        with patch.dict(sys.modules, {'prepare_linux_runtime': SimpleNamespace(prepare=prepare, PIN='fixture', patch_set=Mock(return_value=[]))}):
             with self.assertRaisesRegex(SystemExit, 'Wrong imported generator'):
                 self.m.verify_options_runtime()
         prepare.assert_not_called()

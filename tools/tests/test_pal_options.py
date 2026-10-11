@@ -77,15 +77,16 @@ class InjectionTests(unittest.TestCase):
             dest = self.runtime / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / 'third_party/saturn-recomp-pal/runtime' / name, dest)
-        # The runtime reader accepts one coherent variant: 0011's host.cpp is the Chinese-menu
-        # generation, so the fixture carries that generation's Settings and every pinned helper/UI
-        # file. Deriving the list from the pins keeps it honest when a patch adds one.
-        from pal_keyboard_profile import HARMONY_RUNTIME_HELPERS, HARMONY_UI_RUNTIME_FILES
-        for name in ('src/host/settings.cpp', *(f'src/host/{n}' for n in HARMONY_RUNTIME_HELPERS),
-                     *HARMONY_UI_RUNTIME_FILES):
-            dest = self.runtime / name
+        # Read the complete selected variant: UI13 also owns edge-menu helpers,
+        # and 0015 owns pal_tap_hold.h. Do not stop at the older UI11 map.
+        from pal_keyboard_profile import runtime_support_inputs
+        source_runtime = (REPO / 'third_party/saturn-recomp-pal/runtime').resolve()
+        source_settings = source_runtime / 'src/host/settings.cpp'
+        shutil.copy2(source_settings, self.runtime / 'src/host/settings.cpp')
+        for source in runtime_support_inputs(source_runtime):
+            dest = self.runtime / source.relative_to(source_runtime)
             dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(REPO / 'third_party/saturn-recomp-pal/runtime' / name, dest)
+            shutil.copy2(source, dest)
 
 
     def tearDown(self):
