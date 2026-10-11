@@ -14,8 +14,10 @@ static float test_scale=1;
 static int test_w=1920,test_h=1080,stops=0;
 static bool test_pal=false;
 static std::string diagnostic;
-static int diagnostic_lines=0;
-void sat_note(const char* format,...) {char message[1024];va_list a;va_start(a,format);vsnprintf(message,sizeof message,format,a);va_end(a);if(std::string(message).rfind("layoutdiag ",0)==0){diagnostic=message;++diagnostic_lines;}}
+static int diagnostic_lines=0,feature_lines=0;
+static std::string feature_log;
+static int edit_save_failures=0;
+void sat_note(const char* format,...) {char message[1024];va_list a;va_start(a,format);vsnprintf(message,sizeof message,format,a);va_end(a);if(std::string(message).rfind("layoutdiag ",0)==0){diagnostic=message;++diagnostic_lines;}if(std::string(message).rfind("PAL host UI features:",0)==0){feature_log=message;++feature_lines;}if(std::string(message).rfind("touch editor: save failed",0)==0)++edit_save_failures;}
 void state_stop(const char*) { ++stops; }
 uint64_t sat_vblanks() { return 0; }
 void write_png(const std::string&,const Frame&) {}
@@ -44,9 +46,90 @@ static std::pair<MenuLayout,MenuRow> locate(MenuId id){
   std::fprintf(stderr,"Required MenuId %d is unreachable, not substituting another row\n",(int)id);std::exit(3);
 }
 static bool contained(SDL_FRect a,SDL_FRect b){return a.x+.02f>=b.x&&a.y+.02f>=b.y&&a.x+a.w<=b.x+b.w+.02f&&a.y+a.h<=b.y+b.h+.02f;}
+static void discovery_tests(const std::string& directory) {
+ std::filesystem::create_directories(directory);
+ g_settings_path=directory+"/discovery.ini";g_cfg.after="";g_touchscreen=true;
+ for(auto wh:{std::pair{320,120},std::pair{320,180},std::pair{426,240},std::pair{640,360},std::pair{360,800},std::pair{1280,800}})
+ for(float density:{1.f,2.f,3.f})for(int version:{1,2}) {
+  test_scale=density;test_w=g_out_w=(int)(wh.first*density);test_h=g_out_h=(int)(wh.second*density);
+  g_settings_text="; preserve legacy user choices\n[touch]\nlayout_version = "+std::to_string(version)+"\nsize = 140\nopacity = 75\nspacing = 160\nstyle = japanese\ncontrols = off\nmenu_button = false\ndpad_x = 1500\ndpad_y = 8000\nface_x = 8500\nface_y = 8000\nleft_x = 1000\nleft_y = 500\nright_x = 9000\nright_y = 500\nstart_x = 4400\nstart_y = 8500\nmenu_x = 5600\nmenu_y = 8500\n[display]\npresentation = original\n[keyboard]\na = Space\n[gamepad]\na = b\n[controls]\nkeyboard_profile = pc98\n[keyboard pc98]\nconfirm = Return\n[future]\nuser = keep-me\n";
+  g_settings=Settings{};std::vector<std::string> problems;g_settings.read(g_settings_text,problems);
+  CHECK(host_settings_save());bool exists=false;const auto before=settings_load(g_settings_path,exists);CHECK(exists);
+  const Settings original=g_settings;const auto positions=saved_touch_positions();
+  auto unchanged=[&](){CHECK(settings_load(g_settings_path,exists)==before);CHECK(g_settings.write_over(before)==before);CHECK(g_settings.number("touch","layout_version")==version);};
+  auto request=[&](){
+   menu_close();g_quitting=false;
+#ifdef PAL_TEST_PROFILE_F10
+   SDL_Event open{};open.type=SDL_EVENT_KEY_DOWN;open.key.scancode=SDL_SCANCODE_F10;on_event(open);CHECK(g_menu_open);
+#else
+   menu_open();
+#endif
+   auto first=menu_layout();CHECK(g_menu_page==0);CHECK(first.rows[0].id==M_RESUME);
+   // At 120 logical pixels only one 48-unit row fits. The entry is the next row,
+   // on page 2; all tested common heights >=180 show it immediately on page 1.
+   if(wh.second>=180)CHECK(first.rows.size()>1&&first.rows[1].id==M_EDIT_LAYOUT);
+   auto move=locate(M_EDIT_LAYOUT);CHECK(wh.second<180||g_menu_page==0);tap_rect(move.second.r);
+   CHECK(g_menu_open);CHECK(g_confirm_layout==(version==1));CHECK(g_layout_edit==(version>=2));unchanged();
+  };
+  auto enter=[&](){request();if(version==1){CHECK(menu_layout().rows[0].id==M_CANCEL_LAYOUT);auto yes=locate(M_CONFIRM_LAYOUT);tap_rect(yes.second.r);}
+   CHECK(g_layout_edit&&!g_confirm_layout);unchanged();
+   for(int i=0;i<kTouchGroups;++i){CHECK(g_edit_positions[i].x==positions[i].x);CHECK(g_edit_positions[i].y==positions[i].y);}
+   const auto expected=touch_mobile_layout(g_out_w,g_out_h,test_scale,140,160);CHECK(near(pad_layout().dpad_r,expected.dpad_r));
+  };
+  if(version==1){
+   request();auto cancel=locate(M_CANCEL_LAYOUT);tap_rect(cancel.second.r);CHECK(g_menu_open&&!g_confirm_layout&&!g_layout_edit);unchanged();
+   request();SDL_Event back{};back.type=SDL_EVENT_KEY_DOWN;back.key.scancode=SDL_SCANCODE_AC_BACK;on_event(back);CHECK(!g_menu_open&&!g_confirm_layout&&!g_layout_edit);unchanged();
+   request();SDL_Event pad{};pad.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;pad.gbutton.button=SDL_GAMEPAD_BUTTON_EAST;on_event(pad);CHECK(!g_menu_open&&!g_confirm_layout);unchanged();
+   request();tap_rect(menu_back_rect(menu_layout()));CHECK(!g_menu_open&&!g_confirm_layout);unchanged();
+  }
+  for(int cancel_method:{0,1,2,3}){
+   enter();g_edit_positions[(int)TouchGroup::Menu]={7800,1100};
+   if(wh.second>=240){auto b=touch_group_bounds(pad_layout(),TouchGroup::Face);finger(SDL_EVENT_FINGER_DOWN,917,b.x+b.w/2,b.y+b.h/2);CHECK(g_edit_dragging);finger(SDL_EVENT_FINGER_MOTION,917,b.x+b.w/2-20*density,b.y+b.h/2);CHECK(g_fingers.empty()&&touch_read()==0);finger(SDL_EVENT_FINGER_UP,917,0,0);}
+   if(cancel_method==0)tap_rect(touch_edit_toolbar().cancel);
+   if(cancel_method==1){SDL_Event e{};e.type=SDL_EVENT_KEY_DOWN;e.key.scancode=SDL_SCANCODE_AC_BACK;on_event(e);}
+   if(cancel_method==2){SDL_Event e{};e.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;e.gbutton.button=SDL_GAMEPAD_BUTTON_EAST;on_event(e);}
+   if(cancel_method==3){int old_stops=stops;SDL_Event e{};e.type=SDL_EVENT_QUIT;on_event(e);CHECK(stops==old_stops+1);stops=old_stops;}
+   CHECK(!g_layout_edit&&!g_confirm_layout);unchanged();
+  }
+  enter();g_edit_dragging=true;SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_LOST;on_event(focus);CHECK(!g_edit_dragging&&g_layout_edit);unchanged();
+  g_edit_dragging=true;focus.type=SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;on_event(focus);CHECK(!g_edit_dragging&&g_layout_edit);unchanged();touch_edit_finish(false);
+  // Cancelled legacy drafts render the old geometry again, without a phantom v2.
+  if(version==1){auto old=touch_layout(g_out_w,g_out_h,touch_pad_unit(g_out_h,test_scale,140));CHECK(near(pad_layout().dpad_r,old.dpad_r));}
+  // A failed write must not leave an in-memory v2 while disk still holds v1.
+  enter();g_edit_positions[(int)TouchGroup::Menu]={7800,1100};
+  const auto path=g_settings_path;g_settings_path=path+"/blocked.ini";int failures_before=edit_save_failures;
+  tap_rect(touch_edit_toolbar().done);CHECK(g_layout_edit);CHECK(edit_save_failures==failures_before+1);
+  CHECK(g_settings.number("touch","layout_version")==version);CHECK(g_settings.number("touch","menu_x")==5600);
+  g_settings_path=path;unchanged();touch_edit_finish(false);unchanged();
+  enter();g_edit_positions[(int)TouchGroup::Menu]={7800,1100};
+  if(version==1)tap_rect(touch_edit_toolbar().done);else {SDL_Event e{};e.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;e.gbutton.button=SDL_GAMEPAD_BUTTON_SOUTH;on_event(e);}
+  CHECK(!g_layout_edit&&!g_confirm_layout&&g_menu_open);CHECK(g_settings.number("touch","layout_version")==2);
+  auto saved=settings_load(g_settings_path,exists);Settings restart;problems.clear();restart.read(saved,problems);
+  CHECK(restart.number("touch","layout_version")==2);CHECK(restart.number("touch","menu_x")==7800);CHECK(restart.number("touch","menu_y")==1100);
+  for(const char* section:{"touch","display","keyboard","gamepad"})for(const auto& key:original.keys(section)){
+   if(std::string(section)=="touch"&&(key=="layout_version"||key=="menu_x"||key=="menu_y"))continue;
+   CHECK(restart.get(section,key)==original.get(section,key));
+  }
+  for(const char* retained:{"; preserve legacy user choices","keyboard_profile = pc98","confirm = Return","user = keep-me"})CHECK(saved.find(retained)!=std::string::npos);
+  g_settings=restart;menu_close();menu_open();auto move=locate(M_EDIT_LAYOUT);tap_rect(move.second.r);CHECK(g_layout_edit&&!g_confirm_layout);touch_edit_finish(false);CHECK(settings_load(g_settings_path,exists)==saved);
+ }
+ menu_close();g_settings_path.clear();
+}
+
 int main(int argc,char**argv){
  if(argc!=2){std::fprintf(stderr,"usage: actual-host-tests OWNED_TEST_OUTPUT_DIR\n");return 2;}
  g_win=reinterpret_cast<SDL_Window*>(1);
+#ifdef PAL_HOST_UI_SOURCE_SHA256
+ CHECK(std::string(pal_host_ui_source_hash())==PAL_HOST_UI_SOURCE_SHA256);
+#else
+ CHECK(std::string(pal_host_ui_source_hash())=="unavailable");
+#endif
+ CHECK(pal_host_ui_feature_version()==12);note_host_ui_features();note_host_ui_features();CHECK(feature_lines==1);
+ CHECK(feature_log.find("UI12 touch-editor-v2")!=std::string::npos);CHECK(feature_log.find(PAL_HOST_MENU_CHINESE?"locale=zh-CN":"locale=en")!=std::string::npos);
+#ifdef PAL_TEST_DISCOVERY_ONLY
+ discovery_tests(std::string(argv[1])+"/discovery");
+ std::printf("%d discovery-host checks, %d failures; no GUI/device created\n",checks,failures);return failures?1:0;
+#endif
  for(auto wh:{std::pair{2520,1080},std::pair{1080,2520},std::pair{2560,1600},std::pair{1600,2560},std::pair{1280,720},std::pair{1280,648}})
  for(float scale:{1.f,2.f,3.f})for(bool saves:{false,true}) {
   g_out_w=test_w=wh.first;g_out_h=test_h=wh.second;test_scale=scale;g_cfg.after=saves?"not-written":"";g_settings=Settings{};g_touchscreen=true;g_quitting=false;menu_close();menu_open();
@@ -132,5 +215,6 @@ int main(int argc,char**argv){
  g_settings_path.clear();g_tex_h=224;g_settings.set("display","presentation","fit");draw();CHECK(diagnostic.find("ohos=1")!=std::string::npos);CHECK(diagnostic.find("logical=")!=std::string::npos);CHECK(diagnostic.find("mode=fit")!=std::string::npos);int count=diagnostic_lines;draw();CHECK(diagnostic_lines==count);g_settings.set("display","presentation","stretch");draw();CHECK(diagnostic_lines==count+1);CHECK(diagnostic.find("mode=stretch")!=std::string::npos);CHECK(g_dst.x==0&&g_dst.y==0&&g_dst.w==test_w&&g_dst.h==test_h);
  // Explicit unsupported boundary: candidate still falls back, so do not assert 48 here.
  test_w=g_out_w=719;test_h=g_out_h=720;test_scale=3;auto unsupported=menu_layout();CHECK(!unsupported.paged);CHECK(menu_back_rect(unsupported).h/test_scale<48);
+ discovery_tests(std::string(argv[1])+"/discovery");
  std::printf("%d actual-paged-host checks, %d failures; no GUI/device created\n",checks,failures);return failures?1:0;
 }

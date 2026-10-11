@@ -50,7 +50,7 @@ Select another compiler with `--cxx clang++` or `CXX`.
   aligned shoulders, minimum supported utility targets and simultaneous keys.
 - `position_tests.cpp`: 27,272 checks for six normalized movable groups, complete
   bounding-box clamping, resizing and position conversion.
-- `actual_host_tests.cpp`: 5,561 checks through the actual host menu/event paths:
+- `actual_host_tests.cpp`: 17,040 OHOS-default checks through the actual host menu/event paths:
   paginated settings reachability, 48-unit targets on the tested supported sizes,
   slider finger ID zero/multitouch, lower-edge minus, cancel/focus/resize cleanup,
   fit/stretch, independent menu recovery, quit confirmation, editing without
@@ -61,7 +61,13 @@ Select another compiler with `--cxx clang++` or `CXX`.
   keyboard/gamepad/PC98 settings. Reset touch must not reset those sections or
   the picture mode.
 
-Expected core total on the integrated UI revision: **48,132 checks**. These are
+The same actual-host source additionally compiles a desktop discovery-only run
+with 11,519 checks. It covers both explicit layout versions across 36 dimension,
+density and version combinations per build, including confirmation, draft-only
+conversion, Cancel/Back/window-close, write failure rollback, successful Done,
+restart, independent configuration preservation and UI12 identity logging.
+
+Expected core total on the UI12 revision: **71,130 checks**. These are
 software assertions over synthetic dimensions, not a physical device test.
 
 ## Optional Chinese/English font bounds
@@ -77,7 +83,7 @@ python3 audit/harmony-touch/run_tests.py \
   --fonts-dir build/recomp-build/saturn-fonts
 ```
 
-This adds 4,396 Chinese and 4,397 English actual-font bounds checks across 168
+This adds 9,892 Chinese and 10,169 English actual-font bounds checks across 210
 menu geometry combinations and 45 editor dimension/density/size combinations
 per language, including a finite positive-width requirement for every measurement
 so font-initialization failures cannot pass as zero-width text. Without `--fonts-dir`, the runner explicitly reports this suite
@@ -98,3 +104,28 @@ render coordinates and zero/unverified OS insets cannot prove those conditions.
 The production pipeline additionally verifies the 15 files changed by the UI
 patch; this audit does not assert that every unrelated runtime file matches an
 upstream checkout. Keep native/device checks separate from this result.
+
+## Finding the editor (UI12)
+
+Open the in-game host menu. “移动按键” / “Move controls” is the second main
+row, immediately after Resume, for both legacy and editable layouts. Normal
+phone/tablet paging puts it on the first page. At an exceptionally short 120–175
+logical-pixel height only one 48-unit row fits, so it is on page 2. Use the clearly
+labelled “下一页” / “Next” control at the upper right; it shows the current page
+and total, and the last page loops to the first. The X at upper left in paged
+mode closes the menu; it is not a previous-page button.
+
+Legacy layout 1 first asks whether to enable editing. Button geometry and default
+positions will change. Confirmation opens only a preview draft; Done commits
+layout version 2 and positions. Cancel, Back or closing the window preserves the
+original settings. Existing Size/Opacity/Gap/Style, latent normalized positions
+and independent keyboard/gamepad/picture settings are retained. A failed save
+rolls back the settings object and keeps the draft open, with a diagnostic log;
+Done can retry or Cancel can discard it. No dedicated error popup is introduced.
+
+The menu header shows UI12. The actual host defines strong C symbols
+`pal_host_ui_feature_version()` and `pal_host_ui_source_hash()`. The source-hash
+function returns the compile-time `PAL_HOST_UI_SOURCE_SHA256`, or `unavailable`
+when absent. Startup prints features, layout version and locale once. UI12 is a
+host-feature identifier, not the application's package version. The OHOS build
+and entry must additionally verify and log the linked source hash.

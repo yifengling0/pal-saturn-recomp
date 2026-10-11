@@ -32,25 +32,32 @@ static float checked_width(float size,const std::string& text,bool bold=false) {
  return measured;
 }
 int main() {
+ int menu_scenarios=0;
  auto* surface=SDL_CreateSurface(1200,1000,SDL_PIXELFORMAT_RGBA32);
  g_ren=SDL_CreateSoftwareRenderer(surface);assert(surface&&g_ren);ui_open(g_ren);
  g_win=reinterpret_cast<SDL_Window*>(1);g_touchscreen=true;
  for(auto logical:{std::pair{320,120},std::pair{320,180},std::pair{360,800},std::pair{800,360},std::pair{426,240},std::pair{960,540},std::pair{2048,1276}})
- for(float scale:{1.f,2.f,3.f})for(bool saves:{false,true})for(bool quit:{false,true}) {
+ for(float scale:{1.f,2.f,3.f})for(bool saves:{false,true})for(auto state:{std::pair{1,0},std::pair{2,0},std::pair{1,1},std::pair{2,1},std::pair{1,2}}) {
+  ++menu_scenarios;
   density=scale;width=g_out_w=(int)(logical.first*scale);height=g_out_h=(int)(logical.second*scale);
-  g_settings=Settings{};g_cfg.after=saves?"not-written":"";g_quitting=false;menu_close();menu_open();
-  if(quit)menu_activate(M_QUIT);
+  g_settings=Settings{};g_settings.set("touch","layout_version",std::to_string(state.first));g_cfg.after=saves?"not-written":"";g_quitting=false;menu_close();menu_open();
+  if(state.second==1)menu_activate(M_QUIT);
+  if(state.second==2)menu_activate(M_EDIT_LAYOUT);
   auto first=menu_layout();
   for(int page=0;page<first.pages;++page) {
    g_menu_page=page;auto l=menu_layout();const float u=l.u;
    const float header_space=l.panel.w-128*u;
-   if(quit) {
-    CHECK(checked_width(16*u,hm::text(hm::Text::QuitTitle),true)<=header_space);
-    CHECK(checked_width(10*u,hm::text(hm::Text::QuitWarningLine1))<=header_space);
-    CHECK(checked_width(10*u,hm::text(hm::Text::QuitWarningLine2))<=header_space);
+   if(state.second) {
+    CHECK(checked_width(16*u,std::string(hm::text(state.second==2?hm::Text::EnableLayoutTitle:hm::Text::QuitTitle))+" "+host_ui_tag(),true)<=header_space);
+    CHECK(checked_width(10*u,hm::text(state.second==2?hm::Text::EnableLayoutLine1:hm::Text::QuitWarningLine1))<=header_space);
+    CHECK(checked_width(10*u,hm::text(state.second==2?hm::Text::EnableLayoutLine2:hm::Text::QuitWarningLine2))<=header_space);
    } else if(l.paged) {
-    auto title=std::string(hm::text(hm::Text::Settings))+" "+std::to_string(page+1)+"/"+std::to_string(l.pages);
+    auto title=std::string(hm::text(hm::Text::Settings))+" "+host_ui_tag()+" "+std::to_string(page+1)+"/"+std::to_string(l.pages);
     CHECK(checked_width(18*u,title,true)<=header_space);
+   } else CHECK(checked_width(26*u,std::string(hm::text(hm::Text::Paused))+" "+host_ui_tag(),true)<=l.panel.w-84*u);
+   if(l.paged&&l.pages>1){
+    CHECK(checked_width(12*u,hm::text(hm::Text::NextPage),true)<=l.next.w-8*u);
+    CHECK(checked_width(10*u,std::to_string(page+1)+"/"+std::to_string(l.pages))<=l.next.w-8*u);
    }
    for(auto& r:l.rows) {
     auto a=control_area(l,r);
@@ -93,6 +100,6 @@ int main() {
  CHECK(std::string(menu_label(M_RESUME))=="Resume");
  CHECK(std::string(hm::text(hm::Text::QuitWarningLine1))=="Quitting does not save game progress.");
 #endif
- printf("%d actual-host text bounds checks, %d failures; SDL font measurement across 168 menu geometry combinations plus 45 editor dimension/density/size combinations.\n",checks,failures);
+ printf("%d actual-host text bounds checks, %d failures; SDL font measurement across %d menu geometry combinations plus 45 editor dimension/density/size combinations.\n",checks,failures,menu_scenarios);
  return failures?1:0;
 }

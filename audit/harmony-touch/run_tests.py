@@ -98,6 +98,11 @@ def main():
         [str(here / "actual_host_tests.cpp"), str(runtime / "src/host/settings.cpp")] +
         link + ["-o", str(binary)], "build-actual-host")
     run([str(binary), str(out / "tmp/host")], "actual-host")
+    binary = out / "discovery-desktop"
+    run(cxx + flags + ["-DPAL_TEST_DISCOVERY_ONLY=1"] + host_flags + include_flags +
+        [str(here / "actual_host_tests.cpp"), str(runtime / "src/host/settings.cpp")] +
+        link + ["-o", str(binary)], "build-discovery-desktop")
+    run([str(binary), str(out / "tmp/desktop-host")], "discovery-desktop")
     for mode, default in [("desktop", "original"), ("ohos", "fit")]:
         defs = ["-DPAL_OHOS_DEFAULTS=1"] if mode == "ohos" else []
         binary = out / ("settings-" + mode)
