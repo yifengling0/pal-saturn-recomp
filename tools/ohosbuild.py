@@ -32,6 +32,14 @@ HAP_OUT = PROJECT / 'entry' / 'build' / 'default' / 'outputs' / 'default'
 BUNDLE = 'com.palhero.palsaturn'
 DEFAULT_DEVECO = Path(r'C:/Program Files/Huawei/DevEco Studio')
 
+# OHOS packaging requires this UI generation even though desktop planners retain
+# older complete runtime variants. Filled only with reviewed post-PC98 source
+# hashes after the current UI source is frozen; an empty set fails closed.
+OHOS_HOST_UI_VERSION = 12
+OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
+    'a8a0235eea76af85618d9482240cb9582eebf408966c8396b478e5e9de324147',
+})
+
 
 def deveco_home(cli: Path | None) -> Path:
     if cli:
@@ -152,6 +160,32 @@ def hap_snapshot() -> dict[Path, tuple[int, int, str]]:
     return result
 
 
+def verify_required_ohos_ui(root: Path) -> None:
+    """Require the reviewed actual host source, after full manifest verification.
+
+    The profile verifier already checks every helper/font hash and rejects mixed
+    variants. This OHOS-only gate also rejects a self-consistent old variant.
+    A version string or a matching manifest alone is never UI identity proof.
+    """
+    root = Path(root).resolve()
+    runtime = root / 'build' / 'pal-keyboard-runtime'
+    host = runtime / 'src' / 'host' / 'host.cpp'
+    labels = runtime / 'src' / 'host' / 'host_menu_text.h'
+    remedy = ('请使用当前仓库 tools/winbuild.py build --recompile 重新生成映射 runtime，'
+              '确认成功后再构建 HAP；不会修改旧 runtime 或自动绕过校验。')
+    if (runtime.resolve() != runtime or not runtime.is_dir() or
+            any(p.is_symlink() or p.resolve() != p or not p.is_file() for p in (host, labels))):
+        raise SystemExit('OHOS UI 缺件或路径不安全；' + remedy)
+    source = host.read_bytes().replace(b'\r\n', b'\n')
+    if b'#include "host_menu_text.h"' not in source:
+        raise SystemExit('OHOS 不接受完整旧 UI runtime；' + remedy)
+    digest = hashlib.sha256(source).hexdigest()
+    if digest not in OHOS_HOST_UI_SHA256:
+        raise SystemExit(f'OHOS UI v{OHOS_HOST_UI_VERSION} host.cpp 身份不符 '
+                         f'(normalized_lf_sha256={digest})；' + remedy)
+    print(f'OHOS host UI identity: v{OHOS_HOST_UI_VERSION}; host.cpp normalized_lf_sha256={digest}; PASS')
+
+
 def verify_existing_runtime(root: Path) -> None:
     """只校验已生成的映射 runtime；缺 manifest 时禁止走 prepare 的注入分支。"""
     root = Path(root).resolve()
@@ -174,6 +208,7 @@ def verify_existing_runtime(root: Path) -> None:
         raise SystemExit('拒绝使用其他目录的 pal_keyboard_profile；请从本仓库启动。')
     try:
         pal_keyboard_profile.prepare_keyboard(recomp, runtime, root, verify_only=True)
+        verify_required_ohos_ui(root)
     except (OSError, ValueError) as error:
         raise SystemExit(f'现有映射 runtime 校验失败；请重新生成后再构建：{error}') from None
     print('Existing keyboard runtime version/hash verification: PASS')

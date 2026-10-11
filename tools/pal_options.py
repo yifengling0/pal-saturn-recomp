@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-5-ohos-touch-ui'
+VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-6-ohos-menu-discovery'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
@@ -158,7 +158,8 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     rt[null] += '\nuint16_t pal_host_direction_edge() { return 0; }\n'
     host_text = '#include "pal_host_edge.h"\n' + rt[host]
     menu_states = [anchor for anchor in ('static bool g_menu_open, g_quitting;',
-                                         'static bool g_menu_open, g_quitting, g_confirm_quit;')
+                                         'static bool g_menu_open, g_quitting, g_confirm_quit;',
+                                         'static bool g_menu_open, g_quitting, g_confirm_quit, g_confirm_layout;')
                    if host_text.count(anchor) == 1]
     if len(menu_states) != 1:
         raise ValueError('SDL host: menu state declaration changed')

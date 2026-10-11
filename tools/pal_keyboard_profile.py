@@ -8,11 +8,13 @@ manifest idempotence, and CMake runtime selection. Repeated raw planning fails.
 """
 from pathlib import Path
 import hashlib,re
-VERSION='pal-keyboard-profile-v1-mapping-5-ohos-touch-ui'
+VERSION='pal-keyboard-profile-v1-mapping-6-ohos-menu-discovery'
 def sha(s):return hashlib.sha256(s.encode() if isinstance(s,str) else s).hexdigest()
 RUNTIME_HASHES = {'host.cpp': ['6b82aaa5f9720e3ad9a53db35e6dda8ef08198d4dbcacf7f3f0f6b25f2a9518d', '9af5f2ac245114cb7cdf858c69a90ecb0c217a29f423c9168c353558bf0222a4', '16fd0b06648fb3f3c1dda96b3200aa7bf8baaff1f2aca9d0b4e0ffa720055937', 'f4c957d90193478ac77588f6592b1061226686b062bbd3e7561ba7a236da94a1'], 'settings.cpp': ['4da2c93a0eec58ca861c972076961eaf4d64d4ecb471b4d29d94af73f1705b66', '6dd16bf8b13057ddd35aa50a474aaf958df2515e94e877a533b99f5430df9cfb'], 'launcher.cpp': ['23d65e3b6f854823fd33a1f3b1373584d22e98b9edf247125458648fad863e32']}
 RUNTIME_HASHES['host.cpp'].append('4b2c32d213a9a28823c214cbfe3f62ac166e238beb127105441e1baee1eef7ed')
 RUNTIME_HASHES['host.cpp'].append('f3c49e658ea2e687bcf5734e935d698f0e012654882141f108ba9c87aa4af49b')
+RUNTIME_HASHES['host.cpp'].append('d388ef17f964c9ef1f46278d1155dbf0fed4e349fcfdc4850bc106019c206ac7')
+RUNTIME_HASHES['host.cpp'].append('44f882f679696aa1b9f0dbf1db742c19e0f1a68e7de75d4ad00fe5641ec56d90')
 RUNTIME_HASHES['host.cpp'].append('811878f044cdaeb55f442d31d3524e2b4ae8aaee20f4652df76b967c74340dfb')
 RUNTIME_HASHES['settings.cpp'].append('909ea2d8fdf41755ceae9ef8eaf8730ad6a12d9269d91f95b607185bd7de556b')
 RUNTIME_HASHES['host.cpp'].append('476a8cd5b88eb926d3cdd581bbd31c94d2c4ac6114a9983906a74e7bb85f2ffd')
@@ -263,6 +265,9 @@ HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165
 HARMONY_RUNTIME_HELPERS.update({'touch_pad.h': '3c0aa2e16c81ce00be55b826692469ac4eba85ed55449695fa97a9fe8508bdf1', 'ui.cpp': 'f01298ab0b09b17f3dad1744ecf7f544cfb9631a4798669381bd481277b9994d', 'ui.h': '092475fc1f6698f407578218a6be84dfe87a91fa9fec4d6eed42765efb8c5b10'})
 HARMONY_UI_RUNTIME_FILES = {'src/host/host_menu_text.h': '71f353f340bcd725ef9a6699e436b0f173d7d989a5203af97badc762bac23fff', 'src/host/touch_mobile_layout.h': 'ca10a5dbe807d3fd9e3fe6451ad1a6c0ab0eb94e87a74a10eb8de9041ff14000', 'src/host/touch_pad.h': 'ce116e1efa1a511dfcb83f97537dfc5b973864f9a438c4dcf432ad4c20f61dd0', 'src/host/touch_positions.h': '17e93a289335fff39e353c1cafeab145bb832670163ecbaaec39f9562b1eccea', 'src/host/ui.cpp': 'ad46a6c467a7789cc0cb97cd7378915acefb60886587c8b6c3ccde5cbb748094', 'src/host/ui.h': 'a84b5e37be41e5b78c139eb8e5d30d395fae8b66531c469d182a3b05ad6852c5', 'third_party/pal-menu-cjk/LICENSE.txt': '1dd173adfb86606c086ab1c2a5c7d3e6a1c373cd6b2ef7c729955a5f8c71f44f', 'third_party/pal-menu-cjk/README.md': 'b9db583f9951e03107353d8b19d9e7b57d0588f713097cb713e0f0aca2852f92', 'third_party/pal-menu-cjk/generate.py': '7d41876b9272d80d9b58cbae16774f5e1215b1c37ab4adbb9145ee0ea77e4320', 'third_party/pal-menu-cjk/glyphs.h': 'e42e2beefd508e1443eea17c2ce971143d2ec38b8a857140f183475000a36422', 'third_party/pal-menu-cjk/manifest.json': '40f74db2b4f2543d221e5e175d4d186370f41d5594d61b11456fe8b5b7c5f79f', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': 'e286ee6609147260e1efea30827c653bbcd8f01a392fd3328f466cbb79b3fe5f', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'e86226d416450c52d258c99dc94dbe43af422a57c79dd6e5f8f441556dfa6201'}
 
+# UI12 discovery text and its complete font subset form one reviewed variant.
+HARMONY_DISCOVERY_RUNTIME_FILES = {**HARMONY_UI_RUNTIME_FILES, **{'src/host/host_menu_text.h': '12140edd671050e1c769d517a09adb5a3d94575dca9720f5fc3ec6fb81a6fa4e', 'third_party/pal-menu-cjk/glyphs.h': '9b4c9b126fade635023cd72223e1001a2c72d586458fb9fa44b99319b6b08536', 'third_party/pal-menu-cjk/manifest.json': '6c9f1f15f6d8aa811abdfc20234279a3c128bf1f14287dc829a32e2662887dd6', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '395bbfea07f8562866897ae48c5d2a56093a0cd5b2d05f091c05df22b6b7740d', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'abe6d558461f64ac0bca21f6b3ddb19434aec8c18a810c52a1b80a18140ab518'}}
+
 def runtime_support_inputs(runtime):
  """Read and verify one complete reviewed runtime support variant."""
  runtime=Path(runtime)
@@ -276,8 +281,10 @@ def runtime_support_inputs(runtime):
  settings_ui=b'layout_version = )"' in settings.read_bytes()
  if uses_ui!=settings_ui or (not uses_ui and any((runtime/name).exists() or (runtime/name).is_symlink() for name in ui_only)):
   raise ValueError('Mixed Harmony runtime UI variants; regenerate')
+ uses_discovery=b'extern "C" int pal_host_ui_feature_version() { return 12; }' in host.read_bytes()
+ if uses_discovery and not uses_ui:raise ValueError('Mixed Harmony runtime UI variants; regenerate')
  if uses_ui:
-  expected.update(HARMONY_UI_RUNTIME_FILES)
+  expected.update(HARMONY_DISCOVERY_RUNTIME_FILES if uses_discovery else HARMONY_UI_RUNTIME_FILES)
  inputs={}
  for name,value in expected.items():
   if Path(name).is_absolute() or '..' in Path(name).parts:raise ValueError('Unsafe runtime support path')
