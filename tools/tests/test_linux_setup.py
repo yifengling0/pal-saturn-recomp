@@ -21,7 +21,10 @@ class SetupTests(unittest.TestCase):
         m.git(self.clean, '-c', 'user.name=Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'Fixture')
         self.pin = m.git(self.clean, 'rev-parse', 'HEAD').decode().strip()
         self.patch = self.root / 'test change.patch'
-        self.patch.write_text('diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-before\n+after\n')
+        # LF: write_text would translate \n to \r\n here, and the fixture's LF blob then rejects a
+        # context line that carries a trailing CR.
+        self.patch.write_text('diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-before\n+after\n',
+                              newline='\n')
         self.dest = self.root / 'patched repo'
 
     def tearDown(self):
@@ -59,7 +62,7 @@ class SetupTests(unittest.TestCase):
 
     def test_changed_patch_is_rejected(self):
         self.prepare()
-        self.patch.write_text(self.patch.read_text().replace('+after', '+different'))
+        self.patch.write_text(self.patch.read_text().replace('+after', '+different'), newline='\n')
         with self.assertRaisesRegex(ValueError, 'refusing'): self.prepare()
 
     def test_parent_git_identity_is_not_accepted(self):

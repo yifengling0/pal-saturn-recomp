@@ -559,7 +559,10 @@ class NativeIdentityContractTests(unittest.TestCase):
     """Real local compiler fixtures, not an OHOS SDK or device acceptance test."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='native-identity-', dir=AUDIT)
-        self.addCleanup(self.tmp.cleanup)
+        # Windows keeps a freshly linked identity.dll locked for a moment after the loader is done
+        # with it, so the assertions pass and only the teardown fails; that left a directory in
+        # tools/ on every run here.
+        self.addCleanup(self._release)
         self.root = Path(self.tmp.name).resolve()
         self.cpp = AUDIT.parent / 'harmony/pal-saturn-openharmony/entry/src/main/cpp'
         self.cmake = os.environ.get('PAL_CMAKE') or shutil.which('cmake')
@@ -567,6 +570,13 @@ class NativeIdentityContractTests(unittest.TestCase):
         self.host = self.root / 'build/pal-keyboard-runtime/src/host/host.cpp'
         self.host.parent.mkdir(parents=True)
         self.host.write_text('int fixture_host() { return 0; }\n')
+
+    def _release(self):
+        """Drop the temp dir, tolerating the window where Windows still holds the linked DLL."""
+        try:
+            self.tmp.cleanup()
+        except PermissionError:
+            shutil.rmtree(self.tmp.name, ignore_errors=True)
 
     def configure(self, selected_runtime=None, selected_host=None, extra_host=None):
         if not self.cmake:

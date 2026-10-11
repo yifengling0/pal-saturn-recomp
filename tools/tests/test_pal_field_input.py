@@ -21,7 +21,9 @@ def function(addr, body):
 
 
 def fixture(mode):
-    root = Path('/synthetic generated 空格')
+    # Absolute on every platform: Path('/...') is absolute on POSIX but not on Windows, where it
+    # carries no drive, and the planner's first check is is_absolute(). Never touched on disk.
+    root = Path(Path.cwd().anchor) / 'synthetic generated 空格'
     field = '    pal_keyboard::field();\n'
     for addr,callee in p.SCRIPT_CALLS.items():
         field += ('    pal_input_script_before();\n' if mode == 'options' else '')
