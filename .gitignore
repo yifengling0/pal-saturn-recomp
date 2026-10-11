@@ -19,3 +19,12 @@ third_party/
 evidence/p1-trace-824.log
 evidence/p1-vdp2-002-trace-in-scene.log
 evidence/p1-true-009-trace-3000.log
+
+# 鸿蒙工程的本地产物与签名材料：hvigor 会自己再生，签名口令只留在这台机器上
+harmony/**/build/
+harmony/**/.cxx/
+harmony/**/.hvigor/
+harmony/**/oh_modules/
+harmony/**/local.properties
+harmony/**/.idea/
+harmony/pal-saturn-openharmony/build-profile.json5

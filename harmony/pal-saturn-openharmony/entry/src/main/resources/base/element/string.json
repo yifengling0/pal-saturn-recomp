@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "仙剑奇侠传 土星版"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "仙剑奇侠传 土星版"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "仙剑奇侠传"
+    },
+    {
+      "name": "perm_reason_MICROPHONE",
+      "value": "Used to record audio"
+    },
+    {
+      "name": "perm_reason_CAMERA",
+      "value": "Used to record video"
+    },
+    {
+      "name": "perm_reason_INTERNET",
+      "value": "Used to download additional content"
+    },
+    {
+      "name": "perm_reason_READ_PASTEBOARD",
+      "value": "Used to read from the pasteboard"
+    },
+    {
+      "name": "perm_reason_DOWNLOAD",
+      "value": "Used to load your own game disc and store save files in the Download folder"
+    }
+  ]
+}

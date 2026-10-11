@@ -1,0 +1,47 @@
+// 复制成 harmony/pal-saturn-openharmony/build-profile.json5 再用。
+// 真机安装要签名：在 DevEco Studio 的 File ▸ Project Structure ▸ Signing Configs 里
+// "Automatically generate signature"（要登录华为账号），它会把 signingConfigs 填回本地那份；
+// 那份带口令，所以 .gitignore 已经把它排除掉了。
+// compileSdkVersion 不要写死：DevEco 26.0.0 会拒绝 6.1.0(23)（00303313），删掉这行用内置 SDK。
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "targetSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersion": "5.0.4(16)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "nativeCompiler": "BiSheng",
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "signingConfigs": []
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}
