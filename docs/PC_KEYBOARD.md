@@ -41,7 +41,24 @@ folder. Do not overwrite a personal settings file or save file for a test.
   Plain non-cancellable dialogue still uses Enter to continue/close; Esc does
   not force a story skip or accidentally open the field menu.
 - Tab: direct Saturn START
-- Z/X/C and A/S/D/Q/W: existing direct Saturn-button alternatives
+- Z/X/C: Saturn A/B/C. V: Saturn X, for the rare screen that needs it directly.
+- PAL98 shortcut letters, each one taking the Saturn button that does the same
+  thing in the screen the game is actually on:
+  - `E` 物品/包袱 - the field's item page (the Saturn pad's R quick page)
+  - `F` 仙術 - the field's spell page (the Saturn pad's L quick page); in the
+    battle main command menu the same key is the original strongest fill
+  - `A` 圍攻 - the battle main command menu's strongest fill for the remaining
+    party; a no-op on the field map, as it is on PC
+  - `R` 重複 - repeat the previous commands (the Saturn pad's Z)
+  A letter listed for both a field page and the battle menu is resolved by the
+  context: each latch zeroes the press outside its own screen, so a held key
+  cannot carry a field spell page into a battle turn or the other way round.
+- `S` 狀態, `W` 装备, `Q` 系統/退出 and `D` 防御 are **not bound**: the Saturn
+  release has no single button for them. They are one menu away - X (or Esc)
+  opens 狀態 / 仙術 / 物品 / 系統, and the 狀態 page is also where equipment
+  lives, with START stepping through the party. See
+  `docs/PAL98_HOTKEY_PARITY.md` for the measured Saturn-side facts needed to
+  turn those four into real shortcuts.
 - F10: host pause menu in PC98. Saturn profile keeps a custom F10 game binding;
   otherwise F10 is an additional host-menu key.
 

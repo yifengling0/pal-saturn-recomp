@@ -16,14 +16,18 @@ int main() {
     // These are arbitrary key indices; no dependency on SDL numeric constants.
     constexpr int enter = 40, escape = 41, space = 44, keypad = 88;
     static_assert(Start == 0x0800 && Confirm == 0x0400 && Cancel == 0x0100 && Menu == 0x0040);
+    static_assert(Items == 0x0080 && Strongest == 0x0008);
     const auto initial_boundary = boundary;
     boot();
     check(boundary == initial_boundary + 1, "boot increments boundary");
     check(context.confirm == Start && context.cancel == Cancel, "boot START/B context");
+    check(context.item == 0 && context.spell == 0, "boot has no field quick pages");
     field();
     check(context.confirm == Confirm && context.cancel == Menu, "field A/X context");
+    check(context.item == Items && context.spell == Strongest, "field offers native R then L");
     ui();
     check(context.confirm == Confirm && context.cancel == Cancel, "ordinary UI A/B context");
+    check(context.item == 0 && context.spell == 0, "a menu hides the field quick pages");
     ui(true);
     check(context.confirm == Start && context.cancel == Cancel, "start UI START/B context");
     const auto before_clear = boundary;

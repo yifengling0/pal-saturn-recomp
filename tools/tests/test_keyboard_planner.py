@@ -66,14 +66,21 @@ class PlannerTests(unittest.TestCase):
         self.assertIn(hook, out[self.f.paths['0604A0BC']])
         self.assertNotIn(hook, out[self.f.paths['0604A5B8']])
 
-    def test_battle_shortcuts_respect_existing_binding_priorities(self):
+    def test_pc98_shortcuts_respect_existing_binding_priorities(self):
         out = self.plan()[self.f.runtime / 'src/host/host.cpp'].decode()
-        self.assertIn('!native_bound && !semantic_key(key)', out)
-        self.assertIn('add_battle_keys("strongest", g_strongest_keys);', out)
-        self.assertIn('add_battle_keys("repeat", g_repeat_keys);', out)
+        self.assertIn('!host_key && !native_bound && !ordinary', out)
+        self.assertIn('add_keys("item", g_item_keys, field_key);', out)
+        self.assertIn('add_keys("spell", g_spell_keys, field_key);', out)
+        self.assertIn('add_keys("strongest", g_strongest_keys, battle_key);', out)
+        self.assertIn('add_keys("repeat", g_repeat_keys, battle_key);', out)
         self.assertIn('repeat_command ? pal_keyboard::Repeat : pal_keyboard::Strongest', out)
+        self.assertIn('item ? pal_keyboard::context.item : pal_keyboard::context.spell', out)
         self.assertIn('g_battle_press.up(e.key.scancode)', out)
         self.assertEqual(out.count('g_pc_press.block(); g_battle_press.block();'), 2)
+        # One key may serve both contexts; each latch zeroes the press outside its own.
+        self.assertIn('} else if (!battle_key(e.key.scancode)) {', out)
+        for key in ('g_item_keys', 'g_spell_keys'):
+            self.assertEqual(out.count('for (auto key : %s) b[0] |= g_pc_press.read(key);' % key), 1)
 
     def test_real_helper_digest_is_pinned(self):
         self.assertEqual(digest(HEADER.read_bytes().replace(b'\r\n', b'\n')), m.HEADER_SHA256)
@@ -256,11 +263,16 @@ class PlannerTests(unittest.TestCase):
 
     def test_settings_marker_defaults_and_migration_in_output(self):
         out = self.plan()[self.f.runtime / 'src/host/settings.cpp'].decode()
-        self.assertEqual(out.count('PAL_KEYBOARD_PROFILE_V1'), 1)
+        self.assertEqual(out.count('PAL_KEYBOARD_PROFILE_V2'), 1)
         for expected in ('keyboard_profile = pc98', '[keyboard pc98]', 'confirm = Return, Keypad Enter, Space',
-                         'menu_cancel = Escape', 'strongest = F', 'repeat = R', 'start = Tab', 'has_profile ? "pc98" : "saturn"',
+                         'menu_cancel = Escape', 'item = E', 'spell = F', 'strongest = F, A', 'repeat = R',
+                         'start = Tab', 'has_profile ? "pc98" : "saturn"',
                          '{"keyboard_profile", {"pc98", "saturn"}}'):
             self.assertIn(expected, out)
+        # The PAL98 letters own the Saturn buttons they replace, so they ship unbound.
+        pc98 = out.split('[keyboard pc98]', 1)[1].split('[gamepad', 1)[0]
+        for freed in ('y =', 'z =', 'l =', 'r ='):
+            self.assertIn('\n' + freed + '\n', pc98)
         self.assertIn('[keyboard]\na = Z', out)
         self.assertIn('[gamepad]\na = a', out)
 

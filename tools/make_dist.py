@@ -86,11 +86,19 @@ README = '''仙剑奇侠传 土星版 · 静态重编译 Windows 包
   Esc         场景里开菜单，菜单里返回/取消
   Tab         土星 START
   Z X C       土星 A B C
-  A S D       土星 X Y Z
-  Q W         土星 L R
+  V           土星 X
+  E           包袱（物品）——土星原生的 R 快捷页
+  F           仙术——土星原生的 L 快捷页；在战斗主菜单里是"最强"
+  A           战斗主菜单里围攻（替剩下的队友填最强一击）
+  R           战斗里重复上一次指令——土星原生的 Z
   F10         暂停菜单（截图、音量、退出）
   Alt+Enter   全屏切换
   F12         存一张截图
+
+E/F/A/R 就是仙剑98 的那几个快捷键；同一个键在场景和在战斗主菜单里各管各的，
+按下时按当前画面决定，不会把法术页带进回合、也不会把"最强"漏到地图里。
+98 的 S 状态 / W 装备 / Q 系统（退出）在土星版没有对应的单个按键，所以这四个字母空着：
+土星版要先按 Esc 打开「狀態 / 仙術 / 物品 / 系統」菜单再选，而且菜单光标会记住上次的位置。
 
 每个语义键按下后锁定到一个土星键，直到松开，所以按住 Esc 不会把"开菜单"变成"取消"。
 想要原来的土星键位，把 settings.ini 里 [controls] 的 keyboard_profile 改成 saturn。
@@ -177,10 +185,23 @@ def main(argv=None):
     if not re.search(r'DLL Name: SDL3\.dll', imports):
         raise SystemExit('saturn.exe 没有链接 SDL3，这个 exe 开不出窗口；用带 --sdl-dir 的构建')
 
+    # saves/ is the player's own folder — run.bat loads progress straight out of it, so a
+    # repackage must never take it with the rest of the tree.
+    stash = OUT.parent / (OUT.name + '.saves')
+    if (OUT / 'saves').is_dir():
+        if stash.exists():
+            raise SystemExit(f'先移走 {stash}，它挡住了一次新的打包')
+        (OUT / 'saves').rename(stash)
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / 'disc').mkdir(parents=True)
     (OUT / 'saves').mkdir()
+    if stash.is_dir():
+        for kept in sorted(stash.iterdir()):
+            target = OUT / 'saves' / kept.name
+            if not target.exists():
+                kept.rename(target)
+        shutil.rmtree(stash)
     shutil.copy2(exe, OUT / 'saturn.exe')
     shutil.copy2(dll, OUT / 'SDL3.dll')
     if args.with_save:

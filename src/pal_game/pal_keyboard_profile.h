@@ -8,16 +8,20 @@
 namespace pal_keyboard {
 inline constexpr uint16_t Start = 0x0800, Confirm = 0x0400, Cancel = 0x0100, Menu = 0x0040;
 inline constexpr uint16_t Strongest = 0x0008, Repeat = 0x0010; // native Saturn L / Z
-struct Context { uint16_t confirm = Start, cancel = Cancel; };
+inline constexpr uint16_t Items = 0x0080;                      // native Saturn R
+// The PAL98 shortcut letters pick the Saturn button that does the same thing in the
+// context the guest is really in: the field's R/L quick pages, and nothing at all
+// while a menu, dialogue or battle phase owns the screen.
+struct Context { uint16_t confirm = Start, cancel = Cancel, item = 0, spell = 0; };
 inline Context context;
 inline uint64_t boundary = 0;
 inline bool battle_commands = false;
 inline uint64_t battle_boundary = 0;
 inline void close_battle_commands() { battle_commands = false; ++battle_boundary; }
 inline void clear() { ++boundary; close_battle_commands(); }
-inline void field() { if (battle_commands) close_battle_commands(); context = {Confirm, Menu}; }
-inline void ui(bool start = false) { if (battle_commands) close_battle_commands(); context = {start ? Start : Confirm, Cancel}; }
-inline void boot() { clear(); context = {Start, Cancel}; }
+inline void field() { if (battle_commands) close_battle_commands(); context = {Confirm, Menu, Items, Strongest}; }
+inline void ui(bool start = false) { if (battle_commands) close_battle_commands(); context = {start ? Start : Confirm, Cancel, 0, 0}; }
+inline void boot() { clear(); context = {Start, Cancel, 0, 0}; }
 
 // Only the original battle four-icon command menu owns this scope. No input
 // function, poll, guest register, RNG, action queue or MP is changed by it.

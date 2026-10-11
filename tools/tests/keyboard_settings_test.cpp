@@ -22,7 +22,7 @@ int main() {
     check(fresh.get("keyboard pc98", "confirm") == "Return, Keypad Enter, Space", "PC98 confirms");
     check(fresh.get("keyboard pc98", "menu_cancel") == "Escape", "PC98 cancellation");
     check(fresh.get("gamepad", "a") == "a", "gamepad default independent");
-    check(std::string(Settings::default_text()).find("PAL_KEYBOARD_PROFILE_V1") != std::string::npos, "version marker emitted");
+    check(std::string(Settings::default_text()).find("PAL_KEYBOARD_PROFILE_V2") != std::string::npos, "version marker emitted");
     const std::string old = "; keep custom choices\n[keyboard]\na = Return\nb = Escape\nstart = F2\n[gamepad]\na = b\n";
     Settings legacy;
     legacy.read(old, errors);
@@ -53,12 +53,18 @@ int main() {
     check(errors.size() == 1, "invalid profile reports one error");
     check(invalid.get("controls", "keyboard_profile") == "pc98", "invalid explicit profile falls back to fresh default");
     errors.clear();
-    check(fresh.get("keyboard pc98", "strongest") == "F", "fresh strongest is F");
+    check(fresh.get("keyboard pc98", "strongest") == "F, A", "fresh strongest is F and A");
     check(fresh.get("keyboard pc98", "repeat") == "R", "fresh repeat is R");
+    check(fresh.get("keyboard pc98", "item") == "E", "fresh item page is E");
+    check(fresh.get("keyboard pc98", "spell") == "F", "fresh spell page is F");
+    // The PAL98 letters own the Saturn buttons they replace, so those rows ship unbound.
+    for (const char* key : {"y", "z", "l", "r"})
+        check(fresh.get("keyboard pc98", key).empty(), "replaced Saturn binding starts unbound");
+    check(fresh.get("keyboard pc98", "x") == "V", "Saturn X keeps one unclaimed key");
     Settings old_pc;
     old_pc.read("[controls]\nkeyboard_profile = pc98\n[keyboard pc98]\na = F\nb = R\nconfirm = J\n", errors);
     check(errors.empty(), "old PC settings parse without new shortcut fields");
-    check(old_pc.get("keyboard pc98", "strongest") == "F" && old_pc.get("keyboard pc98", "repeat") == "R", "missing battle shortcuts retain fresh defaults");
+    check(old_pc.get("keyboard pc98", "strongest") == "F, A" && old_pc.get("keyboard pc98", "repeat") == "R", "missing shortcuts retain fresh defaults");
     check(old_pc.get("keyboard pc98", "a") == "F" && old_pc.get("keyboard pc98", "b") == "R", "old ordinary F/R preserved for host collision priority");
     Settings custom_pc;
     custom_pc.read("[controls]\nkeyboard_profile = pc98\n[keyboard pc98]\nstrongest = G\nrepeat = T\n", errors);
