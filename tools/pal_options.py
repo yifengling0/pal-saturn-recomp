@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-effect-v3-cadence-v4-manual-pair-queue-v3-1'
+VERSION = 'pal-options-input-v4-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-2'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
@@ -72,7 +72,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     files = sorted(recomp.glob('p_prog_*.cpp'))
     if not files:
         raise ValueError('No generated PROG sources')
-    source_headers = {name: (root / 'src/pal_game' / name).read_bytes() for name in (*HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h')}
+    source_headers = {name: (root / 'src/pal_game' / name).read_bytes() for name in (*HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h')}
     header_hashes = {name: digest(data) for name, data in source_headers.items()}
     manifest = recomp / MANIFEST
     if manifest.exists():
@@ -224,6 +224,24 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         if p.exists():
             raise ValueError(f'Unexpected preexisting queue source: {p}')
     changes.update(queue_changes)
+    # Keyboard semantics apply to ordinary and enhanced builds. Plan this last,
+    # over staged options, so one manifest owns the final bytes atomically.
+    from pal_keyboard_profile import plan_keyboard
+    keyboard_texts = dict(texts)
+    keyboard_texts.update({p: content.decode('utf-8') for p, content in changes.items() if p in keyboard_texts})
+    for p in sorted(recomp.glob('p_true_*.cpp')):
+        originals[p] = p.read_bytes()
+        keyboard_texts[p] = originals[p].decode('utf-8').replace('\r\n', '\n')
+    for name in ('settings.cpp', 'launcher.cpp', 'settings.h'):
+        p = runtime / 'src/host' / name
+        runtime_original[p] = p.read_bytes()
+        rt[p] = runtime_original[p].decode('utf-8').replace('\r\n', '\n')
+    rt.update({p: content.decode('utf-8') for p, content in changes.items() if p in rt})
+    keyboard_header = runtime / 'include/saturn/pal_keyboard_profile.h'
+    if keyboard_header.exists():
+        raise ValueError('Unexpected preexisting keyboard helper; regenerate')
+    changes.update(plan_keyboard(recomp, runtime, keyboard_texts, rt,
+                                 source_headers['pal_keyboard_profile.h']))
     all_original = {**originals, **runtime_original, cmake: cmake_original}
     for p, data in all_original.items():
         if p.read_bytes() != data:

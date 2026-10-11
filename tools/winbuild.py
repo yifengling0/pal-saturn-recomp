@@ -42,7 +42,7 @@ from saturnrecomp.recomp.__main__ import generate
 
 CXX = os.environ.get("CXX", "g++")
 # -static: see gap 2 above. Also what makes the build portable to a plain Windows box (P3).
-STATIC = ["-DCMAKE_CXX_FLAGS=-static", "-DCMAKE_EXE_LINKER_FLAGS=-static"]
+STATIC = ["-DCMAKE_CXX_FLAGS=-static", "-DCMAKE_EXE_LINKER_FLAGS=-static"] if sys.platform == "win32" else []
 LOG = []
 OPTIONS = False
 JOBS = 2
@@ -77,12 +77,14 @@ def verify_options_runtime():
 def option_build_manifest(game):
     """Only a successful linked executable receives its launch capability proof."""
     from pal_options import VERSION, MANIFEST
+    if not OPTIONS:
+        from pal_keyboard_profile import VERSION, MANIFEST
     binary = Path(exe(game))
     injected = Path(game.build) / "recomp" / MANIFEST
     data = {"schema": 1, "version": VERSION,
             "exe_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
             "instrumentation_manifest_sha256": hashlib.sha256(injected.read_bytes()).hexdigest(),
-            "features": ["input_v4", "effect_wait_v3", "data_cd_speed", "effect_cadence_v4_manual_pair", "paired_frame_queue_v3"]}
+            "features": ["input_v4", "effect_wait_v3", "data_cd_speed", "effect_cadence_v4_manual_pair", "paired_frame_queue_v3", "keyboard_profile_v1"] if OPTIONS else ["keyboard_profile_v1"]}
     (binary.parent / "pal-options-build.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
@@ -147,10 +149,31 @@ def win_recompile(game, log=log):
         shutil.copytree(PATCHED_RUNTIME, Path(game.build) / "runtime")
         from pal_data_cd_speed import apply_data_cd_speed
         apply_data_cd_speed(Path(game.build) / "runtime")
+    else:
+        # Mapping-only builds own a distinct runtime copy; never patch upstream.
+        directory = Path(game.build) / "pal-keyboard-runtime"
+        owner = directory / ".pal-keyboard-owner.json"
+        owner_data = {"schema": 1, "kind": "pal-keyboard-generated-runtime"}
+        if directory.exists():
+            try:
+                owned = json.loads(owner.read_text()) == owner_data
+            except (OSError, ValueError):
+                owned = False
+            if not owned:
+                raise SystemExit("Refusing to replace unowned keyboard runtime: " + str(directory))
+            shutil.rmtree(directory)
+        shutil.copytree(PATCHED_RUNTIME, directory)
+        owner.write_text(json.dumps(owner_data) + "\n")
+        manifest = Path(out) / "pal-keyboard-manifest.json"
+        if manifest.exists():
+            manifest.unlink()
     generate(specs, out, log=log, hooks=game.hooks, tasks=tasks)
     if OPTIONS:
         from pal_options import prepare_options
         prepare_options(Path(out), Path(game.build) / "runtime", Path(ROOT))
+    else:
+        from pal_keyboard_profile import prepare_keyboard
+        prepare_keyboard(Path(out), Path(game.build) / "pal-keyboard-runtime", Path(ROOT))
     build_dir = os.path.join(game.build, "recomp-build")
     cache = os.path.join(build_dir, "CMakeCache.txt")
     if os.path.exists(cache):
@@ -165,16 +188,18 @@ def win_recompile(game, log=log):
 def win_build(game):
     build_dir = os.path.join(game.build, "recomp-build")
     proof = Path(build_dir) / "pal-options-build.json"
+    if proof.exists():
+        proof.unlink()  # Validation and compilation failures must invalidate prior proof.
     if OPTIONS:
         from pal_options import prepare_options
         from pal_data_cd_speed import apply_data_cd_speed
         apply_data_cd_speed(Path(game.build) / "runtime")
         prepare_options(Path(game.build) / "recomp", Path(game.build) / "runtime", Path(ROOT))
-    if OPTIONS and proof.exists():
-        proof.unlink()  # A failed rebuild must not leave an old capability proof.
+    else:
+        from pal_keyboard_profile import prepare_keyboard
+        prepare_keyboard(Path(game.build) / "recomp", Path(game.build) / "pal-keyboard-runtime", Path(ROOT))
     _run("the build", ["cmake", "--build", build_dir, "--target", "saturn", "--parallel", str(JOBS)], build_dir)
-    if OPTIONS:
-        option_build_manifest(game)
+    option_build_manifest(game)
 
 
 def _run(what, args, build_dir):
@@ -289,12 +314,26 @@ def main(argv=None):
         original_inputs = build.inputs
         def option_inputs(game):
             data = original_inputs(game)
-            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
+            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", Path(ROOT) / "tools/pal_keyboard_profile.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
                 data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
             return data
         build.inputs = option_inputs
-    elif a.build_dir:
-        ap.error("--build-dir requires --pal-options")
+    else:
+        if a.build_dir:
+            ap.error("--build-dir requires --pal-options")
+        output = Path(game.build).resolve()
+        if not output.is_relative_to(Path(ROOT) / "build"):
+            ap.error("Keyboard build output must be under ROOT/build")
+        game.cmake.append("SATURN_RUNTIME=" + (output / "pal-keyboard-runtime").as_posix())
+        if a.what != "run":
+            verify_options_runtime()
+        original_inputs = build.inputs
+        def keyboard_inputs(game):
+            data = original_inputs(game)
+            for path in [Path(ROOT)/"tools/winbuild.py", Path(ROOT)/"tools/pal_keyboard_profile.py", *sorted((Path(ROOT)/"src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT)/"src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT)/"patches").glob("*.patch"))]:
+                data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            return data
+        build.inputs = keyboard_inputs
     build.stale = win_stale
     build.recompile = win_recompile          # upstream stays untouched on disk
     build.build = win_build

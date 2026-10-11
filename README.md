@@ -73,3 +73,12 @@ cd validation && ..\build\venv\Scripts\python.exe -m unittest discover -s tests
 ## Linux cloud validation (2026-10-10)
 
 See `docs/LINUX_CLOUD_BUILD.md`. Linux uses isolated build directories, a clean pinned parser checkout, and a separately patched runtime. `tools/check_linux.sh` fails on every failing stage. Historical Windows results above are not Linux test results.
+
+### PC keyboard support
+
+The portable Windows build driver now prepares context-aware Enter/Esc keyboard
+profiles independently of optional timing changes. Rebuild, then select PC98
+in the launcher Controls page for an existing settings file; fresh settings
+already default to PC98. Old custom bindings and gamepad maps are retained.
+See [PC keyboard guide](docs/PC_KEYBOARD.md) and
+[Windows test commands](docs/WINDOWS_OPTIONS_TEST.md).

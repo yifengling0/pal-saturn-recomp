@@ -69,21 +69,23 @@ class WindowsDraftTests(unittest.TestCase):
         self.assertEqual(self.m.win_stale(self.game),[])
     def test_build_targets_saturn_only(self):
         self.m.OPTIONS=False
-        with patch.object(self.m,'_run') as run:self.m.win_build(self.game)
+        with patch.object(self.m,'_run') as run, patch('pal_keyboard_profile.prepare_keyboard'), patch.object(self.m,'option_build_manifest'):
+            self.m.win_build(self.game)
         args=run.call_args.args[1]
         self.assertEqual(args[args.index('--target')+1],'saturn')
         self.assertNotIn('selftest',args)
     def test_sidecar_matches_launcher_contract(self):
+        self.m.OPTIONS=True
         binary=Path(self.game.saturn+'.exe');binary.parent.mkdir(parents=True);binary.write_bytes(b'fixture never execute')
         manifest=Path(self.game.build)/'recomp/pal-options-manifest.json';manifest.parent.mkdir(parents=True);manifest.write_text('{}')
         self.m.option_build_manifest(self.game)
         proof=json.loads((binary.parent/'pal-options-build.json').read_text())
         self.assertEqual(proof['exe_sha256'],hashlib.sha256(binary.read_bytes()).hexdigest())
-        self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed','effect_cadence_v4_manual_pair','paired_frame_queue_v3'])
+        self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed','effect_cadence_v4_manual_pair','paired_frame_queue_v3','keyboard_profile_v1'])
     def test_new_game_layer_cpp_is_fingerprinted(self):
         source=self.root/'src/pal_game/pal_audio_stream_init.cpp'
         source.parent.mkdir(parents=True);source.write_text('// fixture one')
-        for name in ('winbuild.py','pal_options.py','pal_data_cd_speed.py','pal_paired_frame_queue.py'):
+        for name in ('winbuild.py','pal_options.py','pal_data_cd_speed.py','pal_paired_frame_queue.py','pal_keyboard_profile.py'):
             tool=self.root/'tools'/name;tool.parent.mkdir(exist_ok=True);tool.write_text('# fixture')
         self.call(['build','--pal-options','--headless'])
         first=dict(self.fakebuild.inputs(self.game))

@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import sys
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -33,7 +34,7 @@ class InjectionTests(unittest.TestCase):
         self.runtime = self.root / 'build/test options/runtime'
         for p in (self.recomp, self.runtime / 'src/host', self.runtime / 'src/machine', self.root / 'src/pal_game'):
             p.mkdir(parents=True, exist_ok=True)
-        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h'):
+        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h'):
             shutil.copy2(REPO / 'src/pal_game' / name, self.root / 'src/pal_game' / name)
         self.source = self.recomp / 'p_prog_099.cpp'  # No dependence on generator chunk number.
         points = [('06026E1C', 'f_06035410(c)'), ('06026E58', 'exts.w r0,r1'),
@@ -65,7 +66,13 @@ class InjectionTests(unittest.TestCase):
         (self.runtime / 'src/host/host_null.cpp').write_text('#include <cstdint>\n')
         (self.runtime / 'src/machine/smpc.cpp').write_text('// original INTBACK unchanged\n')
         from pal_paired_frame_queue import RUNTIME_FILES
-        (self.runtime / 'include').mkdir()
+        (self.runtime / 'include/saturn').mkdir(parents=True)
+        for name in ('settings.cpp','launcher.cpp','settings.h'):
+            (self.runtime / 'src/host' / name).write_text('// synthetic keyboard fixture\n')
+        # This suite isolates the options transaction. The keyboard planner has
+        # its own portable synthetic suite and full-ROM integration runs.
+        self.keyboard = patch('pal_keyboard_profile.plan_keyboard', side_effect=lambda recomp,runtime,texts,rt,header: {runtime/'include/saturn/pal_keyboard_profile.h':header})
+        self.keyboard.start()
         for name in (*RUNTIME_FILES, 'src/machine/machine.cpp'):
             dest = self.runtime / name
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -73,6 +80,7 @@ class InjectionTests(unittest.TestCase):
 
 
     def tearDown(self):
+        self.keyboard.stop()
         self.tmp.cleanup()
 
     def run_inject(self):

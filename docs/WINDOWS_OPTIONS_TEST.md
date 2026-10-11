@@ -158,3 +158,31 @@ Remove-Item Env:SDL_AUDIODRIVER
 能力manifest核验后的Python启动器冒烟通过。这仍不是Windows本机编译/音频
 通过。证据位于私有build/windows-options-audit和cross-platform-options-001；
 这些包含游戏生成物的目录不提交。
+
+## PC keyboard profile (mapping-only stage)
+
+Current `winbuild.py` injects PC keyboard context support for both ordinary and
+`--pal-options` builds. Rebuild before using this feature; an old executable
+cannot gain context hooks merely by changing settings. The launch capability
+manifest lists `keyboard_profile_v1` after a successful link.
+
+Fresh settings use Enter/keypad Enter/Space to confirm or interact, Esc for the
+field menu and supported cancellation, and F10 for the host pause menu. Title
+and load waits select START when the game requires it. Plain dialogue advances
+with Enter; Esc does not force a story skip.
+
+Existing settings without a profile preserve the old bindings. Choose PC98 in
+`--launcher` → Controls, or add `[controls]` / `keyboard_profile = pc98` to the
+settings file. F10 during gameplay is **not** the launcher's Controls page.
+To test safely with a fresh configuration while keeping existing bindings:
+
+```powershell
+New-Item -ItemType Directory -Force build\run\pc98-test | Out-Null
+# Keep the existing $exe and $cue from the build commands above.
+& $exe --cue $cue --settings "$PWD\build\run\pc98-test\settings.ini"
+```
+
+Use a copied BUP and the documented `--save` parameter if testing a supplied
+checkpoint. New semantic keys are separate from physical gamepads and the old
+`[keyboard]` section. See [PC_KEYBOARD.md](PC_KEYBOARD.md) for migration,
+read-error protection, and the separately tracked short-press sampling issue.

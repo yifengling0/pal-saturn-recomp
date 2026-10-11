@@ -830,3 +830,27 @@ save, loads normally and navigates to a tiger. Li/Yue defend and Ling uses an
 actually learned7MP Thunder spell. Ordinary preparation yields60 damage;
 quick preparation's three animation-speed reference runs yield59. These are
 separate controlled branches, not silently substituted mainline progress.
+
+## Temple exterior safe pause (2026-10-11)
+
+Resumed the original-timing mainline with the integrated cold-opening and
+manual-pair-capable executable, with every experience option disabled. Ordinary
+load recovered the tiger-victory save. Natural walking reached scene57, and the
+three-person party completed Zhi Ze's greeting outside the Jade Buddha Temple.
+No main hall or next battle has been entered.
+
+A normal in-game save completed at mainline VB9973, scene57/world1088,1152.
+The private checkpoint SHA256 is
+`ec6bad5f127f42987726f578f982a69b492425f994acc971c158bda927f9cdbe`.
+An independent fresh process loaded the checkpoint normally to the same scene
+and coordinates, exited0, and left both source and copied BUP unchanged.
+The roaming monk's position differs, so this is a location/save-load check,
+not a pixel-identical save-time/reload-frame claim. Both logs contain no FATAL.
+The complete legal replay SHA256 is
+`c47efb478fe203a2dbc0ef1af98328fa88f1c9d901e31e62aa3a9de12ff18dbf`;
+it starts from the previous tiger-victory checkpoint and includes save completion.
+
+Mainline is paused safely while the requested PC keyboard profile and remaining
+first-step/turn latency are investigated. The user's Windows play report
+confirms playability and a substantial walking improvement, but does not alone
+close independent opening-movie, physical-audio, or Windows selftest checks.

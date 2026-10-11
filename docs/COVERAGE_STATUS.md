@@ -164,3 +164,38 @@ CD4 + quick preparation + animation2, compared with animation1 under the same
 other options. All7 effect frames and all entities remain complete, damage60
 and7MP cost occur, and the command menu returns. This does not assert every
 option combination or whole-battle completion for this specific new replay.
+
+## Windows feedback and input follow-up (2026-10-11)
+
+The user reports that Windows gameplay works and walking is substantially
+improved, with residual first-step and turn latency. A PC keyboard profile
+(Enter confirmation/interactions and Esc game-menu/cancel) is requested;
+implementation and native-key-event coverage are still pending here. Existing
+Saturn gamepad semantics and saved custom keyboard mappings must be preserved.
+
+The current inn trace resolves precise input3400 to player step3405, original
+submission3411 and complete paired RGB3413, versus original DISPLAY3416.
+This isolates remaining player-slot and submission delay; it is not a
+physical-keyboard end-to-end measurement or evidence that global movement
+speed should change. Earlier wake/align experiments that add NPC/RNG ticks
+remain disabled. Any further display path needs complete coherent frame
+ownership, monotonic presentation and unchanged guest-state traces.
+
+Mainline now has a normal temple-exterior save and fresh-process load check;
+see AUTOPLAY_PROGRESS.md. Later story sites remain untested.
+
+## PC98 keyboard mapping acceptance (2026-10-11)
+
+Context-aware Enter/Esc mapping and independent Saturn keyboard profiles are
+implemented. Fresh integrated native SDL confirms title/load, field/status
+menu, NPC interaction and dialogue continuation; a legacy custom F10/Esc/Return
+map retains its behavior and exact settings bytes. Separate native traces cover
+attack/target confirm/cancel.148 tool tests+35 subtests pass. The final SDL
+binary also retains all10/12/94/44 opening/battle/precise/group-effect reference
+pictures and the gameplay save hashes. See PC_KEYBOARD.md for exact identity.
+
+Short presses can still end before a host pad sample, independently reproduced
+with direct Z on the immutable previous binary. Mapping acceptance does not
+claim this existing sampling weakness is fixed. The additional early-complete-
+frame experiment and any semantic pending-edge queue are excluded from this
+mapping batch; further first-step latency work remains separate.
