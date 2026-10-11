@@ -1,0 +1,488 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -24,8 +24,8 @@
+ //
+ // Sound (sound.cpp) comes as it is made, in virtual time, into an SDL audio
+ // stream at 44 100 Hz: the window's pace keeps it level with the device.
+-// Input lead is 50..100 ms, chosen from the reported device quantum converted to
+-// source frames. The 250 ms input queue cap includes recovery silence. An empty
++// OHAudio retains one 50..100 ms prime; bounded adaptation leaves pull headroom.
++// Other drivers retain their policy. The 250 ms cap includes all padding. An empty
+ // SDL input queue is not proof of a hardware underrun; device buffers are separate.
+ #include "saturn.h"
+ #include "sound.h"
+@@ -38,7 +38,11 @@
+ #include "touch_ui_policy.h"
+ #include "touch_menu_paging.h"
+ #include "pal_audio_queue_policy.h"
++#include "pal_audio_jitter_policy.h"
+ #include "ui.h"
++#ifdef PAL_OHOS_INPUT
++#include "pal_ohos_gamepad.h"
++#endif
+ #include <SDL3/SDL.h>
+ #include <algorithm>
+ #include <chrono>
+@@ -55,12 +59,16 @@
+ using Clock = std::chrono::steady_clock;
+ static Clock::time_point g_base;                // host time of virtual time 0
+ static bool g_paced;
++// The event watch can run off-thread: publish only atomic lifecycle signals.
++static std::atomic<uint64_t> g_audio_lifecycle_epoch{0};
++static std::atomic<bool> g_audio_format_dirty{false};
+ 
+ bool host_wants_frame() { return g_win && (!sat_resuming() || sat_vblanks() % 30 == 0); }
+ uint16_t host_pad(int slot) { return g_buttons[slot]; }
+ bool host_pad_connected(int slot) { return g_win && (slot == 0 || g_slots.taken(slot)); }
+ 
+ static void virtual_open();
++static void enumerate_pads();
+ static bool g_touchscreen;                      // a touchscreen is there, or a finger has been seen
+ 
+ // ---- the settings (settings.h) -----------------------------------------------------------------
+@@ -125,6 +133,10 @@
+     }
+     sat_note("SDL: drawing with %s", SDL_GetRendererName(g_ren));
+     ui_open(g_ren);
++#ifdef PAL_OHOS_INPUT
++    pal_ohos_gamepad_start();
++#endif
++    enumerate_pads();
+     // host_pace keeps real time; a present that waited for the display would stall the whole machine
+     // whenever the compositor stops sending frames, as KWin does for a window that is out of sight
+     SDL_SetRenderVSync(g_ren, 0);
+@@ -140,6 +152,12 @@
+     SDL_AddEventWatch([](void*, SDL_Event* e) {
+         if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND) ++g_host_paused;
+         if (e->type == SDL_EVENT_WILL_ENTER_FOREGROUND) --g_host_paused;
++        if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND || e->type == SDL_EVENT_WILL_ENTER_FOREGROUND)
++            g_audio_lifecycle_epoch.fetch_add(1, std::memory_order_release);
++        if (e->type == SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED || e->type == SDL_EVENT_AUDIO_DEVICE_ADDED || e->type == SDL_EVENT_AUDIO_DEVICE_REMOVED) {
++            g_audio_format_dirty.store(true, std::memory_order_release);
++            g_audio_lifecycle_epoch.fetch_add(1, std::memory_order_release);
++        }
+         return true;
+     }, nullptr);
+     int touch_devices = 0;
+@@ -163,6 +181,62 @@
+ static uint64_t g_pcm_attempted, g_pcm_accepted, g_pcm_dropped, g_pcm_failed;
+ static uint64_t g_initial_zeros, g_recovery_zeros, g_max_push_gap_us;
+ static Clock::time_point g_audio_started, g_audio_last_push;
++namespace jitter = pal_audio_jitter_policy;
++static bool g_audio_jitter, g_audio_observer, g_audio_skip_gap, g_audio_adaptive;
++static jitter::State g_audio_growth;
++static Clock::time_point g_audio_adapt_started;
++static uint64_t g_audio_seen_lifecycle, g_audio_resets, g_audio_pause_errors, g_audio_resume_errors;
++static uint64_t g_audio_growth_events, g_audio_saturated, g_audio_format_changes;
++static int g_audio_device_rate, g_audio_device_quantum;
++static std::atomic<uint64_t> g_audio_get_calls{0}, g_audio_short_calls{0}, g_audio_additional_bytes{0};
++static std::atomic<uint64_t> g_audio_requested_bytes{0}, g_audio_max_request_bytes{0};
++static std::atomic<uint64_t> g_audio_short_epoch{0}, g_audio_callback_same_thread{0}, g_audio_callback_other_thread{0};
++static std::atomic<SDL_ThreadID> g_audio_producer_thread{0};
++
++// SDL holds the stream lock here. Observe only: no Put/Get, allocation, logging,
++// clock query, file I/O, or additional locks. Enable only with lock-free atomics.
++static void SDLCALL audio_get_observer(void*, SDL_AudioStream*, int additional, int total) {
++    g_audio_get_calls.fetch_add(1, std::memory_order_relaxed);
++    if (total > 0) {
++        g_audio_requested_bytes.fetch_add(static_cast<unsigned>(total), std::memory_order_relaxed);
++        // A stream serializes its callbacks; only this callback writes the max.
++        if (static_cast<unsigned>(total) > g_audio_max_request_bytes.load(std::memory_order_relaxed))
++            g_audio_max_request_bytes.store(static_cast<unsigned>(total), std::memory_order_relaxed);
++    }
++    if (SDL_GetCurrentThreadID() == g_audio_producer_thread.load(std::memory_order_relaxed))
++        g_audio_callback_same_thread.fetch_add(1, std::memory_order_relaxed);
++    else g_audio_callback_other_thread.fetch_add(1, std::memory_order_relaxed);
++    if (additional > 0) {
++        g_audio_short_calls.fetch_add(1, std::memory_order_relaxed);
++        g_audio_additional_bytes.fetch_add(static_cast<unsigned>(additional), std::memory_order_relaxed);
++    }
++    if (additional >= jitter::kShortageThresholdBytes)
++        g_audio_short_epoch.fetch_add(1, std::memory_order_relaxed);
++}
++
++static void audio_reset_observation() {
++    if (!g_audio_jitter) return;
++    g_audio_adapt_started = Clock::now();
++    g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed);
++    g_audio_growth.last_growth_ns = 0;
++    g_audio_growth.has_grown = false;
++    // Preserve finite growth budget and last-push endpoint across every pause.
++    g_audio_skip_gap = true;
++    g_audio_seen_lifecycle = g_audio_lifecycle_epoch.load(std::memory_order_acquire);
++    ++g_audio_resets;
++}
++
++static void audio_pause_for_menu() {
++    if (!g_audio) return;
++    if (!SDL_PauseAudioStreamDevice(g_audio)) ++g_audio_pause_errors;
++    audio_reset_observation();
++}
++static void audio_resume_after_menu() {
++    if (!g_audio) return;
++    audio_reset_observation();
++    if (!SDL_ResumeAudioStreamDevice(g_audio)) ++g_audio_resume_errors;
++}
++
+ 
+ static bool audio_silence(int frames, bool initial = false) {
+     if (frames <= 0) return true;
+@@ -179,7 +253,17 @@
+     SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
+     g_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+     if (!g_audio) { sat_note("SDL audio: %s (no sound)", SDL_GetError()); return false; }
+-    g_lead = 2205;
++    g_audio_jitter = SDL_GetCurrentAudioDriver() && std::strcmp(SDL_GetCurrentAudioDriver(), "ohaudio") == 0;
++    g_audio_observer = false;
++    g_audio_adaptive = g_audio_jitter && SDL_GetHintBoolean("PAL_AUDIO_ADAPTIVE_LEAD", false);
++    g_lead = g_audio_jitter ? 4410 : 2205;
++    g_audio_get_calls = g_audio_short_calls = g_audio_additional_bytes = 0;
++    g_audio_requested_bytes = g_audio_max_request_bytes = 0;
++    g_audio_short_epoch = g_audio_callback_same_thread = g_audio_callback_other_thread = 0;
++    g_audio_producer_thread = SDL_GetCurrentThreadID();
++    g_audio_resets = g_audio_pause_errors = g_audio_resume_errors = 0;
++    g_audio_growth_events = g_audio_saturated = g_audio_format_changes = 0;
++    g_audio_device_rate = g_audio_device_quantum = 0;
+     g_underruns = g_dropped = g_query_errors = g_put_errors = 0;
+     g_pcm_attempted = g_pcm_accepted = g_pcm_dropped = g_pcm_failed = 0;
+     g_initial_zeros = g_recovery_zeros = g_max_push_gap_us = 0;
+@@ -189,10 +273,22 @@
+     int frames = 0;
+     if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(g_audio), &got, &frames)) {
+         auto lead = pal_audio_queue_policy::compute_lead(frames, got.freq);
+-        g_lead = lead.source_frames;
++        g_lead = g_audio_jitter ? jitter::initial(frames, got.freq).frames : lead.source_frames;
++        g_audio_device_rate = got.freq;
++        g_audio_device_quantum = frames;
+         sat_note("audio: device %d Hz %d ch, reported quantum %d, source lead %d/44100 (capped=%d valid=%d format=%u)",
+-                 got.freq, got.channels, frames, g_lead, (int)lead.maximum_applied, (int)lead.valid_device_format, (unsigned)got.format);
++                 got.freq, got.channels, frames, g_lead, (int)(g_audio_jitter ? jitter::initial(frames, got.freq).capped : lead.maximum_applied), (int)(g_audio_jitter ? jitter::initial(frames, got.freq).valid : lead.valid_device_format), (unsigned)got.format);
+     } else sat_note("audio: device format query failed: %s", SDL_GetError());
++    if (g_audio_jitter) sat_note("audio: SDL version=%d revision=%s adaptive=%d", SDL_GetVersion(), SDL_GetRevision(), (int)g_audio_adaptive);
++    g_audio_growth.reset(g_lead, 0, jitter::initial(frames, got.freq).maximum_target);
++    g_audio_skip_gap = false;
++    g_audio_adapt_started = g_audio_started;
++    g_audio_seen_lifecycle = g_audio_lifecycle_epoch.load(std::memory_order_acquire);
++    g_audio_format_dirty.store(false, std::memory_order_relaxed);
++    if (g_audio_jitter && g_audio_get_calls.is_lock_free() && g_audio_producer_thread.is_lock_free()) {
++        g_audio_observer = SDL_SetAudioStreamGetCallback(g_audio, audio_get_observer, nullptr);
++        if (!g_audio_observer) sat_note("audio: input observer unavailable: %s", SDL_GetError());
++    }
+     audio_silence(g_lead, true);
+     SDL_SetAudioStreamGain(g_audio, g_settings.number("audio", "volume") / 100.0f);
+     sat_note("audio: driver=%s guest_realtime=%d", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "unknown", (int)g_cfg.realtime);
+@@ -203,17 +299,40 @@
+ void host_audio_push(const int16_t* lr, int frames) {
+     if (sat_resuming() || !g_audio || frames <= 0) return;
+     auto now = Clock::now();
+-    if (g_audio_last_push != Clock::time_point{})
++    if (g_audio_jitter && g_audio_seen_lifecycle != g_audio_lifecycle_epoch.load(std::memory_order_acquire)) {
++        audio_reset_observation();
++        if (g_audio_format_dirty.exchange(false, std::memory_order_relaxed)) {
++            SDL_AudioSpec got{}; int quantum = 0;
++            if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(g_audio), &got, &quantum)) {
++                g_audio_device_rate = got.freq; g_audio_device_quantum = quantum;
++                const int limit = jitter::initial(quantum, got.freq).maximum_target;
++                g_audio_growth.maximum_target = std::max(g_audio_growth.target, limit);
++                ++g_audio_format_changes;
++            }
++        }
++    }
++    now = Clock::now();
++    if (!g_audio_skip_gap && g_audio_last_push != Clock::time_point{})
+         g_max_push_gap_us = std::max(g_max_push_gap_us, (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(now-g_audio_last_push).count());
++    g_audio_skip_gap = false;
+     g_audio_last_push = now;
+     g_pcm_attempted += frames;
+     int queued_bytes = [] { HostCall in("SDL_GetAudioStreamQueued"); return SDL_GetAudioStreamQueued(g_audio); }();
+-    auto plan = pal_audio_queue_policy::plan_push(queued_bytes, frames, g_lead);
+-    if (!plan.ok()) { ++g_query_errors; g_pcm_failed += frames; return; }
+-    if (plan.dropped_real_frames) { ++g_dropped; g_pcm_dropped += frames; return; }
++    auto plan = pal_audio_queue_policy::plan_push(queued_bytes, frames, g_audio_jitter ? 0 : g_lead);
++    if (!plan.ok()) { g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed); ++g_query_errors; g_pcm_failed += frames; return; }
++    if (plan.dropped_real_frames) { g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed); ++g_dropped; g_pcm_dropped += frames; return; }
+     // An empty input queue is an observation, NOT a measured device underrun.
+     if (plan.empty_observed) ++g_underruns;
+-    audio_silence(plan.recovery_silence_frames);
++    if (g_audio_jitter && g_audio_observer && g_audio_adaptive) {
++        const auto active_ns = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now - g_audio_adapt_started).count());
++        const auto growth = g_audio_growth.observe(active_ns, g_audio_short_epoch.load(std::memory_order_relaxed), queued_bytes, frames);
++        if (growth.budget_exhausted) ++g_audio_saturated;
++        if (growth.silence_frames) {
++            const bool success = audio_silence(growth.silence_frames);
++            g_audio_growth.commit(growth, success, active_ns);
++            if (success) { ++g_audio_growth_events; g_lead = g_audio_growth.target; }
++        }
++    } else if (!g_audio_jitter) audio_silence(plan.recovery_silence_frames);
+     HostCall in("SDL_PutAudioStreamData");
+     if (SDL_PutAudioStreamData(g_audio, lr, frames * 4)) g_pcm_accepted += frames;
+     else { ++g_put_errors; g_pcm_failed += frames; }
+@@ -221,11 +340,18 @@
+ 
+ void host_audio_report() {
+     if (!g_audio) return;
++    if (g_audio_jitter) std::fprintf(stderr,
++        "  audio input requests: observer=%d adaptive=%d calls=%llu short_calls=%llu additional_bytes_est=%llu requested_bytes_est=%llu max_request_bytes_est=%llu callback_producer_thread=%llu callback_other_thread=%llu target_frames=%d target_limit_frames=%d growth_events=%llu budget_exhausted=%llu lifecycle_resets=%llu pause_errors=%llu resume_errors=%llu format_changes=%llu current_device_hz=%d current_device_quantum=%d (source shortage estimates, not hardware underruns)\n",
++        (int)g_audio_observer, (int)g_audio_adaptive, (unsigned long long)g_audio_get_calls.load(), (unsigned long long)g_audio_short_calls.load(),
++        (unsigned long long)g_audio_additional_bytes.load(), (unsigned long long)g_audio_requested_bytes.load(), (unsigned long long)g_audio_max_request_bytes.load(), (unsigned long long)g_audio_callback_same_thread.load(),
++        (unsigned long long)g_audio_callback_other_thread.load(), g_lead, g_audio_growth.maximum_target, (unsigned long long)g_audio_growth_events,
++        (unsigned long long)g_audio_saturated, (unsigned long long)g_audio_resets, (unsigned long long)g_audio_pause_errors,
++        (unsigned long long)g_audio_resume_errors, (unsigned long long)g_audio_format_changes, g_audio_device_rate, g_audio_device_quantum);
+     const double wall = std::chrono::duration<double>(Clock::now()-g_audio_started).count();
+     const double last_push_wall = g_audio_last_push == Clock::time_point{} ? 0.0 : std::chrono::duration<double>(g_audio_last_push-g_audio_started).count();
+     std::fprintf(stderr, "  audio stream: %llu times empty, %llu chunks dropped (input queue observations, not device underruns)\n",
+                  (unsigned long long)g_underruns, (unsigned long long)g_dropped);
+-    std::fprintf(stderr, "  audio diagnostics: wall_total_s=%.6f (includes pauses and exit reporting) wall_to_last_push_s=%.6f (includes pauses; last-push endpoint) attempted=%llu accepted=%llu dropped_frames=%llu failed_frames=%llu initial_zeros=%llu recovery_zeros=%llu query_errors=%llu put_errors=%llu max_push_gap_us=%llu (includes pauses)\n",
++    std::fprintf(stderr, "  audio diagnostics: wall_total_s=%.6f (includes pauses and exit reporting) wall_to_last_push_s=%.6f (includes pauses; last-push endpoint) attempted=%llu accepted=%llu dropped_frames=%llu failed_frames=%llu initial_zeros=%llu recovery_zeros=%llu query_errors=%llu put_errors=%llu max_push_gap_us=%llu (OHAudio excludes recognized lifecycle gaps; other pauses may remain)\n",
+                  wall, last_push_wall, (unsigned long long)g_pcm_attempted, (unsigned long long)g_pcm_accepted,
+                  (unsigned long long)g_pcm_dropped, (unsigned long long)g_pcm_failed,
+                  (unsigned long long)g_initial_zeros, (unsigned long long)g_recovery_zeros,
+@@ -332,8 +458,10 @@
+ }
+ 
+ static void pad_added(SDL_JoystickID id) {
++    // Enumeration and SDL's queued ADDED event can describe the same device.
++    for (auto& p : g_pads) if (p.id == id) return;
+     SDL_Gamepad* pad = SDL_OpenGamepad(id);
+-    if (!pad) return;
++    if (!pad) { sat_note("gamepad: SDL_OpenGamepad(%u) failed: %s", (unsigned)id, SDL_GetError()); return; }
+     char guid[33];
+     SDL_GUIDToString(SDL_GetGamepadGUIDForID(id), guid, sizeof guid);
+     int s = g_slots.connect(id, guid);
+@@ -357,6 +485,41 @@
+         }
+ }
+ 
++static void enumerate_pads() {
++    int n = 0, mapped = 0;
++    SDL_JoystickID* ids = SDL_GetJoysticks(&n);
++    if (!ids) { sat_note("gamepad: enumeration failed: %s", SDL_GetError()); return; }
++    for (int i = 0; i < n; ++i) {
++        if (SDL_IsGamepad(ids[i])) { ++mapped; pad_added(ids[i]); }
++        else sat_note("gamepad: SDL joystick id=%u name=%s has no gamepad mapping", (unsigned)ids[i],
++                      SDL_GetJoystickNameForID(ids[i]) ? SDL_GetJoystickNameForID(ids[i]) : "unknown");
++    }
++    SDL_free(ids);
++    sat_note("gamepad: SDL joystick=%d mapped=%d opened=%d", n, mapped, (int)g_pads.size());
++}
++
++void host_pump_input() {
++#ifdef PAL_OHOS_INPUT
++    pal_ohos_gamepad_pump();
++#endif
++    // Retire a detached bridge before handling a newly available native pad, so
++    // the native pad can take player 1 instead of being stranded in player 2.
++    for (size_t i = 0; i < g_pads.size();) {
++        if (!SDL_GamepadConnected(g_pads[i].pad)) pad_removed(g_pads[i].id);
++        else ++i;
++    }
++}
++
++void host_shutdown_input() {
++    while (!g_pads.empty()) pad_removed(g_pads.back().id);
++    g_slots = PadSlots(kHostSlots);
++    std::fill(std::begin(g_buttons), std::end(g_buttons), 0);
++    std::fill(std::begin(g_held_over), std::end(g_held_over), 0);
++#ifdef PAL_OHOS_INPUT
++    pal_ohos_gamepad_stop();
++#endif
++}
++
+ void host_rebind() {
+     bind_keyboard();
+     for (auto& p : g_pads) {
+@@ -367,6 +530,16 @@
+ }
+ 
+ void host_pad_event(const SDL_Event& e) {
++#ifdef PAL_OHOS_INPUT
++    static bool focus = true, foreground = true;
++    if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == SDL_GetWindowID(g_win)) focus = false;
++    if (e.type == SDL_EVENT_WINDOW_FOCUS_GAINED && e.window.windowID == SDL_GetWindowID(g_win)) focus = true;
++    if (e.type == SDL_EVENT_WILL_ENTER_BACKGROUND || e.type == SDL_EVENT_DID_ENTER_BACKGROUND) foreground = false;
++    if (e.type == SDL_EVENT_DID_ENTER_FOREGROUND) foreground = true;
++    pal_ohos_gamepad_set_active(focus && foreground);
++#endif
++    if (e.type == SDL_EVENT_JOYSTICK_ADDED && !SDL_IsGamepad(e.jdevice.which))
++        sat_note("gamepad: SDL joystick id=%u has no gamepad mapping", (unsigned)e.jdevice.which);
+     if (e.type == SDL_EVENT_GAMEPAD_ADDED) pad_added(e.gdevice.which);
+     if (e.type == SDL_EVENT_GAMEPAD_REMOVED) pad_removed(e.gdevice.which);
+ }
+@@ -745,6 +918,7 @@
+ }
+ 
+ static void on_event(const SDL_Event& e) {
++    host_pad_event(e);
+     switch (e.type) {
+     case SDL_EVENT_WINDOW_FOCUS_LOST:
+     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+@@ -754,12 +928,6 @@
+     case SDL_EVENT_QUIT:
+         menu_close();
+         state_stop("the window was closed");
+-        break;
+-    case SDL_EVENT_GAMEPAD_ADDED:
+-        pad_added(e.gdevice.which);
+-        break;
+-    case SDL_EVENT_GAMEPAD_REMOVED:
+-        pad_removed(e.gdevice.which);
+         break;
+     case SDL_EVENT_KEY_DOWN: {
+         SDL_Scancode k = e.key.scancode;
+@@ -836,6 +1004,7 @@
+ }
+ 
+ static void events() {
++    host_pump_input();
+     if (!g_virtual.empty()) virtual_press();
+     SDL_Event e;
+     HostCall in("SDL_PollEvent");
+@@ -1045,10 +1214,11 @@
+ 
+ // The menu, open until it is closed; the game waits.
+ static void menu_loop() {
+-    if (g_audio) SDL_PauseAudioStreamDevice(g_audio);
++    audio_pause_for_menu();
+     ++g_host_paused;
+     Clock::time_point t = Clock::now();
+     while (g_menu_open) {
++        host_pump_input();
+         SDL_Event e;
+         {
+             HostCall in("SDL_PollEvent");
+@@ -1060,7 +1230,7 @@
+     }
+     g_base += Clock::now() - t;
+     --g_host_paused;
+-    if (g_audio) SDL_ResumeAudioStreamDevice(g_audio);
++    audio_resume_after_menu();
+     read_pads();
+ }
+ 
+--- a/runtime/src/host/host_sdl.h
++++ b/runtime/src/host/host_sdl.h
+@@ -15,6 +15,8 @@
+ bool host_settings_save();                           // into the file, its comments kept; false if it cannot be written
+ void host_rebind();                                  // the keyboard and the open gamepads bound by the settings again
+ 
++void host_pump_input();                               // before polling in gameplay, menu and launcher
++void host_shutdown_input();                           // close controllers before platform entry returns
+ void host_pad_event(const SDL_Event& e);             // a gamepad connecting or leaving
+ struct HostController { std::string name; int slot; bool held; };   // held: any of its bound buttons
+ std::vector<HostController> host_controllers();      // the open gamepads, by player
+--- a/runtime/src/host/launcher.cpp
++++ b/runtime/src/host/launcher.cpp
+@@ -82,6 +82,7 @@
+         const char* shot = SDL_getenv("SATURN_LAUNCHER_SHOT");
+         bool going = true;
+         for (int frame = 0; going && !started_; ++frame) {
++            host_pump_input();
+             SDL_Event e;
+             while (SDL_PollEvent(&e)) {
+                 if (e.type == SDL_EVENT_QUIT || (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_AC_BACK))
+--- /dev/null
++++ b/runtime/src/host/pal_audio_jitter_policy.h
+@@ -0,0 +1,103 @@
++#ifndef PAL_AUDIO_JITTER_POLICY_H
++#define PAL_AUDIO_JITTER_POLICY_H
++
++// Audit candidate, not a validated OHAudio fix. Source PCM remains S16/2/44100.
++// Use only on the OHAudio driver; retain the existing policy on other drivers.
++// Never interpret source queue emptiness as a hardware underrun.
++#include "pal_audio_queue_policy.h"
++#include <cstdint>
++
++namespace pal_audio_jitter_policy {
++inline constexpr int kSourceRate = 44100;
++inline constexpr int kMinimumInitial = 2205;  // existing 50 ms minimum
++inline constexpr int kMaximumInitial = 4410; // retain existing 100 ms maximum
++inline constexpr int kMaximumTarget = 9702;  // 220 ms
++inline constexpr int kGrowStep = 882;        // 20 ms
++inline constexpr int kMargin = 882;          // 20 ms
++inline constexpr int kShortageThresholdBytes = 180; // >=45 source frames
++inline constexpr std::uint64_t kWarmupNs = 2000000000ULL;
++inline constexpr std::uint64_t kCooldownNs = 1000000000ULL;
++inline constexpr int kCapacity = 11025;       // total source input <=250 ms
++
++struct Initial {
++    int frames;
++    std::int64_t quantum_source_frames;
++    std::int64_t uncapped_frames;
++    bool valid;
++    bool capped;
++    int maximum_target;
++};
++constexpr Initial initial(int device_frames, int device_rate) noexcept {
++    // Invalid format keeps 100 ms but disables adaptation: no measured headroom.
++    if (device_frames <= 0 || device_rate <= 0) return {4410, 0, 4410, false, false, 4410};
++    const auto q = (std::int64_t{device_frames} * kSourceRate + device_rate - 1) / device_rate;
++    const auto prior = pal_audio_queue_policy::compute_lead(device_frames, device_rate);
++    // Leave one reported pull quantum plus 20 ms producer headroom below cap.
++    // Retain existing priming; a 200 ms prime plus a 93 ms pull phase can drop
++    // real PCM against a 250 ms cap, including after a menu resume.
++    const auto room = std::int64_t{kCapacity} - q - kMargin;
++    const auto limit = room < prior.source_frames ? prior.source_frames
++        : room > kMaximumTarget ? kMaximumTarget : room;
++    return {prior.source_frames, q, prior.uncapped_source_frames, true,
++            prior.maximum_applied, static_cast<int>(limit)};
++}
++
++struct Growth {
++    int silence_frames;
++    int target_after_success;
++    bool budget_exhausted;
++};
++
++// All state belongs to the sole producer. A callback publishes shortage epochs
++// atomically; it must never call these methods or mutate this state.
++struct State {
++    int target = 4410;
++    int maximum_target = 4410;
++    std::uint64_t last_epoch = 0;
++    std::uint64_t last_growth_ns = 0;
++    bool has_grown = false;
++
++    void reset(int initial_frames, std::uint64_t epoch = 0, int limit = kMaximumTarget) noexcept {
++        target = initial_frames < kMinimumInitial ? kMinimumInitial
++            : initial_frames > kMaximumInitial ? kMaximumInitial : initial_frames;
++        maximum_target = limit < target ? target : limit > kMaximumTarget ? kMaximumTarget : limit;
++        last_epoch = epoch;
++        last_growth_ns = 0;
++        has_grown = false;
++    }
++
++    // Consume each observed epoch, including during warmup/cooldown/capacity
++    // blocks, so an old startup/pause shortage cannot trigger growth later.
++    // Call with active time (or explicitly suppress/reset on pause/resume).
++    Growth observe(std::uint64_t active_ns, std::uint64_t shortage_epoch,
++                   std::int64_t raw_queued_bytes, int real_frames) noexcept {
++        const bool fresh = shortage_epoch != last_epoch;
++        last_epoch = shortage_epoch;
++        if (!fresh || active_ns < kWarmupNs) return {0, target, false};
++        if (has_grown && (active_ns < last_growth_ns || active_ns - last_growth_ns < kCooldownNs))
++            return {0, target, false};
++        if (target >= maximum_target) return {0, target, true};
++        const auto q = pal_audio_queue_policy::inspect_queued_bytes(raw_queued_bytes);
++        if (!q.ok() || real_frames <= 0 || real_frames > kCapacity || q.source_frames > kCapacity - real_frames)
++            return {0, target, false};
++        const int step = target + kGrowStep > maximum_target ? maximum_target - target : kGrowStep;
++        const auto room = std::int64_t{kCapacity} - real_frames - q.source_frames;
++        // Do not silently spend a partial growth budget: original PCM has priority.
++        if (room < step) return {0, target, false};
++        return {step, target + step, false};
++    }
++
++    // Advance the target only after the padding Put succeeds. A failed Put
++    // consumes its epoch but not the finite latency budget; retry only on a
++    // genuinely new shortage after the cooldown condition is met.
++    void commit(const Growth& growth, bool silence_put_succeeded, std::uint64_t active_ns) noexcept {
++        if (!silence_put_succeeded || growth.silence_frames <= 0 ||
++            growth.target_after_success != target + growth.silence_frames ||
++            growth.target_after_success > maximum_target) return;
++        target = growth.target_after_success;
++        last_growth_ns = active_ns;
++        has_grown = true;
++    }
++};
++} // namespace pal_audio_jitter_policy
++#endif
