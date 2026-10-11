@@ -28,12 +28,12 @@ inline void pal_input_tick() {
     const uint16_t bits=pal_input_peek();
     const uint16_t scene=ld16(0x060768EE);
     if(scene!=pal_input_scene) {pal_input_scene=scene;pal_field_wait=false;pal_intent.clear(bits);}
-    const bool active=pal_field_wait && ld8(0x06076A09)!=0xFF && ld16(0x060768DC)==0;
+    const bool active=pal_field_wait && ld16(0x060768DC)==0;
     pal_intent.sample(bits,sat_vblanks(),active);
     pal_intent.edge(pal_input_edges(),sat_vblanks(),active);
     if(pal_input_option("PAL_RESPONSIVE_WAKE")) {
         const int old=(int8_t)ld8(0x060FFC13);
-        const int next=pal_input_wake_target(old,ld8(0x060FFC12),active && pal_in_sync_wait,
+        const int next=pal_input_wake_target(old,ld8(0x060FFC12),active && ld8(0x06076A09)!=0xFF && pal_in_sync_wait,
                          pal_intent.pending!=0,ld8(0x060FFCA8)!=0,(ld8(0x060FFCBC)&4)!=0);
         if(next!=old) {st8(0x060FFC13,next);sat_note("PALINPUT wake vb=%llu count=%d->%d",(unsigned long long)sat_vblanks(),old,next);}
     }
@@ -45,8 +45,13 @@ inline void pal_input_apply(SH2Context& c) {
     if(!pal_responsive_enabled()) return;
     pal_field_wait=false; pal_last_step=false;
     // The original converter owns actions, including menus and interaction.
-    if(!pal_movement_action(ld16(c.r[14])) || ld8(0x06076A09)==0xFF || ld16(0x060768DC)) {
+    if(!pal_movement_action(ld16(c.r[14])) || ld16(0x060768DC)) {
         pal_input_clear(); st16(0x060768E8,0);st16(0x060768EA,0); c.r[0]=c.r[1]=0; return;
+    }
+    // The guest release-inhibit can lag a newly released host pad. Keep a new
+    // field intent queued, but do not consume it or move before guest readiness.
+    if(ld8(0x06076A09)==0xFF) {
+        st16(0x060768E8,0);st16(0x060768EA,0);c.r[0]=c.r[1]=0;return;
     }
     // A fresh release cancels held-repeat, without cancelling an unconsumed tap.
     pal_intent.sample(pal_input_peek(),sat_vblanks(),true);

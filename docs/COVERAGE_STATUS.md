@@ -211,3 +211,14 @@ fresh processes; final equipment fields and decoded field RGB match. See
 [JADE_BUDDHA_VALIDATION.md](JADE_BUDDHA_VALIDATION.md) for identities, limits and
 private replay/save hashes. This supersedes the earlier temple-exterior pause;
 Black Water Town and the tomb gate remain the next untested mainline segment.
+
+## Black Water delayed release-gate regression (2026-10-11)
+
+A real scene62 replay exposed a fresh direction discarded while the guest's
+key-release inhibit lagged host release. The guarded precise-input fix defers
+consumption instead of discarding it; genuine menu/script/scene cancellation
+is retained. The exact failure is red/green, 720 gate cases and five boundary
+models pass, and existing 12/94/44 battle/walk/group-effect RGB and BUP references
+remain identical. See [INPUT_RELEASE_GATE_FIX.md](INPUT_RELEASE_GATE_FIX.md).
+The already published preview.1 assets are unchanged; this source revision needs
+regeneration. No new Windows native execution or all-game completion is claimed.

@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-2'
+VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-2'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
@@ -250,7 +250,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         'defaults': {'PAL_RESPONSIVE_INPUT': '0', 'PAL_RESPONSIVE_ALIGN': '0',
                      'PAL_RESPONSIVE_WAKE': '0', 'PAL_SHORT_EFFECT_PREP': '0',
                      'PAL_EFFECT_ANIMATION_SPEED': '1', 'PAL_PAIRED_FRAME_QUEUE': '0'},
-        'input_scope': 'precise v4; timing experiments remain separately gated',
+        'input_scope': 'precise v4 + guest release gate fix v1; timing experiments remain separately gated',
         'effect_scope': 'v3 bank7 commit-gated early exit; changes RNG/idle trajectory',
         'cadence_scope': 'bank7 tested effects 33/20,10/26,43/14,1/7; retain frames/ticks, optional 1/1.25/1.5/2',
         'inputs_sha256': {}, 'outputs_sha256': {}}
