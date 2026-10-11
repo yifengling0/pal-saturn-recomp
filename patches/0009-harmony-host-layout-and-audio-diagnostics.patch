@@ -1,0 +1,713 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -24,10 +24,9 @@
+ //
+ // Sound (sound.cpp) comes as it is made, in virtual time, into an SDL audio
+ // stream at 44 100 Hz: the window's pace keeps it level with the device.
+-// The stream starts a lead ahead (50 ms, or three of the device's own pulls when it wants more); a chunk
+-// that would take it past 250 ms is
+-// dropped (the host's clock and the device's drift apart), and one that
+-// finds it empty (the host fell behind) is preceded by 50 ms of silence.
++// Input lead is 50..100 ms, chosen from the reported device quantum converted to
++// source frames. The 250 ms input queue cap includes recovery silence. An empty
++// SDL input queue is not proof of a hardware underrun; device buffers are separate.
+ #include "saturn.h"
+ #include "sound.h"
+ #include "video.h"
+@@ -36,6 +35,9 @@
+ #include "pad_slots.h"
+ #include "settings.h"
+ #include "touch_pad.h"
++#include "touch_ui_policy.h"
++#include "touch_menu_paging.h"
++#include "pal_audio_queue_policy.h"
+ #include "ui.h"
+ #include <SDL3/SDL.h>
+ #include <algorithm>
+@@ -156,46 +158,79 @@
+ 
+ // ---- sound ------------------------------------------------------------------------------------
+ static SDL_AudioStream* g_audio;
+-static const int kMax = 11025;                  // frames: 250 ms at most
+-static int g_lead = 2205;                       // how far ahead of the device to stay, 50 ms by default
+-static int g_underruns, g_dropped;
+-
+-static void audio_silence(int frames) {
++static int g_lead = 2205;
++static uint64_t g_underruns, g_dropped, g_query_errors, g_put_errors;
++static uint64_t g_pcm_attempted, g_pcm_accepted, g_pcm_dropped, g_pcm_failed;
++static uint64_t g_initial_zeros, g_recovery_zeros, g_max_push_gap_us;
++static Clock::time_point g_audio_started, g_audio_last_push;
++
++static bool audio_silence(int frames, bool initial = false) {
++    if (frames <= 0) return true;
+     std::vector<int16_t> z((size_t)frames * 2);
+-    SDL_PutAudioStreamData(g_audio, z.data(), (int)(z.size() * sizeof(int16_t)));
++    if (!SDL_PutAudioStreamData(g_audio, z.data(), frames * 4)) { ++g_put_errors; return false; }
++    (initial ? g_initial_zeros : g_recovery_zeros) += frames;
++    return true;
+ }
+ 
+ bool host_audio_open() {
+     if (!g_win) return false;
+     SDL_AudioSpec spec = {SDL_AUDIO_S16, 2, 44100};
+-    // A run adds 735 frames a VBlank. A device that pulls more than that empties the stream between two
+-    // runs, and every empty is a gap, so ask for small pulls and then stay ahead of what we get.
++    // This is only a request: the backend may choose a different quantum.
+     SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
+     g_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+     if (!g_audio) { sat_note("SDL audio: %s (no sound)", SDL_GetError()); return false; }
++    g_lead = 2205;
++    g_underruns = g_dropped = g_query_errors = g_put_errors = 0;
++    g_pcm_attempted = g_pcm_accepted = g_pcm_dropped = g_pcm_failed = 0;
++    g_initial_zeros = g_recovery_zeros = g_max_push_gap_us = 0;
++    g_audio_started = Clock::now();
++    g_audio_last_push = {};
+     SDL_AudioSpec got = {};
+     int frames = 0;
+-    if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(g_audio), &got, &frames) && frames > 0) {
+-        g_lead = std::clamp(3 * frames, 2205, 4410);
+-        sat_note("audio: device %d Hz %d ch, %d frames a pull, lead %d", got.freq, got.channels, frames, g_lead);
+-    }
+-    audio_silence(g_lead);
++    if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(g_audio), &got, &frames)) {
++        auto lead = pal_audio_queue_policy::compute_lead(frames, got.freq);
++        g_lead = lead.source_frames;
++        sat_note("audio: device %d Hz %d ch, reported quantum %d, source lead %d/44100 (capped=%d valid=%d format=%u)",
++                 got.freq, got.channels, frames, g_lead, (int)lead.maximum_applied, (int)lead.valid_device_format, (unsigned)got.format);
++    } else sat_note("audio: device format query failed: %s", SDL_GetError());
++    audio_silence(g_lead, true);
+     SDL_SetAudioStreamGain(g_audio, g_settings.number("audio", "volume") / 100.0f);
+-    SDL_ResumeAudioStreamDevice(g_audio);
++    sat_note("audio: driver=%s guest_realtime=%d", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "unknown", (int)g_cfg.realtime);
++    if (!SDL_ResumeAudioStreamDevice(g_audio)) sat_note("audio: resume failed: %s", SDL_GetError());
+     return true;
+ }
+ 
+ void host_audio_push(const int16_t* lr, int frames) {
+-    if (sat_resuming()) return;
+-    int queued = [] { HostCall in("SDL_GetAudioStreamQueued"); return SDL_GetAudioStreamQueued(g_audio) / 4; }();
+-    if (queued + frames > kMax) { ++g_dropped; return; }
+-    if (queued == 0) { ++g_underruns; audio_silence(g_lead); }
++    if (sat_resuming() || !g_audio || frames <= 0) return;
++    auto now = Clock::now();
++    if (g_audio_last_push != Clock::time_point{})
++        g_max_push_gap_us = std::max(g_max_push_gap_us, (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(now-g_audio_last_push).count());
++    g_audio_last_push = now;
++    g_pcm_attempted += frames;
++    int queued_bytes = [] { HostCall in("SDL_GetAudioStreamQueued"); return SDL_GetAudioStreamQueued(g_audio); }();
++    auto plan = pal_audio_queue_policy::plan_push(queued_bytes, frames, g_lead);
++    if (!plan.ok()) { ++g_query_errors; g_pcm_failed += frames; return; }
++    if (plan.dropped_real_frames) { ++g_dropped; g_pcm_dropped += frames; return; }
++    // An empty input queue is an observation, NOT a measured device underrun.
++    if (plan.empty_observed) ++g_underruns;
++    audio_silence(plan.recovery_silence_frames);
+     HostCall in("SDL_PutAudioStreamData");
+-    SDL_PutAudioStreamData(g_audio, lr, frames * 4);
++    if (SDL_PutAudioStreamData(g_audio, lr, frames * 4)) g_pcm_accepted += frames;
++    else { ++g_put_errors; g_pcm_failed += frames; }
+ }
+ 
+ void host_audio_report() {
+-    if (g_audio) std::fprintf(stderr, "  audio stream: %d times empty, %d chunks dropped\n", g_underruns, g_dropped);
++    if (!g_audio) return;
++    const double wall = std::chrono::duration<double>(Clock::now()-g_audio_started).count();
++    const double last_push_wall = g_audio_last_push == Clock::time_point{} ? 0.0 : std::chrono::duration<double>(g_audio_last_push-g_audio_started).count();
++    std::fprintf(stderr, "  audio stream: %llu times empty, %llu chunks dropped (input queue observations, not device underruns)\n",
++                 (unsigned long long)g_underruns, (unsigned long long)g_dropped);
++    std::fprintf(stderr, "  audio diagnostics: wall_total_s=%.6f (includes pauses and exit reporting) wall_to_last_push_s=%.6f (includes pauses; last-push endpoint) attempted=%llu accepted=%llu dropped_frames=%llu failed_frames=%llu initial_zeros=%llu recovery_zeros=%llu query_errors=%llu put_errors=%llu max_push_gap_us=%llu (includes pauses)\n",
++                 wall, last_push_wall, (unsigned long long)g_pcm_attempted, (unsigned long long)g_pcm_accepted,
++                 (unsigned long long)g_pcm_dropped, (unsigned long long)g_pcm_failed,
++                 (unsigned long long)g_initial_zeros, (unsigned long long)g_recovery_zeros,
++                 (unsigned long long)g_query_errors, (unsigned long long)g_put_errors,
++                 (unsigned long long)g_max_push_gap_us);
+ }
+ 
+ // ---- the pad ----------------------------------------------------------------------------------
+@@ -426,8 +461,7 @@
+ // The pad's height on the screen: 480 density-independent pixels at its default size, and never so
+ // small on a big screen that a finger misses it, so also a share of the picture's own height.
+ static TouchLayout pad_layout() {
+-    float unit = std::max(4.8f * display_scale(), 0.45f * (float)g_out_h);
+-    return touch_layout(g_out_w, g_out_h, unit * (float)g_settings.number("touch", "size") / 100.0f);
++    return touch_layout(g_out_w, g_out_h, touch_pad_unit(g_out_h, display_scale(), g_settings.number("touch", "size")));
+ }
+ 
+ static uint16_t touch_read() {
+@@ -445,14 +479,17 @@
+ // by as long as it was, so the run is the same run with or without it. A panel of two columns where
+ // the screen is wide enough, the game's choices in one and the touch pad's in the other, each a row:
+ // an action, a choice of a few, a slider, or a switch.
+-enum MenuId { M_RESUME, M_SAVES, M_QUIT, M_PAD, M_SIZE, M_STYLE, M_MENU_BUTTON };
++enum MenuId { M_RESUME, M_SAVES, M_QUIT, M_PAD, M_SIZE, M_STYLE, M_MENU_BUTTON, M_PRESENT, M_OPACITY };
+ enum class Control { Action, Choice, Slider, Switch };
+ struct MenuRow { MenuId id; Control control; int column; SDL_FRect r; };
+-struct MenuLayout { SDL_FRect panel; float u; float title_y; float section_y[2]; float column_x[2]; std::vector<MenuRow> rows; };
++struct MenuLayout { bool paged = false; int pages = 1; SDL_FRect back{}, next{}; SDL_FRect panel; float u; float title_y; float section_y[2]; float column_x[2]; std::vector<MenuRow> rows; };
+ 
+ static bool g_menu_open, g_quitting;
++static int g_menu_page;
+ static int g_menu_at;                           // the focused row, by index into the layout's rows
+-static SDL_FingerID g_slider_finger;            // the finger moving the size slider, or 0
++static bool g_slider_active;
++static MenuId g_slider_id = M_SIZE;
++static SDL_FingerID g_slider_finger;            // valid only while g_slider_active; do not conflate tracking with a sentinel
+ static const char* const kPadModes[] = {"auto", "on", "off"};
+ static const char* const kPadModeNames[] = {"Auto", "On", "Off"};
+ static const char* const kStyles[] = {"western", "japanese"};
+@@ -463,19 +500,22 @@
+     host_settings_save();
+ }
+ 
+-static int choice_count(MenuId id) { return id == M_PAD ? 3 : 2; }
+-static const char* choice_name(MenuId id, int i) { return id == M_PAD ? kPadModeNames[i] : kStyleNames[i]; }
++static const char* const kPresent[] = {"original", "fit", "stretch"};
++static const char* const kPresentNames[] = {"TV", "Fit", "Fill"};
++static int choice_count(MenuId id) { return id == M_STYLE ? 2 : 3; }
++static const char* choice_name(MenuId id, int i) { return id == M_PRESENT ? kPresentNames[i] : id == M_PAD ? kPadModeNames[i] : kStyleNames[i]; }
+ 
+ static int choice_at(MenuId id) {
+-    std::string v = g_settings.get("touch", id == M_PAD ? "controls" : "style");
++    std::string v = id == M_PRESENT ? g_settings.get("display", "presentation") : g_settings.get("touch", id == M_PAD ? "controls" : "style");
+     for (int i = 0; i < choice_count(id); ++i)
+-        if (v == (id == M_PAD ? kPadModes[i] : kStyles[i])) return i;
++        if (v == (id == M_PRESENT ? kPresent[i] : id == M_PAD ? kPadModes[i] : kStyles[i])) return i;
+     return 0;
+ }
+ 
+ static void choose(MenuId id, int i) {
+     i = (i + choice_count(id)) % choice_count(id);
+-    setting_change(id == M_PAD ? "controls" : "style", id == M_PAD ? kPadModes[i] : kStyles[i]);
++    if (id == M_PRESENT) { g_settings.set("display", "presentation", kPresent[i]); host_settings_save(); }
++    else setting_change(id == M_PAD ? "controls" : "style", id == M_PAD ? kPadModes[i] : kStyles[i]);
+ }
+ 
+ // The pad's size in percent, from half to twice its default, a tenth at a time.
+@@ -486,6 +526,8 @@
+ 
+ static const char* menu_label(MenuId id) {
+     switch (id) {
++    case M_PRESENT: return "Picture";
++    case M_OPACITY: return "Opacity";
+     case M_RESUME: return "Resume";
+     case M_SAVES: return "Save files";
+     case M_QUIT: return "Quit";
+@@ -500,9 +542,10 @@
+     const float pad = 20, title = 56, section = 30, row = 52, gap = 6, column = 340, between = 24;
+     std::vector<std::pair<MenuId, Control>> game = {{M_RESUME, Control::Action}};
+     if (!g_cfg.after.empty()) game.push_back({M_SAVES, Control::Action});
++    game.push_back({M_PRESENT, Control::Choice});
+     game.push_back({M_QUIT, Control::Action});
+     const std::vector<std::pair<MenuId, Control>> touch = {
+-        {M_PAD, Control::Choice}, {M_SIZE, Control::Slider}, {M_STYLE, Control::Choice}, {M_MENU_BUTTON, Control::Switch}};
++        {M_PAD, Control::Choice}, {M_SIZE, Control::Slider}, {M_OPACITY, Control::Slider}, {M_STYLE, Control::Choice}, {M_MENU_BUTTON, Control::Switch}};
+     float tall = (float)std::max(game.size(), touch.size());
+     // two columns, or one, whichever is drawn bigger; a screen this size gets a menu this size, up to twice
+     // its density-independent pixels so a desktop's mouse menu does not blow up
+@@ -513,6 +556,27 @@
+     bool two = k2 >= k1;
+     float u = two ? k2 : k1;
+     MenuLayout l;
++    // On dense/short screens keep real hit targets instead of shrinking the whole menu.
++    if (34 * u < 48 * display_scale()) {
++        std::vector<std::pair<MenuId, Control>> items = game;
++        items.insert(items.end(), touch.begin(), touch.end());
++        auto p = fixed_hit_paging(g_out_w, g_out_h, display_scale(), {}, PagingKind::Touch, (int)items.size());
++        if (p.viable) {
++            l.paged = true; l.pages = p.pages; l.u = display_scale();
++            l.panel = {p.panel.x,p.panel.y,p.panel.w,p.panel.h};
++            l.back = {p.back.x,p.back.y,p.back.w,p.back.h};
++            l.next = {p.next.x,p.next.y,p.next.w,p.next.h};
++            l.title_y = l.back.y + l.back.h/2;
++            g_menu_page = std::clamp(g_menu_page, 0, p.pages-1);
++            int first = g_menu_page * p.items_per_page;
++            for (int i=0; i<p.items_per_page && first+i<(int)items.size(); ++i) {
++                auto c=p.cells[i]; auto item=items[first+i];
++                l.rows.push_back({item.first,item.second,0,{c.x,c.y,c.w,c.h}});
++            }
++            return l;
++        }
++    }
++    g_menu_page = 0;
+     l.u = u;
+     float pw = (two ? w2 : w1) * u, ph = (two ? h2 : h1) * u;
+     l.panel = {(g_out_w - pw) / 2, (g_out_h - ph) / 2, pw, ph};
+@@ -536,7 +600,7 @@
+ // The parts of a row's control: a choice's segments, or a slider's minus, track and plus.
+ static SDL_FRect control_area(const MenuLayout& l, const MenuRow& r) {
+     float w = r.control == Control::Switch ? 52 * l.u : 0.58f * r.r.w;
+-    return {r.r.x + r.r.w - w - 10 * l.u, r.r.y + 9 * l.u, w, r.r.h - 18 * l.u};
++    return {r.r.x + r.r.w - w - 10 * l.u, r.r.y + (l.paged ? 0 : 9 * l.u), w, r.r.h - (l.paged ? 0 : 18 * l.u)};
+ }
+ 
+ static SDL_FRect segment(const MenuLayout& l, const MenuRow& r, int i) {
+@@ -552,9 +616,14 @@
+ 
+ static bool inside(const SDL_FRect& r, float x, float y) { return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; }
+ 
++static SDL_FRect menu_back_rect(const MenuLayout& l) {
++    return l.paged ? l.back : SDL_FRect{l.panel.x+l.panel.w-64*l.u,l.panel.y+8*l.u,52*l.u,44*l.u};
++}
++
+ static void menu_close() {
+     g_menu_open = false;
+-    g_slider_finger = 0;
++    g_slider_finger = 0; g_slider_active = false;
++    g_fingers.clear(); g_lifted.clear(); g_unread.clear(); g_touch_held = 0;
+     for (auto& h : g_held_over) h = 0xFFFF;
+ }
+ 
+@@ -576,7 +645,12 @@
+     case M_RESUME: menu_close(); break;
+     case M_SAVES: menu_quit(true); break;
+     case M_QUIT: menu_quit(false); break;
+-    case M_PAD: case M_STYLE: choose(id, choice_at(id) + 1); break;
++    case M_PAD: case M_STYLE: case M_PRESENT: choose(id, choice_at(id) + 1); break;
++    case M_OPACITY: {
++        int opacity = g_settings.number("touch", "opacity") + 10;
++        setting_change("opacity", std::to_string(opacity > 100 ? 20 : opacity).c_str());
++        break;
++    }
+     case M_SIZE: {
+         int size = g_settings.number("touch", "size") + 10;
+         pad_size_set(size > 200 ? 50 : size);
+@@ -588,19 +662,26 @@
+ 
+ // Left and right: a step along a choice or the slider, a switch set off or on.
+ static void menu_adjust(MenuId id, int dir) {
+-    if (id == M_PAD || id == M_STYLE) choose(id, choice_at(id) + dir);
++    if (id == M_PAD || id == M_STYLE || id == M_PRESENT) choose(id, choice_at(id) + dir);
++    else if (id == M_OPACITY) setting_change("opacity", std::to_string(std::clamp(g_settings.number("touch", "opacity") + 10 * dir, 20, 100)).c_str());
+     else if (id == M_SIZE) pad_size_set(g_settings.number("touch", "size") + 10 * dir);
+     else if (id == M_MENU_BUTTON) setting_change("menu_button", dir > 0 ? "true" : "false");
+ }
+ 
+ static void slide(const MenuLayout& l, const MenuRow& r, float x) {
+     SDL_FRect t = slider_track(l, r);
+-    pad_size_set(50 + (int)std::lround(std::clamp((x - t.x) / t.w, 0.0f, 1.0f) * 150));
++    float f = std::clamp((x - t.x) / t.w, 0.0f, 1.0f);
++    if (r.id == M_OPACITY) setting_change("opacity", std::to_string(20 + (int)std::lround(f * 80)).c_str());
++    else pad_size_set(50 + (int)std::lround(f * 150));
+ }
+ 
+ // A tap or click at (x, y), from `finger` (0 for the mouse).
+ static void menu_tap(float x, float y, SDL_FingerID finger) {
+     MenuLayout l = menu_layout();
++    if (inside(menu_back_rect(l), x, y)) { menu_close(); return; }
++    if (l.paged && l.pages>1 && inside(l.next,x,y)) {
++        g_menu_page = (g_menu_page+1)%l.pages; g_menu_at=0; g_slider_active=false; return;
++    }
+     for (size_t i = 0; i < l.rows.size(); ++i) {
+         const MenuRow& r = l.rows[i];
+         if (!inside(r.r, x, y)) continue;
+@@ -615,17 +696,20 @@
+             else {
+                 slide(l, r, x);
+                 g_slider_finger = finger;
++                g_slider_active = true;
++                g_slider_id = r.id;
+             }
+         } else menu_activate(r.id);
+         return;
+     }
+-    // a tap beside the panel is the way back; there is no other close on a touchscreen
++    // Outside closes too; Resume and the explicit top-right close are always available.
+     if (!inside(l.panel, x, y)) menu_close();
+ }
+ 
+ static void menu_open() {
+     if (g_menu_open || g_quitting) return;
+     g_menu_open = true;
++    g_menu_page = 0;
+     g_menu_at = 0;
+     g_fingers.clear();
+     g_lifted.clear();
+@@ -651,11 +735,22 @@
+     else if (dx) {
+         for (int i = 0; i < n; ++i)
+             if (l.rows[i].column != r.column) { g_menu_at = i; break; }
+-    } else if (dy) g_menu_at = (g_menu_at + dy + n) % n;
++    } else if (dy) {
++        if (l.paged && (g_menu_at+dy<0 || g_menu_at+dy>=n)) {
++            g_menu_page=(g_menu_page+(dy>0?1:-1)+l.pages)%l.pages;
++            auto next=menu_layout(); g_menu_at=dy>0?0:(int)next.rows.size()-1;
++            g_slider_active=false;
++        } else g_menu_at = (g_menu_at + dy + n) % n;
++    }
+ }
+ 
+ static void on_event(const SDL_Event& e) {
+     switch (e.type) {
++    case SDL_EVENT_WINDOW_FOCUS_LOST:
++    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
++    case SDL_EVENT_DID_ENTER_BACKGROUND:
++        g_fingers.clear(); g_lifted.clear(); g_unread.clear(); g_touch_held = 0; g_slider_finger = 0; g_slider_active = false;
++        break;
+     case SDL_EVENT_QUIT:
+         menu_close();
+         state_stop("the window was closed");
+@@ -705,13 +800,14 @@
+     case SDL_EVENT_FINGER_DOWN:
+     case SDL_EVENT_FINGER_MOTION: {
+         g_touchscreen = true;
++        SDL_GetCurrentRenderOutputSize(g_ren, &g_out_w, &g_out_h);
+         float x = e.tfinger.x * g_out_w, y = e.tfinger.y * g_out_h;
+         if (g_menu_open) {
+             if (e.type == SDL_EVENT_FINGER_DOWN) menu_tap(x, y, e.tfinger.fingerID);
+-            else if (g_slider_finger && e.tfinger.fingerID == g_slider_finger) {
++            else if (g_slider_active && e.tfinger.fingerID == g_slider_finger) {
+                 MenuLayout l = menu_layout();
+                 for (auto& r : l.rows)
+-                    if (r.id == M_SIZE) slide(l, r, x);
++                    if (r.id == g_slider_id) slide(l, r, x);
+             }
+             break;
+         }
+@@ -734,7 +830,7 @@
+     case SDL_EVENT_FINGER_CANCELED:
+         if (e.type == SDL_EVENT_FINGER_UP && g_unread.count(e.tfinger.fingerID)) g_lifted.push_back(e.tfinger.fingerID);
+         else g_fingers.erase(e.tfinger.fingerID);
+-        if (e.tfinger.fingerID == g_slider_finger) g_slider_finger = 0;
++        if (g_slider_active && e.tfinger.fingerID == g_slider_finger) { g_slider_finger = 0; g_slider_active = false; }
+         break;
+     }
+ }
+@@ -773,14 +869,16 @@
+ }
+ 
+ static SDL_FColor faded(SDL_FColor c, bool held) {
+-    if (held) return {std::min(1.0f, c.r * 1.3f + 0.15f), std::min(1.0f, c.g * 1.3f + 0.15f), std::min(1.0f, c.b * 1.3f + 0.15f), 0.85f};
+-    return {c.r, c.g, c.b, 0.55f};
++    const float alpha = g_settings.number("touch", "opacity") / 100.0f;
++    if (held) return {std::min(1.0f, c.r * 1.3f + 0.15f), std::min(1.0f, c.g * 1.3f + 0.15f), std::min(1.0f, c.b * 1.3f + 0.15f), std::min(1.0f, alpha + 0.3f)};
++    return {c.r, c.g, c.b, alpha};
+ }
+ 
+ static void draw_touch_pad() {
+     bool jp = g_settings.get("touch", "style") == "japanese";
+     TouchLayout l = pad_layout();
+-    const SDL_FColor shade = rgba(0, 0, 0, 0.3f);
++    const float opacity_scale = g_settings.number("touch", "opacity") / 55.0f;
++    const SDL_FColor shade = rgba(0, 0, 0, std::min(1.0f, 0.3f * opacity_scale));
+ 
+     // the d-pad: a cross, each arm lit while held
+     float r = l.dpad_r, arm = 0.62f * r;
+@@ -792,13 +890,13 @@
+     for (auto& a : arms) {
+         float cx = l.dpad_x + a.dx * 0.62f * r, cy = l.dpad_y + a.dy * 0.62f * r;
+         if (g_touch_held & a.bit) fill_rounded({cx - arm / 2, cy - arm / 2, arm, arm}, 0.15f * arm, faded(pad, true));
+-        fill_circle(cx + a.dx * 0.12f * r, cy + a.dy * 0.12f * r, 0.09f * r, rgba(1, 1, 1, 0.35f));
++        fill_circle(cx + a.dx * 0.12f * r, cy + a.dy * 0.12f * r, 0.09f * r, rgba(1, 1, 1, std::min(1.0f, 0.35f * opacity_scale)));
+     }
+ 
+     for (auto& b : l.buttons) {
+         ButtonLook k = look_of(b.bit, jp);
+         bool held = g_touch_held & b.bit;
+-        SDL_FColor label = {k.label.r, k.label.g, k.label.b, held ? 1.0f : 0.8f};
++        SDL_FColor label = {k.label.r, k.label.g, k.label.b, std::min(1.0f, (held ? 1.0f : 0.8f) * opacity_scale)};
+         if (b.shape == TouchButton::Round) {
+             fill_circle(b.x, b.y, 1.1f * b.w, shade);
+             fill_circle(b.x, b.y, b.w, faded(k.fill, held));
+@@ -831,9 +929,14 @@
+     MenuLayout l = menu_layout();
+     float u = l.u;
+     ui_fill_rounded(l.panel, 22 * u, panel);
+-    ui_text(l.panel.x + 20 * u, l.title_y, 26 * u, "Paused", text, true, UiAlign::Left);
+-    ui_text(l.panel.x + l.panel.w - 20 * u, l.title_y, 13 * u, "Back to resume", muted, false, UiAlign::Right);
+-    for (int c = 0; c < 2; ++c)
++    if (l.paged) {
++        ui_text(l.panel.x+l.panel.w/2,l.title_y,18*u,"Settings " + std::to_string(g_menu_page+1) + "/" + std::to_string(l.pages),text,true);
++        if (l.pages>1) { ui_fill_rounded(l.next,8*u,accent); ui_text(l.next.x+l.next.w/2,l.title_y,20*u,">",text,true); }
++    } else ui_text(l.panel.x + 20 * u, l.title_y, 26 * u, "Paused", text, true, UiAlign::Left);
++    SDL_FRect close = menu_back_rect(l);
++    ui_fill_rounded(close, 8*u, accent);
++    ui_text(close.x + close.w/2, close.y + close.h/2, 24*u, "X", text, true);
++    if (!l.paged) for (int c = 0; c < 2; ++c)
+         ui_text(l.column_x[c], l.section_y[c], 12 * u, c == 0 ? "GAME" : "TOUCH CONTROLS", muted, true, UiAlign::Left);
+     g_menu_at = std::clamp(g_menu_at, 0, (int)l.rows.size() - 1);
+     for (size_t i = 0; i < l.rows.size(); ++i) {
+@@ -859,7 +962,7 @@
+             break;
+         }
+         case Control::Slider: {
+-            int size = g_settings.number("touch", "size");
++            int size = g_settings.number("touch", r.id == M_OPACITY ? "opacity" : "size");
+             float label_w = ui_text_width(16 * u, menu_label(r.id), true);
+             ui_text(r.r.x + 16 * u + label_w + 10 * u, cy, 14 * u, std::to_string(size) + "%", muted, false, UiAlign::Left);
+             float b = a.h / 2;
+@@ -868,7 +971,7 @@
+             ui_text(a.x + b, cy, 18 * u, "−", text, true);
+             ui_text(a.x + a.w - b, cy, 18 * u, "+", text, true);
+             SDL_FRect t = slider_track(l, r);
+-            float f = (size - 50) / 150.0f, x = t.x + f * t.w;
++            float f = r.id == M_OPACITY ? (size - 20) / 80.0f : (size - 50) / 150.0f, x = t.x + f * t.w;
+             ui_fill_rounded({t.x, cy - 3 * u, t.w, 6 * u}, 3 * u, off);
+             ui_fill_rounded({t.x, cy - 3 * u, x - t.x, 6 * u}, 3 * u, accent);
+             ui_fill_circle(x, cy, 10 * u, knob);
+@@ -905,6 +1008,21 @@
+ // The last picture and what goes over it.
+ static void draw() {
+     SDL_GetCurrentRenderOutputSize(g_ren, &g_out_w, &g_out_h);
++    if (g_tex_h > 0) {
++        std::string mode = g_settings.get("display", "presentation");
++        if (mode == "original") {
++            int sw = g_out_w, sh = g_out_w * 3 / 4;
++            if (sh > g_out_h) { sh = g_out_h; sw = g_out_h * 4 / 3; }
++            int lines = bios_pal() ? std::max(256, g_tex_h) : g_tex_h;
++            int ph = sh * g_tex_h / lines;
++            g_dst = {(float)((g_out_w-sw)/2), (float)((g_out_h-ph)/2), (float)sw, (float)ph};
++        } else {
++            int lines = bios_pal() ? std::max(256, g_tex_h) : g_tex_h;
++            const float active_aspect = (4.0f/3.0f) * lines / g_tex_h;
++            auto v = touch_game_viewport(g_out_w, g_out_h, active_aspect, mode == "stretch");
++            g_dst = {v.x, v.y, v.w, v.h};
++        }
++    }
+     SDL_SetRenderDrawColor(g_ren, 0, 0, 0, 255);
+     SDL_RenderClear(g_ren);
+     SDL_SetRenderDrawBlendMode(g_ren, SDL_BLENDMODE_BLEND);
+@@ -962,15 +1080,6 @@
+         g_tex_h = f.h;
+     }
+     SDL_UpdateTexture(g_tex, nullptr, f.px.data(), f.w * 4);
+-    int ww = 0, wh = 0;
+-    SDL_GetCurrentRenderOutputSize(g_ren, &ww, &wh);
+-    // the TV's 4:3 screen, as large as the window allows, centred; a PAL TV
+-    // shows 256 lines, and a 224-line picture has a border above and below
+-    int sw = ww, sh = ww * 3 / 4;
+-    if (sh > wh) { sh = wh; sw = wh * 4 / 3; }
+-    int tv_lines = bios_pal() ? std::max(256, f.h) : f.h;
+-    int ph = sh * f.h / tv_lines;
+-    g_dst = {(float)((ww - sw) / 2), (float)((wh - ph) / 2), (float)sw, (float)ph};
+     draw();
+     events();
+     if (g_menu_open) menu_loop();
+--- a/runtime/src/host/settings.cpp
++++ b/runtime/src/host/settings.cpp
+@@ -16,6 +16,14 @@
+ fullscreen = false
+ ; the window is 320x240 times this
+ scale = 3
++; original TV border, fit active picture, or stretch to fill
++presentation = )"
++#if defined(PAL_OHOS_DEFAULTS)
++"fit"
++#else
++"original"
++#endif
++R"(
+ 
+ [audio]
+ ; percent
+@@ -69,6 +77,8 @@
+ style = western
+ ; the pad's size, in percent
+ size = 100
++; pad opacity, in percent
++opacity = 55
+ ; the menu's button at the top of a touchscreen, shown with the pad or without it
+ menu_button = true
+ 
+@@ -80,11 +90,11 @@
+ 
+ // The values a word may take, by key.
+ static const struct { const char* key; const char* values[3]; } kChoices[] = {
+-    {"controls", {"auto", "on", "off"}}, {"style", {"western", "japanese"}}};
++    {"presentation", {"original", "fit", "stretch"}}, {"controls", {"auto", "on", "off"}}, {"style", {"western", "japanese"}}};
+ 
+ // The range a number may take, by key.
+ static const struct { const char* key; int lo, hi; } kRanges[] = {
+-    {"scale", 1, 8}, {"size", 50, 200}, {"volume", 0, 100}, {"stick", 5, 95}, {"trigger", 5, 95}, {"multitap", 0, 2}};
++    {"opacity", 20, 100}, {"scale", 1, 8}, {"size", 50, 200}, {"volume", 0, 100}, {"stick", 5, 95}, {"trigger", 5, 95}, {"multitap", 0, 2}};
+ 
+ static std::string trim(const std::string& s) {
+     size_t a = s.find_first_not_of(" \t\r"), b = s.find_last_not_of(" \t\r");
+--- /dev/null
++++ b/runtime/src/host/touch_ui_policy.h
+@@ -0,0 +1,28 @@
++// Small platform-independent candidate seams for patch 0009; no SDL or ArkUI types.
++#pragma once
++#include <algorithm>
++#include <cmath>
++
++// Result is the requested touch_layout() unit in renderer-output pixels.
++// The touch_layout() function still applies its width/height fit limits.
++inline float touch_pad_unit(int output_height_px, float display_scale, int size_percent) {
++    const float density = std::isfinite(display_scale) && display_scale > 0 ? display_scale : 1.0f;
++    const int size = std::clamp(size_percent, 50, 200); // existing [touch] size range
++    const float base = std::max(480.0f * density, 0.45f * std::max(output_height_px, 0));
++    return base * size / 100.0f;
++}
++
++struct TouchGameViewport { float x, y, w, h; };
++
++// Fit preserves desired visible-image aspect ratio; Stretch explicitly fills the output.
++// Caller owns Saturn/PAL visible-image aspect choice. The overlay does NOT use this viewport.
++inline TouchGameViewport touch_game_viewport(int output_width, int output_height,
++                                            float desired_aspect, bool stretch) {
++    if (output_width <= 0 || output_height <= 0) return {0, 0, 0, 0};
++    const float w = static_cast<float>(output_width), h = static_cast<float>(output_height);
++    if (stretch) return {0, 0, w, h};
++    if (!std::isfinite(desired_aspect) || desired_aspect <= 0) desired_aspect = 4.0f / 3.0f;
++    float rw = w, rh = rw / desired_aspect;
++    if (rh > h) { rh = h; rw = rh * desired_aspect; }
++    return {(w - rw) / 2.0f, (h - rh) / 2.0f, rw, rh};
++}
+--- /dev/null
++++ b/runtime/src/host/touch_menu_paging.h
+@@ -0,0 +1,41 @@
++// Fixed-hit-target paging policy used by the compact host menu.
++#pragma once
++#include <algorithm>
++#include <cmath>
++#include <vector>
++struct PagingRect { float x,y,w,h; };
++struct PagingInsets { float left=0,top=0,right=0,bottom=0; };
++enum class PagingKind { Main, Touch, Picture };
++struct PagingPlan {
++    bool viable=false;
++    int columns=1, rows=0, items_per_page=0, pages=0;
++    PagingRect panel{},back{},next{};
++    std::vector<PagingRect> cells;
++};
++inline PagingPlan fixed_hit_paging(int pixel_w,int pixel_h,float scale,PagingInsets insets,
++                                  PagingKind kind,int item_count) {
++    PagingPlan p;
++    if (!std::isfinite(scale) || scale<=0) scale=1;
++    const float sw=(pixel_w-insets.left-insets.right)/scale;
++    const float sh=(pixel_h-insets.top-insets.bottom)/scale;
++    constexpr float margin=8, header=48, gap=8, row=48;
++    // 120 = 8 top + 48 header + 8 gap + 48 row + 8 bottom.
++    if (sw<320 || sh<120 || item_count<=0) return p; // fallback required; never silently shrink hits
++    int fit_rows=std::max(0,(int)std::floor((sh-64)/56));
++    if (kind==PagingKind::Touch || kind==PagingKind::Picture) fit_rows=std::min(fit_rows,3);
++    if (fit_rows<=0) return p;
++    if (kind==PagingKind::Main && item_count>fit_rows && sw>=328) p.columns=2;
++    p.rows=std::min(fit_rows,(item_count+p.columns-1)/p.columns);
++    p.items_per_page=p.rows*p.columns;
++    p.pages=(item_count+p.items_per_page-1)/p.items_per_page;
++    const float pw=std::min(sw,720.f), ph=margin+header+gap+p.rows*row+(p.rows-1)*gap+margin;
++    const float px=insets.left+(sw-pw)/2*scale,py=insets.top+(sh-ph)/2*scale;
++    p.panel={px,py,pw*scale,ph*scale};
++    p.back={px+margin*scale,py+margin*scale,48*scale,48*scale};
++    p.next={px+(pw-margin-48)*scale,py+margin*scale,48*scale,48*scale};
++    const float cell_w=(pw-2*margin-(p.columns-1)*gap)/p.columns;
++    if (cell_w<48) return PagingPlan{};
++    for(int i=0;i<p.items_per_page;++i) p.cells.push_back({px+(margin+(i%p.columns)*(cell_w+gap))*scale,
++        py+(margin+header+gap+(i/p.columns)*(row+gap))*scale,cell_w*scale,row*scale});
++    p.viable=true;return p;
++}
+--- /dev/null
++++ b/runtime/src/host/pal_audio_queue_policy.h
+@@ -0,0 +1,111 @@
++#ifndef PAL_AUDIO_QUEUE_POLICY_H
++#define PAL_AUDIO_QUEUE_POLICY_H
++
++// Standalone C++17 policy candidate. No SDL, allocation, clocks or side effects.
++// Input is fixed 16-bit interleaved stereo PCM at 44100 Hz. Device frame counts
++// must be converted to that input timebase before they are used as a lead.
++// This preserves the existing 50..100 ms lead bounds and 250 ms input-queue cap.
++// It does not diagnose hardware underruns or decide when recovery is desirable.
++#include <cstdint>
++
++namespace pal_audio_queue_policy {
++
++inline constexpr std::int32_t kSourceRate = 44100;
++inline constexpr std::int32_t kSourceFrameBytes = 4;
++inline constexpr std::int32_t kMinimumLeadFrames = 2205;
++inline constexpr std::int32_t kMaximumLeadFrames = 4410;
++inline constexpr std::int32_t kMaximumQueuedFrames = 11025;
++
++struct LeadResult {
++    std::int32_t source_frames;
++    std::int64_t uncapped_source_frames;
++    bool valid_device_format;
++    bool maximum_applied;
++};
++
++// device_frames/device_rate are signed 32-bit values returned by SDL.
++// Widen before multiplication. For their complete positive input range,
++// 3 * INT32_MAX * 44100 + INT32_MAX - 1 fits in signed 64 bits.
++constexpr LeadResult compute_lead(std::int32_t device_frames,
++                                  std::int32_t device_rate) noexcept {
++    if (device_frames <= 0 || device_rate <= 0) {
++        return {kMinimumLeadFrames, kMinimumLeadFrames, false, false};
++    }
++    const std::int64_t raw =
++        (std::int64_t{3} * device_frames * kSourceRate + device_rate - 1)
++        / device_rate;
++    const std::int64_t bounded = raw < kMinimumLeadFrames
++        ? kMinimumLeadFrames
++        : (raw > kMaximumLeadFrames ? kMaximumLeadFrames : raw);
++    return {static_cast<std::int32_t>(bounded), raw, true,
++            raw > kMaximumLeadFrames};
++}
++
++enum class QueueError {
++    none,
++    query_failed,
++    not_whole_source_frames,
++    invalid_argument,
++};
++
++struct QueueResult {
++    QueueError error;
++    std::int64_t source_frames;
++    constexpr bool ok() const noexcept { return error == QueueError::none; }
++};
++
++// Pass the raw SDL_GetAudioStreamQueued return value. Never divide first:
++// C++ truncates -1 / 4 to zero, which would conceal an API failure as empty.
++constexpr QueueResult inspect_queued_bytes(std::int64_t raw_bytes) noexcept {
++    if (raw_bytes < 0) return {QueueError::query_failed, 0};
++    if (raw_bytes % kSourceFrameBytes != 0) {
++        return {QueueError::not_whole_source_frames, 0};
++    }
++    return {QueueError::none, raw_bytes / kSourceFrameBytes};
++}
++
++struct PushPlan {
++    QueueError error;
++    bool empty_observed;
++    std::int32_t accepted_real_frames;
++    std::int32_t dropped_real_frames;
++    std::int32_t recovery_silence_frames;
++    std::int64_t final_queued_frames;
++    constexpr bool ok() const noexcept { return error == QueueError::none; }
++};
++
++// A plan, not proof that any SDL put succeeded. The caller must count accepted
++// PCM only AFTER SDL_PutAudioStreamData reports success, and count errors apart.
++// For a valid small chunk this preserves the old empty->silence+PCM policy.
++// A real chunk that cannot fit is dropped whole, as before. Recovery silence
++// uses only the capacity remaining after accepting the real chunk, so both
++// sources of data share one upper bound. Capacity/error checks do not sum
++// unchecked inputs and remain safe for any representable raw_bytes.
++constexpr PushPlan plan_push(
++    std::int64_t raw_queued_bytes,
++    std::int32_t incoming_real_frames,
++    std::int32_t requested_lead_frames,
++    std::int32_t capacity_frames = kMaximumQueuedFrames) noexcept {
++    if (incoming_real_frames < 0 || requested_lead_frames < 0 || capacity_frames < 0) {
++        return {QueueError::invalid_argument, false, 0, 0, 0, 0};
++    }
++    const QueueResult queue = inspect_queued_bytes(raw_queued_bytes);
++    if (!queue.ok()) return {queue.error, false, 0, 0, 0, 0};
++    const std::int64_t queued = queue.source_frames;
++    if (incoming_real_frames > capacity_frames ||
++        queued > std::int64_t{capacity_frames} - incoming_real_frames) {
++        return {QueueError::none, false, 0, incoming_real_frames, 0, queued};
++    }
++    const std::int64_t headroom =
++        std::int64_t{capacity_frames} - queued - incoming_real_frames;
++    const std::int32_t silence = queued == 0
++        ? static_cast<std::int32_t>(
++              headroom < requested_lead_frames ? headroom : requested_lead_frames)
++        : 0;
++    return {QueueError::none, queued == 0, incoming_real_frames, 0, silence,
++            queued + incoming_real_frames + silence};
++}
++
++}  // namespace pal_audio_queue_policy
++
++#endif  // PAL_AUDIO_QUEUE_POLICY_H
