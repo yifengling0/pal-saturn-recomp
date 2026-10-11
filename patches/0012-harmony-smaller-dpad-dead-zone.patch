@@ -1,0 +1,13 @@
+--- a/runtime/src/host/touch_pad.h
++++ b/runtime/src/host/touch_pad.h
+@@ -84,7 +84,9 @@
+     for (auto& f : fingers) {
+         if (f.on_dpad) {
+             float dx = f.x - l.dpad_x, dy = f.y - l.dpad_y, d = std::hypot(dx, dy);
+-            if (d < 0.2f * l.dpad_r) continue;
++            // The hub is drawn solid, so a wide dead circle there reads as a d-pad that ignores
++            // the first press: answer as soon as the thumb leaves the hub it rests on.
++            if (d < 0.1f * l.dpad_r) continue;
+             const float lean = 0.38f;                    // sin 22.5°: eight directions of 45° each
+             if (dx / d > lean) held |= B_RIGHT;
+             if (dx / d < -lean) held |= B_LEFT;

@@ -210,7 +210,8 @@ def verify_existing_runtime(root: Path) -> None:
         pal_keyboard_profile.prepare_keyboard(recomp, runtime, root, verify_only=True)
         verify_required_ohos_ui(root)
     except (OSError, ValueError) as error:
-        raise SystemExit(f'现有映射 runtime 校验失败；请重新生成后再构建：{error}') from None
+        raise SystemExit(f'现有映射 runtime 校验失败；请先重新生成映射 runtime 再打包'
+                         f'（Windows: tools/winbuild.py build；Linux: python -m saturnrecomp.build）：{error}') from None
     print('Existing keyboard runtime version/hash verification: PASS')
 
 

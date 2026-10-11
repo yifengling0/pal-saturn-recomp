@@ -13,11 +13,14 @@ EXPECTED = {'version': 'paired-rgb-queue-prototype-v3-portable-release-gate-1', 
 RUNTIME_FILES = tuple(EXPECTED["runtime_sha256"])
 HELPER_FILES = tuple(EXPECTED["source_sha256"])
 # Exact post-input host variants; unrelated runtime drift remains rejected.
+# One entry per accepted host.cpp generation: 0009 touch layout, 0011 Chinese menu UI, 0013 tap hold.
 HOST_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/host/host.cpp'],
  'a50e312b94040e4110ac5c38ab92dbf121b96a793831c228bb4f3b2409d58843',
  'e64c92f63a209e67e00619a8f1ac31096b766521d4a17ca4bc97181d412700fe',
+<<<<<<< HEAD
  '2a562eb0c593029c9363691fc3e500385cfbe031e2473ed70070c4968fea3cb1',
- 'baa0ebd22bc2e364a5a398d59f0f6bddaf9de54bc79284b4f6647e55ec1ecb74'}
+ 'baa0ebd22bc2e364a5a398d59f0f6bddaf9de54bc79284b4f6647e55ec1ecb74',
+ 'bafa40a8fa223e74b3a5ea65ad1b69b077704c1f77b694a4bac50b38570c6658'}
 
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))
@@ -61,8 +64,11 @@ def plan_queue(recomp, runtime, texts, rt, cmake_text, helper_bytes):
  selected_rt={}
  for name,h in expected['runtime_sha256'].items():
   p=runtime/name
-  if p not in rt or sha(norm(rt[p]).encode()) not in (HOST_INPUT_SHA256 if name=='src/host/host.cpp' else {h}):
-   raise ValueError('Runtime source/version changed: '+name)
+  # Quote the observed digest: a new accepted host.cpp generation is a pin update,
+  # and re-deriving it means re-running the whole injection to find out what it is.
+  got=sha(norm(rt[p]).encode()) if p in rt else ''
+  if p not in rt or got not in (HOST_INPUT_SHA256 if name=='src/host/host.cpp' else {h}):
+   raise ValueError('Runtime source/version changed: '+name+' observed '+got)
   selected_rt[p]=rt[p].replace('\r\n','\n')
  rt=selected_rt
  changed=set()

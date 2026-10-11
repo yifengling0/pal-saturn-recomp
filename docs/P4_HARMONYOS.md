@@ -252,3 +252,175 @@ dist/pal-saturn-recomp-win-x64/saturn.exe \
 包内 `saves/pal-saturn.bup` 就是白河村三人队胜利那份（`a4d8f748…`，与 `baihe-first-three-party-victory.bup` 同哈希）；
 启动前先另存了一份 `pal-saturn.before-pc-session-20261011-1812.bak.bup`，并写进了 SHA256SUMS。
 标题选「舊的回憶」读的就是这份本機進度；要四格存档位则用卡匣（第一次往卡匣存盘才会长出 `pal-saturn-cart.bup`）。
+
+## 13. 方向键第一帧与收手（2026-10-11 深夜，0012）
+
+诉求：按下去的第一帧还是慢，收手也慢。先算清延迟是从哪儿来的，再动代码。
+
+宿主这条链一共两跳，都不怪死区：
+
+1. `events()` 每宿主帧只做一次 `SDL_PollEvent` + `read_pads()`（host.cpp:1113-1119），手指坐标在这一步进 `g_fingers`；
+2. `sample_host()` 在每根模拟 VBlank 里把 `host_pad()` 的结果交给 SMPC（smpc.cpp:178-186）。
+
+60 Hz 出图时这两跳合计最坏 ≈ 33 ms、平均 ≈ 16 ms；`--input` 脚本只在有脚本时打 `pad: %04X`，
+所以实时手指的延迟现在没有遥测。抬手的分支不是死区问题：手指一抬起 `g_fingers` 就少了它，`touch_read()`
+下一帧直接返回 0，再慢也是这两跳 + 游戏自己的行走减速，不是 0.2r 的圈。
+
+真正能量化的只有起始半径：`touch_pad.h` 原来 `if (d < 0.2f * l.dpad_r) continue;`，而 hub 是实心画的，
+拇指要从 hub 上挪出 0.2r（平板上约 54 px）才有方向，视觉上就是"点了没反应"。
+
+### 为什么最终不是非对称阈值
+
+先写的是 `previous` 参与的迟滞：按下用 0.10r、已按住用 0.16r。推一遍状态机就知道符号反了：
+按住后 `d < 0.16r` 就松、闲置时 `d ≥ 0.10r` 就起，于是 0.10r..0.16r 这一圈里
+"没按→起→松→起"每帧翻转，拇指停在圈上会以 ~30 Hz 抖动出行进指令。
+稳定要求是 松手半径 ≤ 按下半径；而"起得更快"要按下半径小、"停得更快"要松手半径大，两条在这套圆形判定里
+不可能同时满足。所以 0012 只留一个对称的小死区：
+
+```c
+if (d < 0.1f * l.dpad_r) continue;        // 原来 0.2f
+```
+
+抬手路径本来就即时；径向回拉的停手比原来晚 0.10r（平板约 27 px 行程，十几毫秒），
+换来起手快一倍。`host.cpp` 的调用点因此不用改，补丁只碰 `touch_pad.h` 一个文件。
+
+### 构建与验收
+
+- 补丁：`patches/0012-harmony-smaller-dpad-dead-zone.patch`；补丁清单仍是 1-5、7-12。
+- 判据登记：`HARMONY_RUNTIME_HELPERS['touch_pad.h']` 和 `HARMONY_UI_RUNTIME_FILES['src/host/touch_pad.h']`
+  **必须一起改**——后者在 `runtime_support_inputs()` 里会覆盖前者，只改一处等于没改（这次就踩过）。
+  两处现在都是 `c8da777f3f1964b26e11327d229290b60a8cc0117ed83243dcd5160e94efdfc2`。
+- Windows 选项构建过门，读档回归 VB3401 仍是 `7f410a40b8ee582a9a9db9514d801ee03ad09f9f4cbc1ab25a1e53565598ff10`
+  （`build/run/gate-0012/`），标题 `9abeb31b`、读档菜单 `e3c59071` 也没动；发行包 `dist/pal-saturn-recomp-win-x64/`
+  的 exe 已原地换成 `95667798cceb…`，`SHA256SUMS.txt` 同步，`saves/` 四份哈希未变。
+- 鸿蒙 HAP 已出签名包（29,416,846 字节）。装的那一步要接平板：`hdc list targets` 现在是 `[Empty]`，
+  插上后 `build/venv/Scripts/python.exe tools/ohosbuild.py --skip-learn --launch` 一条龙装+启动。
+
+### 顺手补上的构建检查（tools/tests 从没绿到过绿）
+
+`python -m pytest tools/tests` 在 Windows 上一度 21 项红，都不是游戏代码的问题，是检查本身缺 Windows 条件：
+
+| 现象 | 根因 | 处理 |
+| --- | --- | --- |
+| 十多项 `UnicodeDecodeError: 'gbk'` | 测试 `read_text()` 不写编码，仓库源码是带中文的 UTF-8 | `tools/check_windows.sh` 里 `export PYTHONUTF8=1` |
+| `Harmony runtime helper changed or missing` | 0011 之后 `runtime_support_inputs()` 只接受"完整一个变体"，合成 fixture 只放了真 host.cpp | fixture 现在按登记表把 Settings 与全部 helper/UI 文件一起拷进临时树 |
+| `SDL host` 断言不报错 | 用例改的锚点 `g_menu_open, g_quitting` 被 0011 写宽了，替换成了空操作 | 改破两代都有的 `static void menu_close() {` |
+| 探针跑出 0xC0000005 / 0xC0000409 | exe 加载了 Git for Windows 的 `libstdc++-6.dll`，不是编译它的那套装运行时 | 探针在 Windows 上加 `-static`，与 `check_windows.sh` 对运行时测试的做法一致 |
+| `g++` 编译 `release_gate.cpp` 失败 | 用例用了 POSIX `setenv`，MinGW 没有 | Windows 上 `-include tools/wincompat.h`，并接住 MinGW 给 `-o` 补的 `.exe` |
+| cmake fixture 配置失败 | `pal_game.cmake` 的 WIN32 分支要 `app_icon/pal_app.rc`，fixture 只拷了 cmake 文件 | fixture 连 `app_icon/` 一起拷 |
+| `test_winbuild_options` 路径不符 | 断言用 `str(path)`（反斜杠），winbuild 发的是 `as_posix()` | 断言改用 `as_posix()` |
+
+现在 `194 passed, 1 skipped, 73 subtests passed`。`third_party/saturn-recomp-pal/tests`（6 项）和
+`validation/tests` 仍然红——那是上游 harness 的 Windows 适配，`check_windows.sh` 的注释明确说要让它可见而不是
+假装通过，另在任务里跟。
+
+## 14. 「点了没反应，半拍后才出来」：0013 按压保底（2026-10-11 深夜）
+
+现象在 PC 和平板上都有，所以不是触摸死区，而是**按键根本没被游戏看到**。两条实测：
+
+1. `tools/measure_message_ack.py`（SMPC 脚本通路，无窗口、逐帧确定）：标题→读档→白河村那五次按键，
+   每次只按 **1 根 VBlank** 时整条路都走不下去（VB3401 仍是标题 `9abeb31b`）；按住 **2 根**起，
+   VB2700/VB3401 就逐字节回到基准 `e3c59071`/`7f410a40`。游戏是按自己的节奏采样的，一次采样不够就丢。
+2. 同一次运行里把光标那一下按下后的画面每 2 帧抓一张：第一次变化出现在 **VB2506**，即按下发布后约 6 帧，
+   这是游戏自己的响应+动画，宿主再快也吃掉不了这条。
+
+宿主的采样有多薄：`host.cpp` 里 `g_lifted` 的注释写明"比一帧还快的轻点只保留**一次**采样"；键盘和手柄
+更是走 `SDL_GetKeyboardState`/`SDL_GetGamepadButton` 的**实时状态**，一次按下的 down/up 若落在两次轮询之间，
+连一次都不到 —— 这就是"慢半拍"里真正丢东西的那部分。
+
+### 改法
+
+新增 `runtime/src/host/pal_tap_hold.h`，在 `read_pads()` 发布前把每个 bit 的按压补足到
+**至少 3 根 VBlank**，按 `sat_vblanks()` 计而不是按宿主帧计（宿主一慢，几根 VBlank 共享一次轮询，
+只按帧数补还是会丢）；`SDL_EVENT_KEY_DOWN` / `GAMEPAD_BUTTON_DOWN` 单独记一次边沿，
+专门捞"落在两次轮询之间"的快按。三处防串味：菜单开时不记账、`menu_open()` 清掉欠账、
+`g_held_over` 吞掉的按键不再被补发，失焦/退到后台一并清账。`PAL_TAP_HOLD=0` 回到只发实测状态的原始行为。
+
+`0.2f→0.1f` 的死区（0012）只解决起步行程，这一条解决"按下有没有被看见"，两者互不影响。
+
+### 验收
+
+- `tools/tests/tap_hold_test.cpp` + `test_tap_hold.py`：不碰 ROM、不开窗口、不依赖帧率，直接对着这台机器的
+  VBlank 断言补足长度、长按不加尾巴、`forget()` 与 `PAL_TAP_HOLD=0`。`pytest tools/tests` 现在 **196 passed**。
+- 读档回归不受影响：`--input` 走的是 SMPC 通路，`host_drives()` 为假，补发逻辑根本不参与；
+  VB3401 仍是 `7f410a40b8ee582a9a9db9514d801ee03ad09f9f4cbc1ab25a1e53565598ff10`（`build/run/gate-0013/`）。
+- 发行包 `saturn.exe` 换成 `3138d43e7b87…`，`pal-options-build.json` 与 12 行 `SHA256SUMS.txt` 全部自校验通过，
+  `saves/` 四份逐一比对未变；README 增加「按键手感」一节，`tools/make_dist.py` 的模板同步。
+- 鸿蒙签名 HAP 已重出：29,427,332 字节。
+
+### 一条要记着的坑：实时通路不能在这种机器上做 A/B
+
+`--virtual-input`（SDL 虚拟手柄，走真实 `read_pads()`）看着是最合适的对照，但它只在
+**宿主每帧恰好跑一根 VBlank** 时才有意义。我这台机器在后台还有构建/测试在跑的时候，三次 12 帧长按的
+运行只录到 `3099:START,3106:,` 一次发布——多次 VBlank 挤进同一次轮询，长按也被吞了；而机器空闲时手跑一次，
+五次按键全部按点发布，标题/菜单/村庄三个哈希与基准逐字节相同。所以 `tools/measure_live_tap.py` 的结论
+只有在"机器空闲 + 窗口可见 + `--record-input` 录到的发布与脚本一致"时才可读；要判定按压长度，用上面的确定性探针。
+
+## 15. 0013 补过头了：方向键按一次走太远（2026-10-11 20:4x）
+
+装机复测的反馈：鸿蒙上"按下按键移动过多"，PC 上反而还好。两条都对得上：
+
+- 平板轻点原本只有 1 个采样，被 0013 一口气补到 3 帧；角色每帧都在走，多两帧就是明显多走一截。
+- PC 上普通敲键本来就有 3-6 帧长，补足条件（不足下限才补）对它几乎不触发，所以"还好"。
+
+于是把补足分成两档，仍然只在"短于下限"时补，长按一律不加尾巴：
+
+| 位 | 保底发布 | 理由 |
+| --- | --- | --- |
+| 方向 B_UP/B_DOWN/B_LEFT/B_RIGHT | **2 根 VBlank** | 实测下限就是 2；每帧都在移动角色，一帧都不能多补 |
+| 其余（A/B/C/X/Y/Z/L/R/START） | 3 根 VBlank | 只用于确认一帧消息，多留一帧换可靠性，远不到菜单的连发阈值 |
+
+`PalTapHold::publish(live, vblank, moving)` 因此多了 `moving` 参数：`pal_tap_hold.h` 不 include
+`host.h`（`host.h` 会拉进 `video.h`，纯逻辑探针就没有独立编译的资格了），方向位由 `read_pads()`
+在调用处传进来，头文件只留两个常数。
+
+改名也要如实：补丁现在叫 `patches/0013-windows-harmony-presses-held-for-the-game.patch`，
+不再叫"三帧"。
+
+### 复验
+
+- `tools/tests/tap_hold_test.cpp` 增断言：`Right` 在第 2 帧后必须消失、按钮仍在第 3 帧消失、长按无尾巴；
+  `pytest tools/tests` **196 passed**。
+- 读档回归仍 `7f410a40b8ee…`（`build/run/gate-0013b/`），VB2700 仍 `e3c59071…`。
+- Windows 包 `saturn.exe` = `f2cb607b5e11…`，`SHA256SUMS.txt` 12 行自校验通过，`saves/` 未动；
+  README 与 `tools/make_dist.py` 模板改成"方向键两帧 / 确认键三帧"。
+- 鸿蒙：`entry-default-signed.hap` 29,427,293 字节，`hdc install -r` 成功，20:43:39 起在前台跑新包
+  （`PROG activated by a call to 06020040`）。注意 `ohosbuild.py --launch` 有一条"本轮没有新产物就拒绝拾取旧
+  HAP"的守卫：上一轮产物即使已是最新也会被拦，改动被编译进去之后它才会装。
+
+## 16. 交接给专家：0013 仍判"不太合理"，请把杠杆换到采样点上（2026-10-11 21:0x）
+
+装机复测的结论是"还是不太合理"。我不再往下调帧数了——继续猜参数对这个手感问题没有意义，
+先把已经测死的事实和没做的两条结构性路子写清楚，接手的人可以直接从这里走。
+
+### 已测死的三条
+
+1. **游戏的下限是 2 根 VBlank。** `tools/measure_message_ack.py` 走 title→村庄全路：按下只可见 1 根 VBlank
+   时整条路失败（按键被完全丢弃），≥2 根则与基线逐字节一致（`9abeb31b` 标题 / `e3c59071` VB2700）。
+   所以"保底 2 帧"不是保守，是地板，再低就丢键。
+2. **游戏自己的反应约 6 帧。** VB2500 的按下，画面变化落在 VB2506。这一段是 guest 的循环，
+   补足只决定"按下能不能送到游戏面前"，**不能**缩短这 6 帧。如果玩家说的"慢半拍"指的是这一段，
+   0013 这个方向再怎么调都不会有改善。
+3. **宿主每根帧只轮询一次控制器，掉帧时多根 VBlank 共享一次轮询。** `--record-input` 里能看到
+   `3099:START,3106:`——7 根 VBlank 落到同一次采样。平板比 PC 更容易掉帧，所以同一份补丁在两边手感不同。
+
+### 没做的两条结构性路子（我认为真正能改命的）
+
+- **按"读"采样，取代按"帧"轮询。** 现在 `read_pads()` 每根帧取一次宿主状态；更准的做法是在 SMPC/游戏
+   真正读键的那一刻去取宿主状态，谁读给谁现采。仓库里已经有 `sh2_hook` 这套机制（影片用的
+   `0x06021c1e` 就是先例），缺的是找到 pad 读取点并挂上去。这条路能把"多根 VBlank 共享一次采样"彻底消掉，
+   0013 的帧数补足也就退化成保险而不是主机制。
+- **让触摸轻点在抬起边沿收敛，而不是发布固定帧数。** 现在是"不足下限就补到下限"（方向 2 / 按钮 3），
+   手指停留时长和角色位移耦合：补多了"移动过多"，补少了丢键，两头都调不到玩家满意。更贴玩家预期的是
+   以抬起事件为一次输入的终点，并按"角色实际走了几步"封顶，而不是按帧计数。
+
+### 验证入口（都还在绿）
+
+- `PYTHONUTF8=1 build/venv/Scripts/python.exe -m pytest tools/tests -q` → **196 passed, 1 skipped**。
+- 纯逻辑断言 `tools/tests/tap_hold_test.cpp`（方向第 2 帧后消失、按钮第 3 帧消失、长按无尾巴）。
+- 读档回归门 `7f410a40b8ee…`；`tools/measure_message_ack.py` 可直接复现"1 帧丢键 / 2 帧通过"。
+- 构建：Windows `tools/winbuild.py --options`，鸿蒙 `tools/ohosbuild.py`。
+- 开关：`PAL_TAP_HOLD=0` 回到原始采样；0012 的死区在 `touch_pad.h`（0.2→0.1）。
+
+补丁本身在 `patches/0012-*.patch`、`patches/0013-windows-harmony-presses-held-for-the-game.patch`；
+`third_party/` 不入库，按 README 拉固定上游提交后 `git am patches/*` 重放。
