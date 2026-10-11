@@ -18,6 +18,9 @@ add_subdirectory("${PAL_ROOT}/third_party/sdl3-src" sdl3)
 # runtime.cmake 用 find_package(SDL3 CONFIG) 决定真 host 还是空 host，见 cmake/SDL3Config.cmake
 set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory("${PAL_ROOT}/build/recomp" saturn_recomp)
+# Missing display.presentation defaults to aspect-preserving fit on OHOS only.
+# An explicit user original/fit/stretch setting still wins.
+target_compile_definitions(saturn_host PRIVATE PAL_OHOS_DEFAULTS=1)
 
 # 生成工程里的 find_package(Threads) 只在它自己的目录作用域有效，壳这层要自己找一次
 find_package(Threads REQUIRED)
