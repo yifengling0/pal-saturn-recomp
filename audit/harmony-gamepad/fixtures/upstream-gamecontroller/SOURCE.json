@@ -1,0 +1,39 @@
+{
+  "repository": "openharmony/game_game_controller_framework",
+  "commit": "5221a8e8117cebe9b82bc06f5a251be1884abb73",
+  "license": "Apache-2.0",
+  "purpose": "Public API declaration fixtures for Linux mocked-service testing; not an OHOS SDK",
+  "files": [
+    {
+      "file": "game_controller_type.h",
+      "upstream_git_blob_sha1": "ce15d0fc8603ef9cb002ed7c5b3c6e08664cf276",
+      "url": "https://github.com/openharmony/game_game_controller_framework/blob/5221a8e8117cebe9b82bc06f5a251be1884abb73/interfaces/kits/c/game_controller_type.h",
+      "sha256": "05dfca2ce9cc5cf2a644315bce082c80e92bf642669922b6377f5196092b611f"
+    },
+    {
+      "file": "game_device.h",
+      "upstream_git_blob_sha1": "49b81c9d91fc4bf286bda2b5e94aa46185f2ef17",
+      "url": "https://github.com/openharmony/game_game_controller_framework/blob/5221a8e8117cebe9b82bc06f5a251be1884abb73/interfaces/kits/c/game_device.h",
+      "sha256": "da790d10acce9995c288d81cab49b65fd50b74dc10f1c9efa4edd4592bf960f7"
+    },
+    {
+      "file": "game_device_event.h",
+      "upstream_git_blob_sha1": "0b560c0d91b4d797f3470e52189817ea454da5ac",
+      "url": "https://github.com/openharmony/game_game_controller_framework/blob/5221a8e8117cebe9b82bc06f5a251be1884abb73/interfaces/kits/c/game_device_event.h",
+      "sha256": "c96e694bed7d2ba2c36b2d778ccb721cd5f5fde4a18503359681c8f7028bca6a"
+    },
+    {
+      "file": "game_pad.h",
+      "upstream_git_blob_sha1": "4bad9d0fd138d063b584d6c4b78678caeebbd63c",
+      "url": "https://github.com/openharmony/game_game_controller_framework/blob/5221a8e8117cebe9b82bc06f5a251be1884abb73/interfaces/kits/c/game_pad.h",
+      "sha256": "e9c155c5e797df395bb235329b5eec37dc783048051e2d89933e3cd8ec98862e"
+    },
+    {
+      "file": "game_pad_event.h",
+      "upstream_git_blob_sha1": "c0b66065ddf5ad6884fe82c1a06ecbc6fe8692ef",
+      "url": "https://github.com/openharmony/game_game_controller_framework/blob/5221a8e8117cebe9b82bc06f5a251be1884abb73/interfaces/kits/c/game_pad_event.h",
+      "sha256": "7ba4b3bc2a370ed61a52e4a78065b1ac04771651344847c4997355f29cb7b19c"
+    }
+  ],
+  "license_git_blob_sha1": "4947287f7b5ccb5d1e8b7b2d3aa5d89f322c160d"
+}
