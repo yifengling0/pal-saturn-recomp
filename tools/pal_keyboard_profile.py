@@ -8,12 +8,15 @@ manifest idempotence, and CMake runtime selection. Repeated raw planning fails.
 """
 from pathlib import Path
 import hashlib,re
-VERSION='pal-keyboard-profile-v1-mapping-6-ohos-menu-discovery'
+VERSION='pal-keyboard-profile-v1-mapping-7-ohos-edge-menu'
 def sha(s):return hashlib.sha256(s.encode() if isinstance(s,str) else s).hexdigest()
 RUNTIME_HASHES = {'host.cpp': ['6b82aaa5f9720e3ad9a53db35e6dda8ef08198d4dbcacf7f3f0f6b25f2a9518d', '9af5f2ac245114cb7cdf858c69a90ecb0c217a29f423c9168c353558bf0222a4', '16fd0b06648fb3f3c1dda96b3200aa7bf8baaff1f2aca9d0b4e0ffa720055937', 'f4c957d90193478ac77588f6592b1061226686b062bbd3e7561ba7a236da94a1'], 'settings.cpp': ['4da2c93a0eec58ca861c972076961eaf4d64d4ecb471b4d29d94af73f1705b66', '6dd16bf8b13057ddd35aa50a474aaf958df2515e94e877a533b99f5430df9cfb'], 'launcher.cpp': ['23d65e3b6f854823fd33a1f3b1373584d22e98b9edf247125458648fad863e32']}
 RUNTIME_HASHES['host.cpp'].append('4b2c32d213a9a28823c214cbfe3f62ac166e238beb127105441e1baee1eef7ed')
 RUNTIME_HASHES['host.cpp'].append('f3c49e658ea2e687bcf5734e935d698f0e012654882141f108ba9c87aa4af49b')
 RUNTIME_HASHES['host.cpp'].append('d388ef17f964c9ef1f46278d1155dbf0fed4e349fcfdc4850bc106019c206ac7')
+RUNTIME_HASHES['host.cpp'].append('40ad654e2f837a291a0d27e254cab4f853f243eb4c50457c32e7b078c619b4bc')
+RUNTIME_HASHES['host.cpp'].append('c8f6c1c6cd450d58e5c38d3238475a979c38c4a39be36239f42638f2078e9a42')
+RUNTIME_HASHES['settings.cpp'].append('fe5b419476049441a717a99928066e619eb9546f2763f6dc1e784cf318eed80d')
 RUNTIME_HASHES['host.cpp'].append('44f882f679696aa1b9f0dbf1db742c19e0f1a68e7de75d4ad00fe5641ec56d90')
 RUNTIME_HASHES['host.cpp'].append('811878f044cdaeb55f442d31d3524e2b4ae8aaee20f4652df76b967c74340dfb')
 RUNTIME_HASHES['settings.cpp'].append('909ea2d8fdf41755ceae9ef8eaf8730ad6a12d9269d91f95b607185bd7de556b')
@@ -268,6 +271,9 @@ HARMONY_UI_RUNTIME_FILES = {'src/host/host_menu_text.h': '71f353f340bcd725ef9a66
 # UI12 discovery text and its complete font subset form one reviewed variant.
 HARMONY_DISCOVERY_RUNTIME_FILES = {**HARMONY_UI_RUNTIME_FILES, **{'src/host/host_menu_text.h': '12140edd671050e1c769d517a09adb5a3d94575dca9720f5fc3ec6fb81a6fa4e', 'third_party/pal-menu-cjk/glyphs.h': '9b4c9b126fade635023cd72223e1001a2c72d586458fb9fa44b99319b6b08536', 'third_party/pal-menu-cjk/manifest.json': '6c9f1f15f6d8aa811abdfc20234279a3c128bf1f14287dc829a32e2662887dd6', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '395bbfea07f8562866897ae48c5d2a56093a0cd5b2d05f091c05df22b6b7740d', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'abe6d558461f64ac0bca21f6b3ddb19434aec8c18a810c52a1b80a18140ab518'}}
 
+# UI13 edge menu, translated hints and font subset are one exact variant.
+HARMONY_EDGE_RUNTIME_FILES = {**HARMONY_DISCOVERY_RUNTIME_FILES, **{'src/host/host_menu_text.h': '2cfa468a58ae53dee04211dc89f6fcdb7d72c81aa8de2d030b5e6dc9236bdaf5', 'src/host/touch_edge_swipe.h': '3e96b5ca8a2416833385ae42aff8d80707bd0f5e9cf3030268db672d9a225717', 'third_party/pal-menu-cjk/glyphs.h': '7af51e87823ec02022dab795251d2673f7590f305bdf3afa671bc4e827618ca8', 'third_party/pal-menu-cjk/manifest.json': '1804b4de6cfdea61062d3c027d6273c06b467ca93dd88a109d61b4ee78f91c4f', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '5e9e006d0fb5a416763bf447f144bf79074a16c019384c5f1906e20933c8256c', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': '1add110f177b7c3624d1a30be80b17bef3c1609018d03665f5b9ffa9fc2703fe'}}
+
 def runtime_support_inputs(runtime):
  """Read and verify one complete reviewed runtime support variant."""
  runtime=Path(runtime)
@@ -282,9 +288,13 @@ def runtime_support_inputs(runtime):
  if uses_ui!=settings_ui or (not uses_ui and any((runtime/name).exists() or (runtime/name).is_symlink() for name in ui_only)):
   raise ValueError('Mixed Harmony runtime UI variants; regenerate')
  uses_discovery=b'extern "C" int pal_host_ui_feature_version() { return 12; }' in host.read_bytes()
- if uses_discovery and not uses_ui:raise ValueError('Mixed Harmony runtime UI variants; regenerate')
+ uses_edge=b'extern "C" int pal_host_ui_feature_version() { return 13; }' in host.read_bytes()
+ edge_settings=b'edge_menu = )"' in settings.read_bytes()
+ edge_only=set(HARMONY_EDGE_RUNTIME_FILES)-set(HARMONY_DISCOVERY_RUNTIME_FILES)
+ if ((uses_discovery or uses_edge) and not uses_ui) or uses_edge!=edge_settings or (not uses_edge and any((runtime/name).exists() or (runtime/name).is_symlink() for name in edge_only)):
+  raise ValueError('Mixed Harmony runtime UI variants; regenerate')
  if uses_ui:
-  expected.update(HARMONY_DISCOVERY_RUNTIME_FILES if uses_discovery else HARMONY_UI_RUNTIME_FILES)
+  expected.update(HARMONY_EDGE_RUNTIME_FILES if uses_edge else HARMONY_DISCOVERY_RUNTIME_FILES if uses_discovery else HARMONY_UI_RUNTIME_FILES)
  inputs={}
  for name,value in expected.items():
   if Path(name).is_absolute() or '..' in Path(name).parts:raise ValueError('Unsafe runtime support path')

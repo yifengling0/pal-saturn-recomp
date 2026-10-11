@@ -35,9 +35,9 @@ DEFAULT_DEVECO = Path(r'C:/Program Files/Huawei/DevEco Studio')
 # OHOS packaging requires this UI generation even though desktop planners retain
 # older complete runtime variants. Filled only with reviewed post-PC98 source
 # hashes after the current UI source is frozen; an empty set fails closed.
-OHOS_HOST_UI_VERSION = 12
+OHOS_HOST_UI_VERSION = 13
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
-    'a8a0235eea76af85618d9482240cb9582eebf408966c8396b478e5e9de324147',
+    'b1ec42e25e59279b196d8105df85c4b335760ebc902cbe903396e3fca01dcca5',
 })
 
 
