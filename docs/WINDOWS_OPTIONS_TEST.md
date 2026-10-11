@@ -15,12 +15,16 @@
   保留原碰撞检查。菜单/场景/战斗边界有限定回归；不声称物理键盘到屏幕
   延迟已完全消除。
 - `PAL_SHORT_EFFECT_PREP=1`：只缩短已识别的 bank7 施法准备等待，保留已测特效帧
-  与帧间隔。治疗、御剑术和气剑指各有有限闭环；减少战斗 tick/RNG 机会，
+  与帧间隔。治疗、御剑术和气剑指各有有限闭环；灵儿雷咒另有首轮验收；减少战斗 tick/RNG 机会，
   **随机轨迹可能不同**，不是逐状态等价修复。
 - `PAL_RESPONSIVE_ALIGN` / `PAL_RESPONSIVE_WAKE` 默认 `0`。二者为额外实验时序
   改动，会增加 NPC/脚本/RNG 执行机会，不是推荐的精准输入基本档。
 - 可选数据CD读取倍率见 [DATA_CD_SPEED.md](DATA_CD_SPEED.md)：`--data-cd-speed 1/2/4`，
   默认1，仅改变数据扇区就绪时间，CDDA与全局时钟不加速。
+- 可选演出倍率 `--effect-animation-speed 1/1.25/1.5/2`，默认1；详见
+  [EFFECT_ANIMATION_SPEED.md](EFFECT_ANIMATION_SPEED.md)。与快准备独立，仅已测效果受控。
+- 可选完整配对画面 `precise --paired-frames`，默认关闭；详见
+  [PAIRED_FRAME_QUEUE.md](PAIRED_FRAME_QUEUE.md)。三帧收益属于有边界的实验呈现路径。
 - 已弃用的仅切 VDP1 buffer 早显原型不在此构建中。
 
 ## 一次搭建（PowerShell，从仓库根目录）

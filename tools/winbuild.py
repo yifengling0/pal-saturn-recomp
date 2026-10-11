@@ -82,7 +82,7 @@ def option_build_manifest(game):
     data = {"schema": 1, "version": VERSION,
             "exe_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
             "instrumentation_manifest_sha256": hashlib.sha256(injected.read_bytes()).hexdigest(),
-            "features": ["input_v4", "effect_wait_v3", "data_cd_speed"]}
+            "features": ["input_v4", "effect_wait_v3", "data_cd_speed", "effect_cadence_v1", "paired_frame_queue_v3"]}
     (binary.parent / "pal-options-build.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
@@ -289,7 +289,7 @@ def main(argv=None):
         original_inputs = build.inputs
         def option_inputs(game):
             data = original_inputs(game)
-            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
+            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", Path(ROOT) / "src/pal_game/pal_paired_frame_queue.cpp", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
                 data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
             return data
         build.inputs = option_inputs

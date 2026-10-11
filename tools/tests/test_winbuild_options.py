@@ -79,7 +79,7 @@ class WindowsDraftTests(unittest.TestCase):
         self.m.option_build_manifest(self.game)
         proof=json.loads((binary.parent/'pal-options-build.json').read_text())
         self.assertEqual(proof['exe_sha256'],hashlib.sha256(binary.read_bytes()).hexdigest())
-        self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed'])
+        self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed','effect_cadence_v1','paired_frame_queue_v3'])
     def test_wrong_imported_generator_is_rejected_before_prepare(self):
         self.fakebuild.__file__ = str(self.root / 'wrong-checkout/src/saturnrecomp/build.py')
         prepare = Mock()

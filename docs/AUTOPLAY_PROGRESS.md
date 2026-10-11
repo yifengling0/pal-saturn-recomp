@@ -776,3 +776,32 @@ executable hashes unchanged. Further `live005` replay records use this pause
 BUP as their source, not the much earlier island bridge. All `live004` evidence
 is preserved. This recovery is not evidence that the old underlying process
 was definitely dead, nor a replay reset to change a battle result.
+
+## Liu Shen Dan and first three-character party
+
+In the independently restored `live005` route, Li delivers the three medicines
+normally: fruit281, carp282 and antler283 are consumed and Liu Shen Dan286 is
+received, quantity1. A Bao explicitly asks for it to be taken while hot. The
+pre-treatment normal save `baihe-six-god-pill-acquired.bup` has SHA256
+`f1e99258796a798e1e06154a0d1b099e988f648f118bcccebc4dd840d3340387`.
+Its `live005/replay-to-six-god-pill.txt` contains83 pad events and starts from
+the Windows-handoff BUP1bdcc46b… above, not the original island bridge.
+
+Ling Er actually takes the medicine at8455; item286 quantity1→0 is confirmed.
+The physician says she can get out of bed at9271; she does so at9643 and joins
+the subsequent normal conversation. This treatment does not automatically
+refill everyone's resources. The actual status menus after the dialogue show:
+Li level8 HP243/243 MP103/176; Ling Er level6 HP229/251 MP198/249; Yue Ru level7
+HP219/281 MP77/126. This is the first three-person party on this route, not yet
+a verified three-person battle.
+
+After hearing the Jade Buddha Temple lead, a real15259 save in scene54,
+world(1424,600), is `baihe-ling-recovered-three-party.bup`, SHA256
+`32f8b7a8f84c59261ffdbb907be0328052951f23e9b636b171bd0aa1c72ae9ee`.
+The `live005/replay-to-ling-recovered.txt` has229 events, from the same handoff
+save. The source hash remains unchanged and no FATAL occurs.
+
+The three-party save independently reloads in the original build, exit0 with
+source/input unchanged; field PNG SHA256
+`c3b92dc9af29913a1b2efc495d2ab2c37b8ce4c9ba3867172f784dfb614f1456`.
+Evidence: `build/linux-baihe-three-party-load-001/summary.json`.

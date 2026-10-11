@@ -55,3 +55,15 @@ This supports simulated data-transfer waiting as the dominant cost **inside meas
 ## Cross-process post-battle load
 
 A fresh baseline process subsequently loaded a copy of the final backup through the normal title/load input (`build/linux-boot-load-004/input.txt`). At VB3401 it restored scene16 and world(656,1544), with the island path and character visibly rendered. It quit with exit0; both source and copied BUP retained the final hash above. Evidence: `build/linux-postbattle-load-001/{commands.jsonl,result.json,frame-00003401-001.png}`. This verifies persistence of the saved location across processes, not every character-stat field.
+
+## Later native SDL closure (2026-10-11)
+
+The complete original replay has now been run in a real native OpenGL window:
+12/12 renderer frames match an independent headless replay,8/8 also match the
+historical reference, all452 pad events/timestamps agree, and the final BUP is
+the same d5fb2254… above. The actual55.567-second battle recording fully decodes
+(1666 frames,1350 distinct decoded frames). SDL exits0; ffmpeg intentionally
+receives SIGINT at capture completion and returns255, so recording validity is
+established by full video decoding rather than a false ffmpeg-exit0 claim.
+No working physical audio device is available. A separate new-combination
+fast-preparation comparison is recorded in FAST_SPELL_SDL_COMPARISON.md.

@@ -5,10 +5,12 @@ import importlib.util
 import json
 import shutil
 import tempfile
+import sys
 import unittest
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
+sys.path.insert(0, str(HERE.parent))
 spec = importlib.util.spec_from_file_location('pal_options', HERE.parent / 'pal_options.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
@@ -31,23 +33,30 @@ class InjectionTests(unittest.TestCase):
         self.runtime = self.root / 'build/test options/runtime'
         for p in (self.recomp, self.runtime / 'src/host', self.runtime / 'src/machine', self.root / 'src/pal_game'):
             p.mkdir(parents=True, exist_ok=True)
-        for name in (*m.HEADERS, 'pal_host_edge.h'):
+        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h'):
             shutil.copy2(REPO / 'src/pal_game' / name, self.root / 'src/pal_game' / name)
         self.source = self.recomp / 'p_prog_099.cpp'  # No dependence on generator chunk number.
         points = [('06026E1C', 'f_06035410(c)'), ('06026E58', 'exts.w r0,r1'),
-                  ('06026E6C', 'mov.b r2,@r1'), ('06026E76', 'f_0603440C(c)'),
+                  ('06026E6C', 'mov.b r2,@r1'), ('06026E76', 'if (x == 0x0603440Cu) f_0603440C(c)'),
                   ('06026E84', 'f_06023C64(c)'), ('06026E90', 'f_0604C45C(c)'),
                   ('06026EB8', 'f_060235B8(c)'), ('06026F44', 'f_0604C5AC(c)'),
                   ('06026F52', 'f_0604C5AC(c)')]
-        sync = ('    c.r[0] = ld32(c.gbr + 972); // 0605D6B0 mov\n'
-                '    c.r[2] = 0x0602008Cu; // 0605D6BC mov\n')
+        sync = ('    st16(c.r[1], c.r[0]); // 0605D6A2 mov\n'
+                '    c.r[0] = ld32(c.gbr + 972); // 0605D6B0 mov\n'
+                '    c.r[2] = 0x0602008Cu; // 0605D6BC mov\n'
+                '    if (c.t) {} // 0605D6BA bt\n'
+                '    st8(c.gbr + 19, c.r[0]); // 0605D770 mov\n')
         text = func('06026D84', ''.join(f'    {code}; // {pc} instruction\n' for pc, code in points))
         text += func('06026F90') + func('0606016E') + func('0605D68A', sync)
         text += func('0605D67E', sync)  # Same instruction labels in another generated entry.
         text += func('06022458', '    f_06021FD8(c); // 060224E0 jsr\n')
         text += func('06021FD8', '    if (!c.t) { goto L_06022032; } // 0602202C bf\n')
+        text += func('0605D670', '    st16(c.r[1], c.r[0]); // 0605D6A2 mov\n')
+        text += func('060649D0', '    c.pc = x; return; // 06064AD6 rts\n')
+        text += func('0603BDE8') + func('0603108C')
+        text += func('060223C0', '    f_0603E818(c); // 06022426 jsr\n')
         self.source.write_text(text, encoding='utf-8')
-        (self.recomp / 'CMakeLists.txt').write_text('if(NOT SATURN_RUNTIME)\n  set(SATURN_RUNTIME "C:/old repo/runtime")\nendif()\ninclude(${SATURN_RUNTIME}/runtime.cmake)\n')
+        (self.recomp / 'CMakeLists.txt').write_text('if(NOT SATURN_RUNTIME)\n  set(SATURN_RUNTIME "C:/old repo/runtime")\nendif()\ninclude(${SATURN_RUNTIME}/runtime.cmake)\ntarget_link_libraries(saturn runtime)\n')
         (self.runtime / 'runtime.cmake').write_text('# fixture\n')
         self.host = self.runtime / 'src/host/host.cpp'
         self.host.write_text('static bool g_menu_open, g_quitting;\nstatic uint16_t touch_read();\n'
@@ -55,6 +64,13 @@ class InjectionTests(unittest.TestCase):
             'static void menu_close() {\n}\nstatic void on_event(const SDL_Event& e) {\n}\n')
         (self.runtime / 'src/host/host_null.cpp').write_text('#include <cstdint>\n')
         (self.runtime / 'src/machine/smpc.cpp').write_text('// original INTBACK unchanged\n')
+        from pal_paired_frame_queue import RUNTIME_FILES
+        (self.runtime / 'include').mkdir()
+        for name in (*RUNTIME_FILES, 'src/machine/machine.cpp'):
+            dest = self.runtime / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(REPO / 'third_party/saturn-recomp-pal/runtime' / name, dest)
+
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -75,7 +91,9 @@ class InjectionTests(unittest.TestCase):
         self.assertNotIn(str(self.root), text)
         self.assertEqual(manifest['runtime'], '../runtime')
         self.assertIn('${CMAKE_CURRENT_LIST_DIR}/../runtime', (self.recomp / 'CMakeLists.txt').read_text())
-        self.assertEqual(set(manifest['defaults'].values()), {'0'})
+        self.assertEqual(manifest['defaults']['PAL_EFFECT_ANIMATION_SPEED'], '1')
+        self.assertEqual({v for k,v in manifest['defaults'].items() if k != 'PAL_EFFECT_ANIMATION_SPEED'}, {'0'})
+        self.assertEqual(text.count('pal_effect_cadence::shorten_sync(c);'), 1)
         for name in m.HEADERS:
             self.assertEqual((self.recomp / name).read_bytes(), (REPO / 'src/pal_game' / name).read_bytes())
         self.assertNotIn('pal_battle_probe', text)
@@ -163,6 +181,28 @@ class InjectionTests(unittest.TestCase):
             self.run_inject()
         self.assertEqual(hashes(self.root), before)
 
+
+    def test_queue_runtime_drift_fails_before_any_writes(self):
+        path = self.runtime / 'src/video/vdp1.cpp'
+        path.write_text(path.read_text() + '// changed runtime version\n')
+        before = hashes(self.root)
+        with self.assertRaisesRegex(ValueError, 'Runtime source/version changed'):
+            self.run_inject()
+        self.assertEqual(hashes(self.root), before)
+
+    def test_queue_pc_drift_fails_before_any_writes(self):
+        self.source.write_text(self.source.read_text().replace('// 06064AD6 ', '// 16064AD6 '))
+        before = hashes(self.root)
+        with self.assertRaisesRegex(ValueError, '06064AD6'):
+            self.run_inject()
+        self.assertEqual(hashes(self.root), before)
+
+    def test_cadence_anchor_failure_is_atomic(self):
+        self.source.write_text(self.source.read_text().replace('// 06022426 ', '// 16022426 '))
+        before = hashes(self.root)
+        with self.assertRaisesRegex(ValueError, '06022426'):
+            self.run_inject()
+        self.assertEqual(hashes(self.root), before)
 
     def test_windows_crlf_sources_and_runtime(self):
         for base in (self.recomp, self.runtime):

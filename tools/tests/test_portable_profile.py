@@ -22,7 +22,7 @@ def test_manifest_and_profile_boundaries(tmp_path):
     manifest = exe.parent / m.MANIFEST
     manifest.write_text(json.dumps({'schema': 1, 'exe_sha256': m.sha256(exe), 'features': ['input_v4', 'effect_wait_v3']}))
     for profile, values in m.PROFILES.items():
-        with patch.dict(os.environ, {'PAL_RESPONSIVE_WAKE': '1', 'PAL_SHORT_EFFECT_PREP': '1', 'SATURN_DATA_CD_SPEED': '4'}), patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=17)) as run:
+        with patch.dict(os.environ, {'PAL_RESPONSIVE_WAKE': '1', 'PAL_SHORT_EFFECT_PREP': '1', 'SATURN_DATA_CD_SPEED': '4', 'PAL_EFFECT_ANIMATION_SPEED': '1.5', 'PAL_PAIRED_FRAME_QUEUE': '1'}), patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=17)) as run:
             assert m.main([profile, '--exe', str(exe), '--', '--cue', 'disc path/game.cue']) == 17
             args, kwargs = run.call_args
             assert args[0] == [str(exe), '--cue', 'disc path/game.cue']
@@ -30,6 +30,8 @@ def test_manifest_and_profile_boundaries(tmp_path):
             assert tuple(env[k] for k in ('PAL_RESPONSIVE_INPUT', 'PAL_RESPONSIVE_ALIGN', 'PAL_RESPONSIVE_WAKE')) == values
             assert env['PAL_SHORT_EFFECT_PREP'] == '0'
             assert env['SATURN_DATA_CD_SPEED'] == '1'
+            assert env['PAL_EFFECT_ANIMATION_SPEED'] == '1'
+            assert env['PAL_PAIRED_FRAME_QUEUE'] == '0'
     with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
         assert m.main(['precise', '--quick-spell', '--exe', str(exe)]) == 0
         assert run.call_args.kwargs['env']['PAL_SHORT_EFFECT_PREP'] == '1'
@@ -66,3 +68,45 @@ def test_data_cd_multiplier_requires_compiled_capability(tmp_path):
         with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
             assert m.main(['original', '--data-cd-speed', speed, '--exe', str(exe)]) == 0
             assert run.call_args.kwargs['env']['SATURN_DATA_CD_SPEED'] == speed
+
+
+def test_effect_cadence_requires_capability_and_stays_independent(tmp_path):
+    exe = make_exe(tmp_path)
+    proof = {'schema': 1, 'exe_sha256': m.sha256(exe), 'features': ['input_v4', 'effect_wait_v3']}
+    manifest = exe.parent / m.MANIFEST
+    manifest.write_text(json.dumps(proof))
+    with patch.object(m.subprocess, 'run') as run:
+        assert m.main(['original', '--effect-animation-speed', '1.5', '--exe', str(exe)]) == 3
+        run.assert_not_called()
+    proof['features'].append('effect_cadence_v1')
+    manifest.write_text(json.dumps(proof))
+    for speed in ('1', '1.25', '1.5', '2'):
+        with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+            assert m.main(['original', '--effect-animation-speed', speed, '--exe', str(exe)]) == 0
+            env = run.call_args.kwargs['env']
+            assert env['PAL_EFFECT_ANIMATION_SPEED'] == speed
+            assert env['PAL_SHORT_EFFECT_PREP'] == '0'
+            assert env['PAL_RESPONSIVE_INPUT'] == '0'
+            assert env['SATURN_DATA_CD_SPEED'] == '1'
+
+
+def test_paired_queue_requires_precise_and_compiled_capability(tmp_path):
+    import pytest
+    exe = make_exe(tmp_path)
+    proof = {'schema': 1, 'exe_sha256': m.sha256(exe), 'features': ['input_v4']}
+    manifest = exe.parent / m.MANIFEST
+    manifest.write_text(json.dumps(proof))
+    with patch.object(m.subprocess, 'run') as run:
+        for profile in ('original', 'experimental-fast'):
+            with pytest.raises(SystemExit):
+                m.main([profile, '--paired-frames', '--exe', str(exe)])
+        assert m.main(['precise', '--paired-frames', '--exe', str(exe)]) == 3
+        run.assert_not_called()
+    proof['features'].append('paired_frame_queue_v3')
+    manifest.write_text(json.dumps(proof))
+    with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+        assert m.main(['precise', '--paired-frames', '--exe', str(exe)]) == 0
+        env = run.call_args.kwargs['env']
+        assert env['PAL_PAIRED_FRAME_QUEUE'] == '1'
+        assert env['PAL_RESPONSIVE_INPUT'] == '1'
+        assert env['PAL_RESPONSIVE_ALIGN'] == env['PAL_RESPONSIVE_WAKE'] == '0'

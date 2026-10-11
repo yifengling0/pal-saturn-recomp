@@ -1,9 +1,9 @@
-"""Inject vetted precise-input v4 and short-effect v3 into detached generated sources.
+"""Inject guarded PAL input, spell preparation, cadence and paired RGB options.
 
 The caller generates the PAL modules, copies its verified five-patch runtime to
 an isolated build directory, then calls prepare_options(recomp, runtime, root).
 No compiler, game process, source-runtime modification or external tool is run.
-Both options remain disabled unless their independent environment variable is 1.
+Defaults retain original behavior: input/preparation/queue off, effect cadence 1.
 """
 from __future__ import annotations
 import argparse
@@ -13,10 +13,13 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-effect-v3-1'
+VERSION = 'pal-options-input-v4-effect-v3-cadence-v3-queue-v3-1'
 MANIFEST = 'pal-options-manifest.json'
+CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
+
 HEADERS = ('pal_responsive_input.h', 'pal_input_intent.h', 'pal_input_wait.h',
-           'pal_effect_wait.h', 'pal_effect_wait_runtime.h')
+           'pal_effect_wait.h', 'pal_effect_wait_runtime.h',
+           'pal_effect_cadence.h', 'pal_effect_cadence_runtime.h')
 
 
 def digest(data):
@@ -69,7 +72,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     files = sorted(recomp.glob('p_prog_*.cpp'))
     if not files:
         raise ValueError('No generated PROG sources')
-    source_headers = {name: (root / 'src/pal_game' / name).read_bytes() for name in (*HEADERS, 'pal_host_edge.h')}
+    source_headers = {name: (root / 'src/pal_game' / name).read_bytes() for name in (*HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h')}
     header_hashes = {name: digest(data) for name, data in source_headers.items()}
     manifest = recomp / MANIFEST
     if manifest.exists():
@@ -123,6 +126,21 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         texts[p] = '#include "pal_responsive_input.h"\n' + texts[p]
     for p in changed_effect:
         texts[p] = '#include "pal_effect_wait_runtime.h"\n' + texts[p]
+
+    changed_cadence = set()
+    for pc, kind in [('0603BDE8', 'Cast'), ('0603108C', 'Prepare'),
+                     ('060223C0', 'Frame'), ('0605D68A', 'Sync')]:
+        marker = f'void f_{pc}(SH2Context& c) {{\n'
+        changed_cadence.add(function(texts, pc, lambda text, marker=marker, kind=kind:
+            replace_once(text, marker, marker + f'    pal_effect_cadence::{kind} pal_cadence_scope(c);\n', kind)))
+    changed_cadence.add(function(texts, '060223C0', lambda text: instruction(text, '06022426',
+        before='{ pal_effect_cadence::Wait pal_cadence_wait(c);', after='}', expected='f_0603E818(c)')))
+    def cadence_sync(text):
+        text = instruction(text, '0605D6BA', before='pal_effect_cadence::shorten_sync(c);', expected='if (c.t)')
+        return instruction(text, '0605D770', before='pal_effect_cadence::finish_sync(c);', expected='st8(c.gbr + 19, c.r[0])')
+    changed_cadence.add(function(texts, '0605D68A', cadence_sync))
+    for p in changed_cadence:
+        texts[p] = '#include "pal_effect_cadence_runtime.h"\n' + texts[p]
 
     host = runtime / 'src/host/host.cpp'
     null = runtime / 'src/host/host_null.cpp'
@@ -179,6 +197,21 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         '  message(FATAL_ERROR "Use the detached runtime for this PAL option build")\n'
         'endif()\n')
     cmake_text = replace_once(cmake_text, anchor, guard + anchor, 'CMake runtime include')
+    machine = runtime / 'src/machine/machine.cpp'
+    runtime_original[machine] = machine.read_bytes()
+    rt[machine] = runtime_original[machine].decode('utf-8').replace('\r\n', '\n')
+    if 'pal_effect_cadence_scope_supported' in rt[machine]:
+        raise ValueError('Unexpected existing cadence task guard')
+    if rt[machine].count('bool tasks = cfg.task_setjmp || g_sh2_tasks[0];') != 1 or rt[machine].count('if (!cfg.state_in.empty()) {') != 1:
+        raise ValueError('Cadence task-mode scope anchor changed')
+    rt[machine] += '\n' + CADENCE_RUNTIME_SUPPORT
+    from pal_paired_frame_queue import plan_queue, RUNTIME_FILES
+    for name in RUNTIME_FILES:
+        p = runtime / name
+        if p not in runtime_original:
+            runtime_original[p] = p.read_bytes()
+            rt[p] = runtime_original[p].decode('utf-8').replace('\r\n', '\n')
+    queue_changes = plan_queue(recomp, runtime, texts, rt, cmake_text, source_headers)
     changes = {p: text.encode('utf-8') for p, text in texts.items() if text.encode('utf-8') != originals[p]}
     changes.update({p: text.encode('utf-8') for p, text in rt.items()})
     changes[cmake] = cmake_text.encode('utf-8')
@@ -188,15 +221,21 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     for p in [*(recomp / name for name in HEADERS), runtime / 'src/host/pal_host_edge.h']:
         if p.exists():
             raise ValueError(f'Unexpected preexisting option header: {p}')
+    for p in (recomp / 'pal_paired_frame_queue.cpp', runtime / 'include/pal_paired_frame_queue.h'):
+        if p.exists():
+            raise ValueError(f'Unexpected preexisting queue source: {p}')
+    changes.update(queue_changes)
     all_original = {**originals, **runtime_original, cmake: cmake_original}
     for p, data in all_original.items():
         if p.read_bytes() != data:
             raise ValueError(f'Source changed while preparing injection: {p}')
     data = {'version': VERSION, 'runtime': relative_runtime, 'headers_sha256': header_hashes,
         'defaults': {'PAL_RESPONSIVE_INPUT': '0', 'PAL_RESPONSIVE_ALIGN': '0',
-                     'PAL_RESPONSIVE_WAKE': '0', 'PAL_SHORT_EFFECT_PREP': '0'},
+                     'PAL_RESPONSIVE_WAKE': '0', 'PAL_SHORT_EFFECT_PREP': '0',
+                     'PAL_EFFECT_ANIMATION_SPEED': '1', 'PAL_PAIRED_FRAME_QUEUE': '0'},
         'input_scope': 'precise v4; timing experiments remain separately gated',
         'effect_scope': 'v3 bank7 commit-gated early exit; changes RNG/idle trajectory',
+        'cadence_scope': 'bank7 tested effects 33/20,10/26,43/14,1/7; retain frames/ticks, optional 1/1.25/1.5/2',
         'inputs_sha256': {}, 'outputs_sha256': {}}
     for group, base in [('recomp', recomp), ('runtime', runtime)]:
         data['inputs_sha256'][group] = {p.relative_to(base).as_posix(): digest(v) for p, v in all_original.items() if p.is_relative_to(base)}
@@ -216,7 +255,7 @@ def main():
     p.add_argument('--runtime', type=Path, required=True)
     a = p.parse_args()
     result = prepare_options(a.recomp, a.runtime, a.root)
-    print(result['version'] + ': injected/verified; all options default off')
+    print(result['version'] + ': injected/verified; all defaults preserve original behavior')
 
 
 if __name__ == '__main__':

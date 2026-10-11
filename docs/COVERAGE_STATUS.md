@@ -84,3 +84,36 @@ not merged. No GitHub Actions workflows exist, so no remote CI pass is claimed.
 Source recovery packages exclude ROM, BIOS, extracted modules, generated
 commercial game source/executables and saves. Only this task's generated saves
 and input records go into the separate private checkpoint package.
+
+## Saturn-specific external reports awaiting reproduction (2026-10-11)
+
+These are investigation leads, not confirmed failures of this port. Keep the
+original timing profile as the reproduction baseline. Record image hash,
+version, input, source save, actual/expected outcome and exit/log evidence before
+changing code. Separate hardware correctness, original-game logic and opt-in
+experience changes; do not remove a beneficial original exploit by assumption.
+
+| ID / category | Reported symptom / source | Evidence quality | Current status / next reproducible check |
+|---|---|---|---|
+| SS-EXT-001 / possible story soft lock | Cannot return after leaving the city following Fire Qilin; [2021 PTT recollection](https://www.ptt.cc/bbs/Old-Games/M.1617708676.A.202.html) | One retrospective player account; no save or exact inputs supplied | Unreproduced. Reach the relevant story state normally, save before/after boss and exit, test both directions and reload without overwriting baseline |
+| SS-EXT-002 / transition presentation | On first Fairy Island arrival, background black while characters/dialogue remain; save/restart reportedly restores it, later recurs; [2023 player article](https://news.17173.com/content/01312023/090039866.shtml) | Claimed play experience; details such as stated save size need independent checking | Unreproduced as this specific original-game issue. Our early DMA short-copy fix does not establish a common cause. Keep paired VDP1/VDP2 evidence and game resource reads around future transitions |
+| SS-EXT-003 / possible repeat-item exploit | Comment claims Saturn Demon Locking Tower can raise attributes to maximum; [PTT comment mirror](https://disp.cc/ptt/C_Chat/1QKoCVEj) | Single brief comment without steps; lowest confidence | Unverified. Obtain exact location/steps and test inventory/flag persistence before classifying; no default removal planned |
+
+
+| SS-EXT-004 / excluded cross-version attribution | “Disappearing” trap passage in an SS-labelled repost matches a [New PAL guide](https://pal.52pk.com/pal1_gonglue/02.htm), including wording/errors and unrelated mechanics | Cross-version mislabelling; excluded as Saturn-specific bug evidence | Keep only general placed-item leave/re-enter/save/load regression. Normal placement, herding, antler collection and release already passed; inventory consumption alone is expected |
+| SS-EXT-005 / original visual differences | Real-hardware reply confirms no character fade and slow sword-teaching demonstration; [TGFC discussion](https://bbs.tgfcer.com/thread-7425346-4-1.html) | Player recollection; transparency was asked about but not conclusively answered | Treat missing fade as a possible version difference. Scripted demonstrations and inventory/menu resource waits remain separate from the tested spell-frame cadence |
+
+| SS-EXT-006 / final boss interaction direction | Same [17173 author](https://news.17173.com/content/01312023/090039866.shtml) says final Bai Yue interaction requires approaching from behind, not front/side | One retrospective account; unverified | At final chapter, retain pre-interaction save and try ordinary directions. Distinguish intended facing/interaction geometry from soft lock; do not preemptively modify story flags |
+
+The same TGFC thread's Soul Stealing “fast completion” comment is a strategy,
+not proof of a bug. Do not weaken it without a separately justified change.
+The [1997 official PC experience-reset patch discussion](https://www.palhero.net/pal-gov/pal/allhell7.html)
+is excluded from Saturn evidence. No complete official Saturn errata or
+universal Saturn fix pack was verified, and no external patch was downloaded or
+executed. Multiple copies of one anecdote do not constitute independent evidence.
+
+Release acceptance for each confirmed change: focused red/green case, baseline
+mode retained where behavior is intentionally changed, nearby story transitions,
+normal BUP save/load, affected input/audio/render regressions, and published
+source commit plus verified download. External anecdotes alone are not grounds
+for a patch or an all-game completion claim.
