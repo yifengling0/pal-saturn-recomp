@@ -84,3 +84,87 @@ index 3ebb99f..d768d96 100644
          break;
      case SDL_EVENT_QUIT:
          menu_close();
+--- /dev/null
++++ b/runtime/src/host/pal_tap_hold.h
+@@ -0,0 +1,81 @@
++// A press must reach the game for more than one VBlank or the game does not see it at all: measured
++// through the pads the SMPC reads, a button held for a single VBlank is dropped, while held for two
++// the whole title-to-village path runs exactly as recorded. The host cannot promise that on its own.
++// It polls the keyboard and the gamepads once a frame, so a tap that begins and ends between two
++// polls is never seen at all, and a touch tap that quick is kept alive for only the one sample
++// touch_read() gives it (the g_lifted case in host.cpp).
++//
++// So a press is remembered here and published for a few VBlanks, counted in the emulated frames
++// rather than the host's: when the host falls behind, several VBlanks share one poll and a short
++// press can still vanish between them. press() takes a rising edge from an event, the
++// only way to catch a tap that was over before anything polled it; publish() takes the polled state
++// once a frame and adds what is still owed; forget() drops a press the menu already consumed, so
++// stretching cannot hand the game a button the player used to close it.
++//
++// On unless the environment says otherwise: unset or PAL_TAP_HOLD=1 keeps the presses, PAL_TAP_HOLD=0
++// (or anything unrecognised) publishes exactly what the controllers report.
++#pragma once
++
++#include <cstdint>
++#include <cstdlib>
++#include <cstring>
++
++// Two is the measured minimum the game notices; the buttons that answer a box keep one frame of
++// margin over it and stay far below the length a menu would treat as holding the button down.
++// `moving` is held to that minimum alone: the hero travels every frame one of its bits is published,
++// so on a touchscreen a tap that lasted a single poll overshoots visibly if it is padded further.
++inline constexpr uint64_t kPalMinPressVblanks = 3;
++inline constexpr uint64_t kPalMinDirectionVblanks = 2;
++
++// One instance per player's pad.
++class PalTapHold {
++public:
++    // A rising edge from an event, for a pad that may already be back at rest by the next poll.
++    void press(uint16_t bits) { pending_ |= bits; }
++
++    // Buttons the menu took with it: the game never gets them, however briefly they were held.
++    void forget(uint16_t bits) {
++        pending_ = uint16_t(pending_ & ~bits);
++        for (unsigned i = 0; i < kBits; ++i)
++            if (bits & (uint16_t(1u) << i)) { held_[i] = false; until_[i] = 0; }
++    }
++
++    // What this pad's player should be seen holding at this VBlank; `moving` are the bits that walk.
++    uint16_t publish(uint16_t live, uint64_t vblank, uint16_t moving) {
++        if (!enabled()) return live;
++        const uint16_t started = uint16_t(live | pending_);
++        pending_ = 0;
++        uint16_t out = live;
++        for (unsigned i = 0; i < kBits; ++i) {
++            const uint16_t flag = uint16_t(1u) << i;
++            if (started & flag) {
++                if (!held_[i]) {
++                    const uint64_t least = (flag & moving) ? kPalMinDirectionVblanks
++                                                           : kPalMinPressVblanks;
++                    held_[i] = true;
++                    until_[i] = vblank + least - 1;
++                }
++                out |= flag;
++            } else if (held_[i]) {
++                if (vblank <= until_[i]) out |= flag;
++                else held_[i] = false;
++            }
++        }
++        return out;
++    }
++
++private:
++    static constexpr unsigned kBits = 16;
++
++    static bool enabled() {
++        static const bool on = [] {
++            const char* value = std::getenv("PAL_TAP_HOLD");
++            return value ? !std::strcmp(value, "1") : true;
++        }();
++        return on;
++    }
++
++    uint16_t pending_ = 0;
++    bool held_[kBits] = {};
++    uint64_t until_[kBits] = {};
++};
