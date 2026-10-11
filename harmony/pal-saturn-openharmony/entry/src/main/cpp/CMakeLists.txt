@@ -29,6 +29,11 @@ find_package(Threads REQUIRED)
 # 所以把 runtime 的 main 改名进壳，由 pal_ohos_entry.cpp 导出 SDL_main 并从 Download 目录拼出 argv。
 add_library(main SHARED ${SATURN_RUNTIME}/src/app/main.cpp pal_ohos_entry.cpp)
 set_target_properties(main PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+# The generated saturn executable is not the library loaded by OHOS.
+# Include game-specific hook registration in the actual libmain entry too.
+set(PAL_GAME_TARGET main)
+include("${PAL_ROOT}/src/pal_game/pal_game.cmake")
+unset(PAL_GAME_TARGET)
 set_source_files_properties("${SATURN_RUNTIME}/src/app/main.cpp" PROPERTIES COMPILE_DEFINITIONS main=saturn_main)
 target_include_directories(main PRIVATE ${SATURN_RUNTIME}/include)
 target_link_libraries(main PUBLIC saturn_core saturn_machine saturn_host recomp Threads::Threads SDL3::SDL3)
