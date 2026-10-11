@@ -14,10 +14,46 @@ get_filename_component(PAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../"
 set(SATURN_RUNTIME "${PAL_ROOT}/build/pal-keyboard-runtime" CACHE PATH "patched runtime copy")
 set(SATURN_EXTRA "${PAL_ROOT}/src/pal_game/pal_game.cmake" CACHE FILEPATH "PAL game layer")
 
+# PAL_OHOS_RUNTIME_IDENTITY_BEGIN
+# CACHE defaults do not replace a stale value. Refuse another selected runtime
+# instead of configuring one tree after ohosbuild verified a different tree.
+set(_PAL_EXPECTED_RUNTIME "${PAL_ROOT}/build/pal-keyboard-runtime")
+get_filename_component(_PAL_SELECTED_RUNTIME "${SATURN_RUNTIME}" REALPATH)
+get_filename_component(_PAL_RUNTIME_CANONICAL "${_PAL_EXPECTED_RUNTIME}" REALPATH)
+if(NOT _PAL_SELECTED_RUNTIME STREQUAL _PAL_EXPECTED_RUNTIME OR
+   NOT _PAL_RUNTIME_CANONICAL STREQUAL _PAL_EXPECTED_RUNTIME)
+    message(FATAL_ERROR "OHOS must compile this checkout's verified build/pal-keyboard-runtime; clear the stale native CMake cache and regenerate with tools/winbuild.py build --recompile")
+endif()
+# PAL_OHOS_RUNTIME_IDENTITY_END
+
 add_subdirectory("${PAL_ROOT}/third_party/sdl3-src" sdl3)
 # runtime.cmake 用 find_package(SDL3 CONFIG) 决定真 host 还是空 host，见 cmake/SDL3Config.cmake
 set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory("${PAL_ROOT}/build/recomp" saturn_recomp)
+
+# PAL_OHOS_HOST_IDENTITY_BEGIN
+# Resolve the source actually owned by saturn_host, not a marker in the entry.
+get_target_property(_PAL_HOST_SOURCES saturn_host SOURCES)
+get_target_property(_PAL_HOST_SOURCE_DIR saturn_host SOURCE_DIR)
+set(_PAL_HOST_SOURCE_COUNT 0)
+foreach(_PAL_SOURCE IN LISTS _PAL_HOST_SOURCES)
+    get_filename_component(_PAL_SOURCE_NAME "${_PAL_SOURCE}" NAME)
+    if(_PAL_SOURCE_NAME STREQUAL "host.cpp")
+        math(EXPR _PAL_HOST_SOURCE_COUNT "${_PAL_HOST_SOURCE_COUNT} + 1")
+        get_filename_component(_PAL_HOST_SOURCE "${_PAL_SOURCE}" REALPATH BASE_DIR "${_PAL_HOST_SOURCE_DIR}")
+    endif()
+endforeach()
+set(_PAL_EXPECTED_HOST "${_PAL_EXPECTED_RUNTIME}/src/host/host.cpp")
+if(NOT _PAL_HOST_SOURCE_COUNT EQUAL 1 OR
+   NOT _PAL_HOST_SOURCE STREQUAL _PAL_EXPECTED_HOST OR
+   NOT EXISTS "${_PAL_HOST_SOURCE}")
+    message(FATAL_ERROR "saturn_host must own exactly the verified OHOS runtime host.cpp; refusing a different or headless target")
+endif()
+file(SHA256 "${_PAL_HOST_SOURCE}" _PAL_HOST_UI_SOURCE_SHA256)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_PAL_HOST_SOURCE}")
+target_compile_definitions(saturn_host PRIVATE "PAL_HOST_UI_SOURCE_SHA256=\"${_PAL_HOST_UI_SOURCE_SHA256}\"")
+message(STATUS "PAL actual host UI source: ${_PAL_HOST_SOURCE}; source_bytes_sha256=${_PAL_HOST_UI_SOURCE_SHA256}")
+# PAL_OHOS_HOST_IDENTITY_END
 # Missing display.presentation defaults to aspect-preserving fit on OHOS only.
 # An explicit user original/fit/stretch setting still wins.
 target_compile_definitions(saturn_host PRIVATE PAL_OHOS_DEFAULTS=1 PAL_OHOS_INPUT=1)
@@ -54,6 +90,9 @@ find_package(Threads REQUIRED)
 # 所以把 runtime 的 main 改名进壳，由 pal_ohos_entry.cpp 导出 SDL_main 并从 Download 目录拼出 argv。
 add_library(main SHARED ${SATURN_RUNTIME}/src/app/main.cpp pal_ohos_entry.cpp)
 set_target_properties(main PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+# Shared ELF links otherwise permit missing strong symbols. Require the actual
+# new host identity functions at link time, before any HAP can be packaged.
+set_property(TARGET main APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-undefined")
 # The generated saturn executable is not the library loaded by OHOS.
 # Include game-specific hook registration in the actual libmain entry too.
 set(PAL_GAME_TARGET main)

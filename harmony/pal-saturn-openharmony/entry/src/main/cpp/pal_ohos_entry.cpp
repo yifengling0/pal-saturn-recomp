@@ -27,6 +27,10 @@
 extern int saturn_main(int argc, char** argv);
 extern void host_shutdown_input();
 extern "C" const char* pal_movie_cache_feature();
+// Strong references make a stale host object fail at link time. These are
+// implemented by the actual host.cpp, not stamped onto this entry wrapper.
+extern "C" int pal_host_ui_feature_version();
+extern "C" const char* pal_host_ui_source_hash();
 
 #ifndef PAL_BUNDLE_NAME
 #define PAL_BUNDLE_NAME "com.palhero.palsaturn"
@@ -276,8 +280,8 @@ extern "C" int SDL_main(int argc, char** argv)
                                    "--clock", "1998-11-01T12:00:00", "--fullscreen",
                                    // sat_data_dir() has no home on HarmonyOS, so the settings have to be named
                                    "--settings", join(home, "settings.ini") };
-    // 默认直接进游戏。玩家要那套完整菜单（多人/按键/显示）时，由划出的"扩展设定"面板在这个文件里
-    // 留个记号再重启，运行时才走 --launcher。
+    // 默认直接进游戏。advanced.txt 可外部配置，仅在启动时读取以打开完整 launcher；
+    // 当前没有游戏内编辑这个标记的入口，也不会因此保存当前进度或自动重启。
     if (is_file(join(home, "advanced.txt"))) args.push_back("--launcher");
 
     std::string line;
@@ -288,6 +292,12 @@ extern "C" int SDL_main(int argc, char** argv)
     for (std::string& a : args) argv_out.push_back(a.data());
     argv_out.push_back(nullptr);
     note("PAL features: %s", pal_movie_cache_feature());
+    const int host_ui_version = pal_host_ui_feature_version();
+    note("PAL host UI: version=%d source_bytes_sha256=%s", host_ui_version, pal_host_ui_source_hash());
+    if (host_ui_version != 12) {
+        note("host UI version mismatch: require 12; rebuild the verified OHOS runtime");
+        return 2;
+    }
     const int result = saturn_main((int)argv_out.size() - 1, argv_out.data());
     host_shutdown_input();
     return result;
