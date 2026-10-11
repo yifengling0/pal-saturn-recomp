@@ -8,7 +8,10 @@ extern uint64_t sat_vblanks();
 extern uint8_t g_vdp2_regs[0x200];
 namespace pal_effect_wait {
 inline bool enabled() {
-    static const bool on=[] {const char* p=std::getenv("PAL_SHORT_EFFECT_PREP");return p && !std::strcmp(p,"1");}();
+    // On unless the environment says otherwise: unset or "1" shortens the tested bank7 spell
+    // preparation, "0" (or anything unrecognised) keeps the original wait.
+    static const bool on=[] {const char* p=std::getenv("PAL_SHORT_EFFECT_PREP");
+                             return p ? !std::strcmp(p,"1") : true;}();
     return on;
 }
 inline uint8_t raw8(uint32_t a) {

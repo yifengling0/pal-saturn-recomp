@@ -258,8 +258,8 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
             raise ValueError(f'Source changed while preparing injection: {p}')
     data = {'version': VERSION, 'runtime': relative_runtime, 'headers_sha256': header_hashes,
         'defaults': {'PAL_RESPONSIVE_INPUT': '0', 'PAL_RESPONSIVE_ALIGN': '0',
-                     'PAL_RESPONSIVE_WAKE': '0', 'PAL_SHORT_EFFECT_PREP': '0',
-                     'PAL_EFFECT_ANIMATION_SPEED': '1', 'PAL_PAIRED_FRAME_QUEUE': '0'},
+                     'PAL_RESPONSIVE_WAKE': '0', 'PAL_SHORT_EFFECT_PREP': '1',
+                     'PAL_EFFECT_ANIMATION_SPEED': '1.5', 'PAL_PAIRED_FRAME_QUEUE': '0'},
         'input_scope': 'precise v4 + guest release gate fix v1; timing experiments remain separately gated',
         'effect_scope': 'v3 bank7 commit-gated early exit; changes RNG/idle trajectory',
         'cadence_scope': 'bank7 tested effects 33/20,10/26,43/14,1/7; retain frames/ticks, optional 1/1.25/1.5/2',
@@ -282,7 +282,8 @@ def main():
     p.add_argument('--runtime', type=Path, required=True)
     a = p.parse_args()
     result = prepare_options(a.recomp, a.runtime, a.root)
-    print(result['version'] + ': injected/verified; all defaults preserve original behavior')
+    print(result['version'] + ': injected/verified; spell timing is accelerated by default, '
+          'PAL_SHORT_EFFECT_PREP=0 PAL_EFFECT_ANIMATION_SPEED=1 restores the original')
 
 
 if __name__ == '__main__':

@@ -95,6 +95,17 @@ README = '''仙剑奇侠传 土星版 · 静态重编译 Windows 包
 每个语义键按下后锁定到一个土星键，直到松开，所以按住 Esc 不会把"开菜单"变成"取消"。
 想要原来的土星键位，把 settings.ini 里 [controls] 的 keyboard_profile 改成 saturn。
 
+施法与法术动画
+
+本包默认缩短已验证的施法准备，并把法术动画放到 1.5 倍（逐帧解码都保留，只是每帧少等几个场）。
+想回到原版节奏，在包目录下开一个 cmd 敲：
+
+  set PAL_SHORT_EFFECT_PREP=0
+  set PAL_EFFECT_ANIMATION_SPEED=1
+  run.bat
+
+1.25 与 2 也是可选倍率。程序默认不再弹控制台窗口；要看日志就再加一行 set PAL_CONSOLE=1。
+
 存档与设置
 
 存档有两个地方（土星的两种记忆）：

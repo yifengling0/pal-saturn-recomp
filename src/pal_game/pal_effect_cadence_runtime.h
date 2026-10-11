@@ -8,7 +8,9 @@ extern uint64_t sat_vblanks();
 extern bool pal_effect_cadence_scope_supported() noexcept;
 extern uint8_t g_vdp2_regs[0x200];
 namespace pal_effect_cadence {
-inline Speed speed() noexcept { static const Speed s=parse_speed(std::getenv("PAL_EFFECT_ANIMATION_SPEED"));return s; }
+// Spell animation runs at 1.5x unless the environment says otherwise: PAL_EFFECT_ANIMATION_SPEED=1
+// is the original cadence, and anything unrecognised still fails closed to it.
+inline Speed speed() noexcept { const char* e=std::getenv("PAL_EFFECT_ANIMATION_SPEED"); static const Speed s=parse_speed(e ? e : "1.5"); return s; }
 inline uint8_t raw8(uint32_t a) noexcept {
     const uint32_t p=a&0x1FFFFFFFu;
     if(p>=0x06000000u && p<0x06100000u)return g_wram_h[p&0xFFFFF];
