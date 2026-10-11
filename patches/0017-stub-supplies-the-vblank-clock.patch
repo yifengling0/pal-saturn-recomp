@@ -1,0 +1,12 @@
+diff --git a/runtime/src/stub/services_stub.cpp b/runtime/src/stub/services_stub.cpp
+index e593f85..f0d9cba 100644
+--- a/runtime/src/stub/services_stub.cpp
++++ b/runtime/src/stub/services_stub.cpp
+@@ -49,3 +49,7 @@ Read begin() { return {}; }
+ bool current(const Read&) { return false; }
+ bool acknowledge(const Read&) { return false; }
+ } // namespace pal_field_host
++
++// selftest links core + stub + recomp, and the recompiled field code reads the VBlank clock, which
++// only video.cpp defines. There is no hardware here and no frame ever advances, so the clock is 0.
++uint64_t sat_vblanks() { return 0; }

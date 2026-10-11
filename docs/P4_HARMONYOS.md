@@ -424,3 +424,42 @@ if (d < 0.1f * l.dpad_r) continue;        // 原来 0.2f
 
 补丁本身在 `patches/0014-harmony-smaller-dpad-dead-zone.patch`、`patches/0015-windows-harmony-presses-held-for-the-game.patch`；
 `third_party/` 不入库，按 README 拉固定上游提交后 `git am patches/*` 重放。
+
+## 17. 拉到 0016 之后的本地复验：selftest 断链与平板存档落位（2026-10-11 深夜）
+
+Windows 侧先把结论说清楚：**0016 让 `selftest` 目标在两个平台上都链不起来**。注入后的
+`p_prog_001.cpp`（`pal_field_input::apply` 与 `f_06026D84`）引用 `sat_vblanks()`，而
+`build/recomp/CMakeLists.txt:52` 的 `selftest` 只链 `saturn_core saturn_stub recomp`——
+`sat_vblanks()` 唯一的定义在 `src/video/video.cpp`，不在这里面。OHOS 是在 hvigor 里撞上的，
+本机 `cmake --build build/recomp-build --target selftest` 同样报
+`undefined reference to 'sat_vblanks()'`，所以不是交叉工具链的毛病。
+
+补了 `patches/0017-stub-supplies-the-vblank-clock.patch`：在 `services_stub.cpp` 里按 stub 的既有口径
+给一个常量 0（这里没有硬件、帧也不会走），0016/0017 必须成对使用。`runtime_support_inputs()` 里
+`src/stub/services_stub.cpp` 的钉法原来只收一个 digest，改成可接受集合并把 observed 值打印出来，
+这样"配套补丁"是改钉而不是重来一遍注入。修完 `selftest.exe` 链接通过（7,510,025 字节）。
+
+再生时被两类"上一轮残留"挡住，都按文档说的改名备份解决，别急着删：
+`build/recomp/pal_field_input.h`（上一轮半途生成物）与 `third_party/saturn-recomp-pal`
+（Windows 上 ninja/Defender 还握着句柄，`rd /s /q` 比 `rm -rf` 可靠）。
+
+### 平板默认存档怎么落位
+
+`hdc shell` 这台机器上进不去用户存储：`/storage/Users/currentUser/Download` 直接 No such file，
+`/mnt/user`、`/storage/media` 是 Permission denied；但挂载表里能看到
+`/storage/media/100/local/files/Docs` 挂在 sharefs 上，**应用的 Download 根实际落在**
+`/storage/media/100/local/files/Docs/Download/com.palhero.palsaturn/`（`disc/`、`saves/` 都在下面）。
+
+传文件只有 `hdc file send` 这条能用，而且有两个坑：
+
+1. 远端参数给**目录**，不是给文件路径——给文件路径会报 `Not a directory`；
+2. 它会按本地路径的结构建子目录，所以 `hdc file send build/pal-saturn.bup <saves>` 结果是
+   `<saves>/build/pal-saturn.bup`。要么在文件的同级目录里用**裸文件名**发（`cd` 过去再
+   `hdc file send pal-saturn.bup <saves>`），要么发完再自己收尾。
+3. 覆盖能成，`mv`/`cp`/`rm` 同一个目录里的既有文件会被拒（属主是 `20001006:file_manager`），
+   所以换档顺序只能是：先 `file recv` 把旧档拉回 PC 备份，再直接 send 同名文件覆盖。
+
+本轮按这个做法把默认存档换成 `hidden-dragon-before-fox-woman.bup`（`be8f0a28ded2276b…`）：
+平板 `saves/pal-saturn.bup` 与 `dist/pal-saturn-recomp-win-x64/saves/pal-saturn.bup` 同一份；
+换下来的两份分别备份成 `saves/pal-saturn.before-fox-woman-20261011.bak.bup`（Windows，`a4d8f748…`）
+和 `saves/tablet-before-fox-woman-20261011.bup`（平板原档，`bb27077e…`）。

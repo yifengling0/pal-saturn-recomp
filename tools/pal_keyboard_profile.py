@@ -334,7 +334,10 @@ def runtime_support_inputs(runtime):
  elif tap.exists() or tap.is_symlink():
   raise ValueError('Mixed tap-hold runtime variant; regenerate')
  if b'pal_field_input_ledger.h' in host.read_bytes():
-  expected.update({'src/host/pal_field_input_ledger.h': 'e2b40ff10eff7cccce8ed76e15f306c2fb7e0a356d03f1104539c826f27b0b15', 'include/pal_field_input_api.h': 'e13140fcc9e52c5458efa71d7ee38a0a3c7ad036537829353663eab042314f57', 'src/stub/services_stub.cpp': '5befce87f8f13273d9dc5cb47b13176e4832a1125d632a41d5729c11193a4e63'})
+  expected.update({'src/host/pal_field_input_ledger.h': 'e2b40ff10eff7cccce8ed76e15f306c2fb7e0a356d03f1104539c826f27b0b15', 'include/pal_field_input_api.h': 'e13140fcc9e52c5458efa71d7ee38a0a3c7ad036537829353663eab042314f57',
+   # 0016 alone, and 0016 with 0017's stub VBlank clock: selftest links core+stub+recomp only.
+   'src/stub/services_stub.cpp': {'5befce87f8f13273d9dc5cb47b13176e4832a1125d632a41d5729c11193a4e63',
+                                  'a32e9c6bbcbd6c6062220828c974d260d491d5ea78cfe4c94310fcf7a7da27ba'}})
   null=runtime/'src/host/host_null.cpp'
   if null.resolve()!=null or null.is_symlink() or not null.is_file():raise ValueError('Field no-host helper changed or missing; regenerate')
   null_edge=b'uint16_t pal_host_direction_edge() { return 0; }' in null.read_bytes()
@@ -350,7 +353,11 @@ def runtime_support_inputs(runtime):
   p=runtime/name
   if p.resolve()!=p or not p.is_relative_to(runtime) or p.is_symlink() or not p.is_file():raise ValueError('Harmony runtime helper changed or missing; regenerate: '+name)
   raw=p.read_bytes()
-  if sha(raw.replace(b'\r\n',b'\n'))!=value:raise ValueError('Harmony runtime helper changed or missing; regenerate: '+name)
+  # One file may carry more than one accepted generation: quote the observed digest and take a set,
+  # so a companion patch (0017 on 0016) is a pin update instead of a rebuild dance.
+  got=sha(raw.replace(b'\r\n',b'\n'))
+  allowed=value if isinstance(value,(set,frozenset,tuple)) else {value}
+  if got not in allowed:raise ValueError('Harmony runtime helper changed or missing; regenerate: '+name+' observed '+got)
   inputs[p]=raw
  return inputs
 

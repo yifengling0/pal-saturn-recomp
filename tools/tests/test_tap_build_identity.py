@@ -118,8 +118,10 @@ class PatchNumberIdentityTests(unittest.TestCase):
         mocker.start()
         self.addCleanup(mocker.stop)
 
-    def test_user_patch_numbers_include_14_15_and_16_once(self):
-        self.assertEqual(setup.NUMBERS[-3:], (14, 15, 16))
+    def test_user_patch_numbers_include_14_to_17_once(self):
+        # 0014/0015 are the input patches, 0016 the guest-consumed field input, and 0017 the stub
+        # VBlank clock 0016 needs to link selftest; 0016 and 0017 go together.
+        self.assertEqual(setup.NUMBERS[-4:], (14, 15, 16, 17))
         self.assertEqual(len(setup.NUMBERS), len(set(setup.NUMBERS)))
 
     def test_resolves_unique_numbered_files(self):
