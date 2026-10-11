@@ -43,7 +43,7 @@ A scripted story recovery is not counted as a manual revival.
   the requested blocks while reporting completion. The actual inn scene and
   subsequent story recovered. This was not an RBG rendering fix.
 - Post-fix regression evidence includes206 upstream Python tests,26 image
-  validation tests,44 runtime tests,44 GPL renderer tests and9300 instruction
+  validation tests,44 runtime tests,44 GPL renderer tests and 9300 instruction
   vectors, plus core/hardware/DMA-specific tests. These are the recorded
   post-fix runs, not a claim that all were rerun after every documentation edit.
 - The32 repository-tool tests were rerun on20:38 UTC and passed in0.94 seconds.
@@ -117,3 +117,18 @@ mode retained where behavior is intentionally changed, nearby story transitions,
 normal BUP save/load, affected input/audio/render regressions, and published
 source commit plus verified download. External anecdotes alone are not grounds
 for a patch or an all-game completion claim.
+
+
+## Reproduced cold opening movie freeze (2026-10-11)
+
+Windows and Linux no-input baselines freeze identically after A1 video chunk 43.
+The movie clock and sound CPU continue running; a sound-driver progress pointer
+cached before driver installation leaves the audio ring blocked. The bounded
+post-install cache refresh now completes all 265 A1 and 930 A2 chunks and returns
+to title without input. Fresh full build: 10/10 corrected opening checkpoints,
+12/12 original first-battle, 94/94 precise walking and 44/44 quick group-spell
+pictures; each gameplay BUP matches its original reference. 71 tool tests and 6
+subtests pass. See [INTRO_AUDIO_STREAMING.md](INTRO_AUDIO_STREAMING.md) for
+causal evidence, exact commands, binary hash and remaining Windows/audio bounds.
+This does not establish original-hardware BIOS state or fix the separate
+Windows synthetic selftest 0xC0000409 report, whose failure evidence is pending.

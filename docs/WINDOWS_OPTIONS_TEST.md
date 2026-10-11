@@ -12,6 +12,16 @@
 该机器的编译器/SDL3 DLL 尚未在本轮云端验证；Linux 的编译、回放和 mock 测试
 不代替 Windows 通过。请保留旧可用构建和存档，用独立目录测试。
 
+## 冷启动影片卡帧修复
+
+本次还修正了无输入时片头地球/陨星画面停止的问题：游戏在装入声音驱动前
+缓存了尚未有效的播放进度地址，音频环形缓冲区无法释放，影片流随之停住。
+现仅在驱动安装后刷新经过检查的冷缓存。Linux 已自然完整处理 A1 的 265 个、
+A2 的 930 个视频块并到标题，原首战/精准行走/快速施法回归一致。
+这项修复默认启用，必须重新生成并编译；旧 executable 不会随脚本更新自动获得。
+详细无输入验证命令见 [INTRO_AUDIO_STREAMING.md](INTRO_AUDIO_STREAMING.md)。
+Windows 实机声卡仍待你复验；动画倍率大于1的安全限制继续有效。
+
 ## 包含什么
 
 - 上游固定 `086c372c67d9e0f94fcc64cedd6e6b63cc5542b5`，顺序应用 `0001` 至
@@ -29,8 +39,9 @@
   改动，会增加 NPC/脚本/RNG 执行机会，不是推荐的精准输入基本档。
 - 可选数据CD读取倍率见 [DATA_CD_SPEED.md](DATA_CD_SPEED.md)：`--data-cd-speed 1/2/4`，
   默认1，仅改变数据扇区就绪时间，CDDA与全局时钟不加速。
-- 可选演出倍率 `--effect-animation-speed 1/1.25/1.5/2`，默认1；详见
-  [EFFECT_ANIMATION_SPEED.md](EFFECT_ANIMATION_SPEED.md)。与快准备独立，仅已测效果受控。
+- 演出倍率当前仅允许 `--effect-animation-speed 1`；大于1明确拒绝并退出，
+  重建后的直接环境变量请求也会警告并回退1。详见
+  [EFFECT_ANIMATION_SPEED.md](EFFECT_ANIMATION_SPEED.md)。快准备仍可单独开启。
 - 可选完整配对画面 `precise --paired-frames`，默认关闭；详见
   [PAIRED_FRAME_QUEUE.md](PAIRED_FRAME_QUEUE.md)。三帧收益属于有边界的实验呈现路径。
 - 已弃用的仅切 VDP1 buffer 早显原型不在此构建中。

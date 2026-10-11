@@ -289,7 +289,7 @@ def main(argv=None):
         original_inputs = build.inputs
         def option_inputs(game):
             data = original_inputs(game)
-            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", Path(ROOT) / "src/pal_game/pal_paired_frame_queue.cpp", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
+            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
                 data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
             return data
         build.inputs = option_inputs

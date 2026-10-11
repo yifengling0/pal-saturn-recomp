@@ -80,6 +80,20 @@ class WindowsDraftTests(unittest.TestCase):
         proof=json.loads((binary.parent/'pal-options-build.json').read_text())
         self.assertEqual(proof['exe_sha256'],hashlib.sha256(binary.read_bytes()).hexdigest())
         self.assertEqual(proof['features'],['input_v4','effect_wait_v3','data_cd_speed','effect_cadence_v1','paired_frame_queue_v3'])
+    def test_new_game_layer_cpp_is_fingerprinted(self):
+        source=self.root/'src/pal_game/pal_audio_stream_init.cpp'
+        source.parent.mkdir(parents=True);source.write_text('// fixture one')
+        for name in ('winbuild.py','pal_options.py','pal_data_cd_speed.py','pal_paired_frame_queue.py'):
+            tool=self.root/'tools'/name;tool.parent.mkdir(exist_ok=True);tool.write_text('# fixture')
+        self.call(['build','--pal-options','--headless'])
+        first=dict(self.fakebuild.inputs(self.game))
+        key='PAL src/pal_game/pal_audio_stream_init.cpp'
+        self.assertEqual(first[key],hashlib.sha256(source.read_bytes()).hexdigest())
+        source.write_text('// fixture two')
+        second=dict(self.fakebuild.inputs(self.game))
+        self.assertNotEqual(first[key],second[key])
+        self.assertEqual({k:v for k,v in first.items() if k!=key},
+                         {k:v for k,v in second.items() if k!=key})
     def test_wrong_imported_generator_is_rejected_before_prepare(self):
         self.fakebuild.__file__ = str(self.root / 'wrong-checkout/src/saturnrecomp/build.py')
         prepare = Mock()

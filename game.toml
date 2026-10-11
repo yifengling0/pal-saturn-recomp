@@ -514,3 +514,10 @@ at = 0x06010A80
 [[hook]]
 module = "PROG"
 at = 0x060662D8
+
+# Cold TRUE movie sound setup reads its progress-table pointer before installing
+# the driver. Refresh only the proven zero-header cache pair after installation.
+# See docs/INTRO_AUDIO_STREAMING.md; no decoder, sound clock or CD speed change.
+[[hook]]
+module = "TRUE"
+at = 0x06021C1E

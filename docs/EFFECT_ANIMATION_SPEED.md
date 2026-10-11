@@ -8,12 +8,13 @@
 > Historical measurements below remain evidence, not current accelerated-mode acceptance.
 
 
-Use `--effect-animation-speed 1`, `1.25`, `1.5` or `2` with
-`tools/run_pal_profile.py`. Default 1 preserves original behavior. This option
+Currently use only `--effect-animation-speed 1` with
+`tools/run_pal_profile.py`. Requests for `1.25`, `1.5` or `2` exit with code3
+before starting the game. Default1 preserves original behavior. This option
 is independent of `--quick-spell`, which shortens preparation before effects.
 It does not change walking, global CPU/VBlank clocks or audio sample rate.
 
-Current verified scope is the standard bank7 frame loops for healing (effect33,
+The disabled candidate targeted the standard bank7 frame loops for healing (effect33,
 20 frames), Sword Technique (effect10,26 frames), Yue Ru's group spell
 (effect43,14 frames), and Ling's learned Thunder spell (effect1,7 frames). Unknown effects, frame counts, caller paths, scheduler
 phases or ownership chains retain original timing. Other Ling spells remain outside the whitelist. For example, Wind uses two
@@ -33,7 +34,7 @@ for this effect-frame wait sum, not for the entire spell. Sword's separate
 sound-related extra tick, preparation, target selection, damage and turn logic
 are not globally sped up.
 
-## Acceptance and limits
+## Historical logic/timing results (visual acceptance withdrawn)
 
 The original three tested spells at 1/1.25/1.5/2 have completed battle, returned to map, written
 normal BUP saves and independently loaded them; saved-map and reloaded-map
@@ -59,7 +60,7 @@ is an expected audio-original-speed difference, not audio/visual timing parity.
 This is not a guarantee about every sound or actual Windows sound-device output.
 The cloud has no working physical audio device.
 
-## Ling Thunder: separately bounded first-round acceptance
+## Ling Thunder: historical first-round logic results
 
 The ordinary three-character party save has Ling at level6 with Thunder learned;
 no higher-level spell is injected. Against a900HP tiger, Li and Yue defend while
@@ -76,18 +77,29 @@ particular takeover. Trigger count/order remains unchanged. This is disclosed,
 not hidden as audio equivalence; no global sound clock or unrelated turn wait
 is changed to compensate. Actual Windows audibility remains unverified.
 
-This new Thunder acceptance covers the first complete round, not an independently
+These historical Thunder results cover the first complete round, not an independently
 completed900HP battle/save/load at every rate. The three earlier spell closures
 must not be used as proof of that additional claim.
 
-## Example (PowerShell)
+## Current safe example (PowerShell)
 
 ```powershell
-& $py tools\run_pal_profile.py original --quick-spell --effect-animation-speed 1.5 --exe $exe -- --cue $cue --save $copiedSave --settings - --out build\win-spell-15
-& $py tools\run_pal_profile.py original --quick-spell --effect-animation-speed 2 --exe $exe -- --cue $cue --save $anotherCopiedSave --settings - --out build\win-spell-2
+& $py tools\run_pal_profile.py original --quick-spell --effect-animation-speed 1 --exe $exe -- --cue $cue --save $copiedSave --settings - --out build\win-spell-safe
 ```
 
 Use separate copies of the same source save. The launcher clears inherited
 options and checks the executable hash/capability sidecar. This pipeline was
 compiled and replayed on Linux with C++20; native Windows validation remains
 with the user's local test.
+
+## Safety-gate executable verification
+
+A fresh Linux headless options build was run with a direct environment request
+for animation2, bypassing the launcher only to test the runtime safety stop.
+It exited0, emitted exactly one fallback warning and zero accelerated-frame
+records. All205 Thunder screenshots and the resulting BUP matched the
+quick-preparation/original-animation reference. Binary SHA256:
+`4f8f9384402881e9acb9506cacea70b9c819e141a5f31678a3a74ed04bda047b`.
+The launcher independently rejected animation2 with exit3 even when pointed at
+a previous executable. This confirms the safety behavior, not a repaired
+accelerated renderer. Native Windows execution remains unverified.
