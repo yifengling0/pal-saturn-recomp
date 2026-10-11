@@ -1,0 +1,381 @@
+diff --git a/runtime/src/app/main.cpp b/runtime/src/app/main.cpp
+index 17aa947..38b248c 100644
+--- a/runtime/src/app/main.cpp
++++ b/runtime/src/app/main.cpp
+@@ -6,7 +6,7 @@
+ //            [--record-input FILE] [--resume N] [--shot N,...] [--dump N,...] [--peek ADDR[:WORDS],...] [--watch LO:HI]
+ //            [--watch-vblanks FROM:TO] [--wav FILE] [--interp] [--hook ADDR:rN=VALUE ...]
+ //            [--tasks SETJMP:LONGJMP] [--multitap N] [--clock YYYY-MM-DDTHH:MM:SS] [--agent FD]
+-//            [--write VBLANK:ADDR=HEX,...] [--video FILE] [--save FILE|-] [--coverage FILE] [--checkpoint SECONDS]
++//            [--write VBLANK:ADDR=HEX,...] [--video FILE] [--save FILE|-] [--cart FILE|-] [--coverage FILE] [--checkpoint SECONDS]
+ //            [--log FILE] [--state-in FILE] [--state-out FILE] [--state-every SECONDS] [--state-at VBLANK]
+ //            [--progress FILE --progress-keep ADDR:BYTES,...] [--after FILE] [--launcher]
+ //
+@@ -44,6 +44,9 @@
+ // keeps them for the run alone, starting empty. Without it they go to
+ // saturn-recomp/PRODUCT_VERSION/backup.bin in the user's data directory
+ // ($XDG_DATA_HOME or ~/.local/share, ~/Library/Application Support, %APPDATA%).
++// --cart names the file the backup cartridge (BUP device 1) is kept in, which
++// is where a game's own save slots go when one file will not hold them all;
++// without it the game is told there is no cartridge, as it has always been.
+ // --settings names the player's settings file, which a run with a window reads (the window, the
+ // volume, the controls; host.cpp): "-" keeps the defaults. Without it, it is settings.ini in that
+ // directory's saturn-recomp folder, written with the defaults if it is missing.
+@@ -88,6 +91,7 @@ int main(int argc, char** argv) {
+         if (!std::strcmp(a, "--cue") && more) cfg.cue = argv[++i];
+         else if (!std::strcmp(a, "--out") && more) cfg.out = argv[++i];
+         else if (!std::strcmp(a, "--save") && more) cfg.save = argv[++i];
++        else if (!std::strcmp(a, "--cart") && more) cfg.cart = argv[++i];
+         else if (!std::strcmp(a, "--vblanks") && more) cfg.stop_vblanks = std::strtoull(argv[++i], nullptr, 10);
+         else if (!std::strcmp(a, "--starts") && more) cfg.stop_starts = std::atoi(argv[++i]);
+         else if (!std::strcmp(a, "--trace")) cfg.trace = true;
+@@ -162,7 +166,7 @@ int main(int argc, char** argv) {
+                                  "             [--record-input FILE] [--resume N] [--shot N,...] [--dump N,...] [--peek ADDR[:WORDS],...] [--watch LO:HI]\n"
+                                  "             [--wav FILE] [--hook ADDR:rN=VALUE ...] [--tasks SETJMP:LONGJMP] [--multitap N]\n"
+                                  "             [--clock YYYY-MM-DDTHH:MM:SS] [--agent FD] [--write VBLANK:ADDR=HEX,...] [--video FILE]\n"
+-                                 "             [--save FILE|-] [--coverage FILE] [--checkpoint SECONDS] [--log FILE]\n"
++                                 "             [--save FILE|-] [--cart FILE|-] [--coverage FILE] [--checkpoint SECONDS] [--log FILE]\n"
+                                  "             [--state-in FILE] [--state-out FILE] [--state-every SECONDS] [--state-at VBLANK]\n"
+                                  "             [--progress FILE --progress-keep ADDR:BYTES,...] [--after FILE] [--launcher]\n");
+             return 2;
+diff --git a/runtime/src/machine/bios.cpp b/runtime/src/machine/bios.cpp
+index 998f506..cc8d09d 100644
+--- a/runtime/src/machine/bios.cpp
++++ b/runtime/src/machine/bios.cpp
+@@ -246,15 +246,26 @@ bool bios_call(SH2Context& c, uint32_t addr) {
+ // ---- the backup memory -----------------------------------------------------------------
+ // SBL's BUP interface: BUP_Init (0x06000358) sets 0x06000354 to a table of the
+ // library's functions: +4 SelPart, +8 Format, +12 Stat, +16 Write, +20 Read,
+-// +24 Delete, +28 Dir, +32 Verify, +36 GetDate, +40 SetDate. Only device 0
+-// (the internal memory, 32 KiB in 64-byte blocks) exists. Saves are kept by
+-// name in one file, rewritten whole after each Write and Delete.
++// +24 Delete, +28 Dir, +32 Verify, +36 GetDate, +40 SetDate. Device 0 is the
++// internal memory (32 KiB in 64-byte blocks); --cart adds device 1, the backup
++// cartridge, which is where a game keeps the slots beyond what fits internal
++// memory. Saves are kept by name in one file per device, rewritten whole after
++// each Write and Delete.
+ static const uint32_t kBupSize = 32768, kBupBlock = 64;
++static const uint32_t kCartSize = 512 * 1024;         // four 25,600-byte saves plus their directory
+ struct BupFile { std::string comment; uint8_t language; uint32_t date; std::vector<uint8_t> data; };
+-static std::map<std::string, BupFile> g_bup;
+-static bool g_bup_loaded;
+-static bool g_bup_changed;                           // since the file was last written
+-static std::string g_bup_path;                       // empty: the saves last for the run alone
++struct BupDevice {
++    std::map<std::string, BupFile> files;
++    std::string path;                                 // empty: the saves last for the run alone
++    uint32_t size = kBupSize;
++    bool loaded = false, changed = false;             // changed: since the file was last written
++};
++static BupDevice g_bup[2];                            // 0: the internal memory, 1: --cart's cartridge
++
++// Whether the game is told a device is there; device 0 always is.
++static bool bup_present(uint32_t d) {
++    return d < 2 && (d == 0 || (!g_cfg.cart.empty() && g_cfg.cart != "-"));
++}
+ 
+ // The user's data directory, by the platform's convention; empty if the environment names none.
+ std::string sat_data_dir() {
+@@ -284,11 +295,13 @@ static std::string default_save(const uint8_t* ip) {
+ }
+ 
+ void bios_select_save(const uint8_t* ip) {
+-    g_bup.clear();
+-    g_bup_loaded = g_bup_changed = false;
+-    g_bup_path = g_cfg.save == "-" ? "" : !g_cfg.save.empty() ? g_cfg.save : default_save(ip);
+-    if (g_bup_path.empty()) sat_note("backup memory: kept for this run alone");
+-    else sat_note("backup memory: %s", g_bup_path.c_str());
++    for (auto& d : g_bup) d = BupDevice{};
++    g_bup[0].path = g_cfg.save == "-" ? "" : !g_cfg.save.empty() ? g_cfg.save : default_save(ip);
++    g_bup[1].path = g_cfg.cart == "-" ? "" : g_cfg.cart;
++    g_bup[1].size = kCartSize;
++    if (g_bup[0].path.empty()) sat_note("backup memory: kept for this run alone");
++    else sat_note("backup memory: %s", g_bup[0].path.c_str());
++    if (bup_present(1)) sat_note("backup cartridge: %s", g_bup[1].path.c_str());
+ }
+ 
+ static std::string gstr(uint32_t a, int max) {
+@@ -301,11 +314,12 @@ static std::string gstr(uint32_t a, int max) {
+     return s;
+ }
+ 
+-static void bup_load() {
+-    if (g_bup_loaded) return;
+-    g_bup_loaded = true;
+-    if (g_bup_path.empty()) return;
+-    FILE* f = std::fopen(g_bup_path.c_str(), "rb");
++static void bup_load(int dev) {
++    BupDevice& D = g_bup[dev];
++    if (D.loaded) return;
++    D.loaded = true;
++    if (D.path.empty()) return;
++    FILE* f = std::fopen(D.path.c_str(), "rb");
+     if (!f) return;
+     char name[12], comment[11];
+     uint8_t lang;
+@@ -313,26 +327,26 @@ static void bup_load() {
+     while (std::fread(name, 1, 12, f) == 12 && std::fread(comment, 1, 11, f) == 11 &&
+            std::fread(&lang, 1, 1, f) == 1 && std::fread(&date, 4, 1, f) == 1 && std::fread(&size, 4, 1, f) == 1) {
+         BupFile b{std::string(comment, strnlen(comment, 11)), lang, date, std::vector<uint8_t>(size)};
+-        if (size > kBupSize || (size && std::fread(b.data.data(), 1, size, f) != size)) {
+-            sat_note("backup memory: %s is damaged after %zu saves; the rest are left out", g_bup_path.c_str(), g_bup.size());
++        if (size > D.size || (size && std::fread(b.data.data(), 1, size, f) != size)) {
++            sat_note("backup memory: %s is damaged after %zu saves; the rest are left out", D.path.c_str(), D.files.size());
+             break;
+         }
+-        g_bup[std::string(name, strnlen(name, 12))] = b;
++        D.files[std::string(name, strnlen(name, 12))] = b;
+     }
+     std::fclose(f);
+ }
+ 
+ // Written beside the file and renamed over it, so a run that ends partway through leaves the last whole one.
+-void bios_save() {
+-    if (!g_bup_changed || g_bup_path.empty()) return;
+-    g_bup_changed = false;
++static void bios_save_to(BupDevice& D) {
++    if (!D.changed || D.path.empty()) return;
++    D.changed = false;
+     namespace fs = std::filesystem;
+     std::error_code ec;
+-    if (fs::path(g_bup_path).has_parent_path()) fs::create_directories(fs::path(g_bup_path).parent_path(), ec);
+-    std::string tmp = g_bup_path + ".new";
++    if (fs::path(D.path).has_parent_path()) fs::create_directories(fs::path(D.path).parent_path(), ec);
++    std::string tmp = D.path + ".new";
+     FILE* f = std::fopen(tmp.c_str(), "wb");
+     if (!f) { sat_note("backup memory: cannot write %s", tmp.c_str()); return; }
+-    for (auto& [name, b] : g_bup) {
++    for (auto& [name, b] : D.files) {
+         char n[12] = {}, cm[11] = {};
+         std::memcpy(n, name.data(), name.size() < 12 ? name.size() : 12);
+         std::memcpy(cm, b.comment.data(), b.comment.size() < 11 ? b.comment.size() : 11);
+@@ -343,8 +357,12 @@ void bios_save() {
+     }
+     bool ok = !std::ferror(f);
+     ok = std::fclose(f) == 0 && ok;
+-    if (ok) fs::rename(tmp, g_bup_path, ec);
+-    if (!ok || ec) sat_note("backup memory: cannot write %s", g_bup_path.c_str());
++    if (ok) fs::rename(tmp, D.path, ec);
++    if (!ok || ec) sat_note("backup memory: cannot write %s", D.path.c_str());
++}
++
++void bios_save() {
++    for (auto& d : g_bup) bios_save_to(d);
+ }
+ 
+ static uint32_t days_in(uint32_t y, uint32_t m) {
+@@ -365,73 +383,79 @@ static void put_dir(uint32_t a, const std::string& name, const BupFile& b) {
+ }
+ 
+ static bool bup_call(SH2Context& c, uint32_t k) {
+-    bup_load();
++    bup_load(0);
++    if (bup_present(1)) bup_load(1);
+     uint32_t r4 = c.r[4], r5 = c.r[5], r6 = c.r[6], r7 = c.r[7];
+     static const char* names[] = {"?", "SelPart", "Format", "Stat", "Write", "Read", "Delete", "Dir",
+                                   "Verify", "GetDate", "SetDate"};
+     sat_trace("BUP_%s(%08X, %08X, %08X, %08X)", k == 0x100 ? "Init" : k < 11 ? names[k] : "?", r4, r5, r6, r7);
+-    uint32_t used = 0;
+-    for (auto& [n, b] : g_bup) used += blocks((uint32_t)b.data.size());
++    BupDevice& D = g_bup[r4 < 2 ? r4 : 0];
+     switch (k) {
+-    case 0x100:                                 // Init(lib, work, BupConfig[3]): {u16 unit id, u16 partitions}
++    case 0x100: {                               // Init(lib, work, BupConfig[3]): {u16 unit id, u16 partitions}
++        bool cart = bup_present(1);
+         st16(r6 + 0, 1); st16(r6 + 2, 1);       // the internal memory
+-        st16(r6 + 4, 0); st16(r6 + 6, 0);       // no cartridge
++        st16(r6 + 4, cart ? 1 : 0); st16(r6 + 6, cart ? 1 : 0);   // --cart's backup cartridge
+         st16(r6 + 8, 0); st16(r6 + 10, 0);
+         st32(0x06000354u, kBupTable);
+         return true;
+-    case 1: case 2:                             // SelPart(device, part), Format(device)
+-        c.r[0] = r4 == 0 ? 0 : 1;
++    }
++    case 1: case 2:                             // SelPart(device, part), Format(device): one part each,
++        c.r[0] = bup_present(r4) ? 0 : 1;       // and formatting one is not something a save screen does
+         return true;
+     case 3: {                                   // Stat(device, datasize, BupStat*)
+-        if (r4 != 0) { c.r[0] = 1; return true; }
+-        uint32_t total = kBupSize / kBupBlock, freeb = total - 2 - used;
+-        st32(r6 + 0, kBupSize); st32(r6 + 4, total); st32(r6 + 8, kBupBlock);
++        if (!bup_present(r4)) { c.r[0] = 1; return true; }
++        uint32_t used = 0;
++        for (auto& [n, b] : D.files) used += blocks((uint32_t)b.data.size());
++        uint32_t total = D.size / kBupBlock, freeb = total - 2 - used;
++        st32(r6 + 0, D.size); st32(r6 + 4, total); st32(r6 + 8, kBupBlock);
+         st32(r6 + 12, freeb * kBupBlock); st32(r6 + 16, freeb);
+         st32(r6 + 20, r5 ? freeb / blocks(r5) : 0);
+         c.r[0] = 0;
+         return true;
+     }
+     case 4: {                                   // Write(device, BupDir*, data*, mode)
++        if (!bup_present(r4)) { c.r[0] = 1; return true; }
+         std::string name = gstr(r5, 11);
+         BupFile b{gstr(r5 + 12, 10), (uint8_t)ld8(r5 + 23), ld32(r5 + 24), {}};
+         uint32_t size = ld32(r5 + 28);
+-        if (g_bup.count(name) && r7 != 0) { c.r[0] = 6; return true; }   // exists, and r7 asks to keep it
++        if (D.files.count(name) && r7 != 0) { c.r[0] = 6; return true; }   // exists, and r7 asks to keep it
+         b.data.resize(size);
+         for (uint32_t i = 0; i < size; ++i) b.data[i] = (uint8_t)ld8(r6 + i);
+-        g_bup[name] = b;
+-        sat_note("BUP: wrote %s (%u bytes)", name.c_str(), size);
+-        g_bup_changed = true;
++        D.files[name] = b;
++        sat_note("BUP: wrote %s (%u bytes)%s", name.c_str(), size, r4 ? " on the cartridge" : "");
++        D.changed = true;
+         bios_save();
+         c.r[0] = 0;
+         return true;
+     }
+     case 5: {                                   // Read(device, name, data*)
+-        auto it = g_bup.find(gstr(r5, 11));
+-        if (r4 != 0 || it == g_bup.end()) { c.r[0] = 5; return true; }
++        auto it = D.files.find(gstr(r5, 11));
++        if (!bup_present(r4) || it == D.files.end()) { c.r[0] = 5; return true; }
+         for (size_t i = 0; i < it->second.data.size(); ++i) st8(r6 + (uint32_t)i, it->second.data[i]);
+         c.r[0] = 0;
+         return true;
+     }
+     case 6: {                                   // Delete(device, name)
+-        c.r[0] = g_bup.erase(gstr(r5, 11)) ? 0 : 5;
+-        g_bup_changed = c.r[0] == 0;
++        if (!bup_present(r4)) { c.r[0] = 5; return true; }
++        c.r[0] = D.files.erase(gstr(r5, 11)) ? 0 : 5;
++        D.changed = c.r[0] == 0;
+         bios_save();
+         return true;
+     }
+     case 7: {                                   // Dir(device, name prefix, table size, BupDir*): matches
+         std::string pre = gstr(r5, 11);
+         int n = 0;
+-        for (auto& [name, b] : g_bup)
++        for (auto& [name, b] : D.files)
+             if (!name.compare(0, pre.size(), pre)) {
+                 if ((uint32_t)n < (r6 & 0xFFFF)) put_dir(r7 + n * 36, name, b);
+                 ++n;
+             }
+-        c.r[0] = r4 == 0 ? (uint32_t)n : (uint32_t)-1;
++        c.r[0] = bup_present(r4) ? (uint32_t)n : (uint32_t)-1;
+         return true;
+     }
+     case 8: {                                   // Verify(device, name, data*)
+-        auto it = g_bup.find(gstr(r5, 11));
+-        if (it == g_bup.end()) { c.r[0] = 5; return true; }
++        auto it = D.files.find(gstr(r5, 11));
++        if (!bup_present(r4) || it == D.files.end()) { c.r[0] = 5; return true; }
+         bool same = true;
+         for (size_t i = 0; i < it->second.data.size(); ++i) same &= ld8(r6 + (uint32_t)i) == it->second.data[i];
+         c.r[0] = same ? 0 : 7;
+@@ -467,18 +491,22 @@ static bool bup_call(SH2Context& c, uint32_t k) {
+ }
+ 
+ // The saves as the game has them; the file is written as usual when they change.
++// Device 0's fields keep the order they always had, so a dump this build writes reads
++// back the same way; the cartridge is the part appended after it.
+ void bios_state(State& s) {
+     s(g_first_read), s(g_pal), s(g_uint), s(g_uipr), s(g_sem);
+-    s(g_bup_loaded), s(g_bup_changed);
+-    uint64_t n = g_bup.size();
+-    s(n);
+-    if (s.loading) g_bup.clear();
+-    auto it = g_bup.begin();
+-    for (uint64_t k = 0; k < n; ++k) {
+-        std::string name;
+-        BupFile b;
+-        if (!s.loading) name = it->first, b = it->second, ++it;
+-        s.str(name), s.str(b.comment), s(b.language), s(b.date), s.vec(b.data);
+-        if (s.loading) g_bup[name] = b;
++    for (auto& d : g_bup) {
++        s(d.loaded), s(d.changed);
++        uint64_t n = d.files.size();
++        s(n);
++        if (s.loading) d.files.clear();
++        auto it = d.files.begin();
++        for (uint64_t k = 0; k < n; ++k) {
++            std::string name;
++            BupFile b;
++            if (!s.loading) name = it->first, b = it->second, ++it;
++            s.str(name), s.str(b.comment), s(b.language), s(b.date), s.vec(b.data);
++            if (s.loading) d.files[name] = b;
++        }
+     }
+ }
+diff --git a/runtime/src/machine/saturn.h b/runtime/src/machine/saturn.h
+index 7a5415c..ed5d47e 100644
+--- a/runtime/src/machine/saturn.h
++++ b/runtime/src/machine/saturn.h
+@@ -35,6 +35,7 @@ struct SaturnConfig {
+     std::string cue;                // the disc
+     std::string out = ".";          // logs, pictures and dumps go here
+     std::string save;               // the backup memory's file; "-": none; empty: one per game in the user's data directory
++    std::string cart;               // --cart: the backup cartridge's file (BUP device 1); empty: the game is told there is none
+     bool realtime = false;          // host clock; otherwise virtual time from safe points
+     uint64_t stop_vblanks = 0;      // end the run after this many VBlanks (0: never)
+     int stop_starts = 0;            // ... or after this many program starts (0: never)
+diff --git a/runtime/tests/bup_test.cpp b/runtime/tests/bup_test.cpp
+index 6943552..a653c39 100644
+--- a/runtime/tests/bup_test.cpp
++++ b/runtime/tests/bup_test.cpp
+@@ -11,7 +11,7 @@ namespace fs = std::filesystem;
+ namespace {
+ 
+ const uint32_t kDir = 0x06010000, kData = 0x06011000, kOut = 0x06012000, kName = 0x06013000;
+-const uint32_t kWrite = 4, kRead = 5, kDelete = 6, kDirList = 7;
++const uint32_t kStat = 3, kWrite = 4, kRead = 5, kDelete = 6, kDirList = 7;
+ 
+ fs::path scratch() {
+     fs::path p = fs::temp_directory_path() / "saturn-bup-test";
+@@ -40,21 +40,21 @@ void name(uint32_t a, const char* s) {
+     for (int i = 0; i < 12; ++i) st8(a + i, i < (int)std::strlen(s) ? s[i] : 0);
+ }
+ 
+-// Writes a save of `size` bytes, byte i being (i + seed), with r7 as `keep`.
+-uint32_t write(const char* save_name, uint32_t size, uint8_t seed, uint32_t keep = 0) {
++// Writes a save of `size` bytes to device `dev`, byte i being (i + seed), with r7 as `keep`.
++uint32_t write(const char* save_name, uint32_t size, uint8_t seed, uint32_t keep = 0, uint32_t dev = 0) {
+     name(kDir, save_name);
+     for (int i = 0; i < 11; ++i) st8(kDir + 12 + i, "a comment"[i < 9 ? i : 9]);
+     st8(kDir + 23, 0);
+     st32(kDir + 24, 1234);
+     st32(kDir + 28, size);
+     for (uint32_t i = 0; i < size; ++i) st8(kData + i, (uint8_t)(i + seed));
+-    return bup(kWrite, 0, kDir, kData, keep);
++    return bup(kWrite, dev, kDir, kData, keep);
+ }
+ 
+ // 0 and the bytes as written, or BUP's not-found code.
+-uint32_t read_back(const char* save_name, uint32_t size, uint8_t seed) {
++uint32_t read_back(const char* save_name, uint32_t size, uint8_t seed, uint32_t dev = 0) {
+     name(kName, save_name);
+-    uint32_t r = bup(kRead, 0, kName, kOut);
++    uint32_t r = bup(kRead, dev, kName, kOut);
+     for (uint32_t i = 0; r == 0 && i < size; ++i) CHECK_EQ(ld8(kOut + i), (uint8_t)(i + seed));
+     return r;
+ }
+@@ -148,3 +148,26 @@ TEST(a_write_over_a_save_needs_r7_zero) {
+     CHECK_EQ(write("SAME", 10, 3), 0);
+     CHECK_EQ(read_back("SAME", 10, 3), 0);
+ }
++
++// A game's save slots beyond the one file the internal memory holds go on the cartridge.
++TEST(cart_holds_the_saves_the_internal_memory_has_no_room_for) {
++    fs::path dir = scratch(), file = dir / "backup.bin", cart = dir / "cart.bin";
++    g_cfg.cart = "";
++    run(file.string());
++    CHECK_EQ(bup(kStat, 1, 25600, kOut), 1);            // without --cart, device 1 is not there
++    CHECK_EQ(bup(kDirList, 1, 0, 4, kOut), (uint32_t)-1);
++    g_cfg.cart = cart.string();
++    run(file.string());
++    CHECK_EQ(bup(kStat, 1, 25600, kOut), 0);
++    CHECK_EQ(ld32(kOut + 20) >= 4, 1);                  // four 25,600-byte saves fit
++    for (int slot = 0; slot < 4; ++slot)
++        CHECK_EQ(write(("SLOT" + std::to_string(slot)).c_str(), 300, slot, 0, 1), 0);
++    CHECK_EQ(fs::exists(cart), 1);
++    CHECK_EQ(fs::exists(file), 0);                      // the internal memory saved nothing
++    g_cfg.cart = cart.string();
++    run(file.string());
++    for (int slot = 0; slot < 4; ++slot)
++        CHECK_EQ(read_back(("SLOT" + std::to_string(slot)).c_str(), 300, slot, 1), 0);
++    CHECK_EQ(read_back("SLOT0", 300, 0), 5);            // and they are the cartridge's, not device 0's
++    g_cfg.cart = "";
++}

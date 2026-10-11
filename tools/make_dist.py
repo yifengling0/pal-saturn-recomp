@@ -33,7 +33,7 @@ if not defined DISC (
   pause
   exit /b 1
 )
-"%~dp0saturn.exe" --cue "%DISC%" --settings "%~dp0settings.ini" --save "%~dp0saves\pal-saturn.bup" --clock 1998-11-01T12:00:00
+"%~dp0saturn.exe" --cue "%DISC%" --settings "%~dp0settings.ini" --save "%~dp0saves\pal-saturn.bup" --cart "%~dp0saves\pal-saturn-cart.bup" --clock 1998-11-01T12:00:00
 '''
 
 DISC_README = f'''原版光盘（请自行放入本目录）
@@ -57,7 +57,8 @@ NOTICE = f'''来源与许可
 主程序 saturn.exe 由 PAL-Saturn-Recomp 构建：
 
 - 上游 saturn-recomp，MIT License (c) 2026 Samuele Voltan，固定在提交 {UPSTREAM_PIN}；
-  本仓库 patches/0001-0005 五个补丁打在其 runtime 上（含 SH-2 DMA 16 字节突发短拷修复）。
+  本仓库 patches/0001-0005 与 0007 六个补丁打在其 runtime 上（含 SH-2 DMA 16 字节突发短拷
+  修复，以及 0007 的土星备份卡匣 BUP 设备 1）。
 - 仙剑游戏层 src/pal_game（本仓库），随本包一起编进 exe。
 - SDL3 3.4.18，zlib 许可，以 SDL3.dll 的形式随包分发。
 
@@ -96,14 +97,20 @@ README = '''仙剑奇侠传 土星版 · 静态重编译 Windows 包
 
 存档与设置
 
-进度写在本包 saves\\pal-saturn.bup（土星备份内存，游戏内有 8 个进度槽），设置写在
-settings.ini，都跟着文件夹走，拷到别的电脑就是完整的一套。
+存档有两个地方（土星的两种记忆）：
+
+- 本機進度：saves\\pal-saturn.bup，是土星备份内存的整卡镜像，一张卡只装一份进度，存盘即整张重写。
+- 卡匣進度一到四：saves\\pal-saturn-cart.bup，游戏内的外接记忆卡，标题读档与游戏内「儲存進度」
+  都能选这四格。想把当前进度留着做基准或回滚，就存进卡匣一格；想换进度，就从卡匣读那一格。
+  第一次往卡匣存盘时这个文件才会出现。
+
+设置写在 settings.ini，都跟着文件夹走，拷到别的电脑就是完整的一套。
 
 命令行
 
 run.bat 只是把下面这条包起来，需要自己加参数时直接敲：
 
-  saturn.exe --cue disc\\你的.cue --settings settings.ini --save saves\\pal-saturn.bup
+  saturn.exe --cue disc\\你的.cue --settings settings.ini --save saves\\pal-saturn.bup --cart saves\\pal-saturn-cart.bup
   saturn.exe --help          全部参数
   --headless --vblanks N --shot A,B --out 目录    无窗口跑到第 N 帧并截图（取证用）
 
@@ -159,7 +166,8 @@ def main(argv=None):
         shutil.copy2(src, OUT / 'saves' / 'pal-saturn.bup')
     else:
         (OUT / 'saves' / 'README.txt').write_text(
-            '进度存档会写在这里（pal-saturn.bup）。这个文件夹里的东西是玩家私有的，别对外分享。\n',
+            '本機進度写在 pal-saturn.bup；卡匣進度一到四写在 pal-saturn-cart.bup（第一次往卡匣存盘才会出现）。'
+            '这个文件夹里的东西是玩家私有的，别对外分享。\n',
             encoding='utf-8')
 
     for name, text in (('run.bat', RUN_BAT), ('README.txt', README), ('NOTICE.txt', NOTICE),
@@ -173,7 +181,8 @@ def main(argv=None):
     refuse_disc_data(OUT, '打包后')
     files = scan(OUT)
     (OUT / 'SHA256SUMS.txt').write_text(
-        ''.join(f'{sha256(p)}  {p.relative_to(OUT).as_posix()}\n' for p in files), encoding='utf-8')
+        ''.join(f'{sha256(p)}  {p.relative_to(OUT).as_posix()}\n' for p in files), encoding='utf-8',
+        newline='\n')   # LF, so `sha256sum -c` reads the names cleanly on Git Bash
     print(f'产出 {OUT}')
     for p in files:
         print(f'  {p.relative_to(OUT).as_posix():24s} {p.stat().st_size:>10,} 字节')
