@@ -36,10 +36,23 @@ DEFAULT_DEVECO = Path(r'C:/Program Files/Huawei/DevEco Studio')
 # older complete runtime variants. Filled only with reviewed post-PC98 source
 # hashes after the current UI source is frozen; an empty set fails closed.
 OHOS_HOST_UI_VERSION = 13
-# UI generation remains 13; require its current 0014/0015 ordinary-PC98 source.
+# UI generation remains 13; require its current 0014/0015 source, in whichever of
+# the two generations a HAP may be built from: the mapping-only host and the
+# accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
+    # mapping generation: tools/winbuild.py build --recompile
     'c69b7a176ecf926c06ad5351c2d6b7d5edcab507c9a61639e949308190c495c6',
+    # accelerated generation: winbuild.py learn --pal-options
+    'bd2449a58ac52d73d08a304b84efb1781a22d0a7144ef16fe31b487407d09d79',
 })
+
+# The accelerated generation is the one the Windows package ships, so the tablet gets the same
+# spell preparation, spell animation speed and data-CD delivery as the PC build.
+ACCELERATED = {'recomp': 'windows-pal-options/recomp', 'runtime': 'windows-pal-options/runtime',
+               'manifest': 'pal-options-manifest.json', 'planner': 'pal_options'}
+MAPPING = {'recomp': 'recomp', 'runtime': 'pal-keyboard-runtime',
+           'manifest': 'pal-keyboard-manifest.json', 'planner': 'pal_keyboard_profile'}
+GENERATION_POINTER_NAME = 'pal-ohos-generation.cmake'
 
 
 def deveco_home(cli: Path | None) -> Path:
@@ -161,7 +174,7 @@ def hap_snapshot() -> dict[Path, tuple[int, int, str]]:
     return result
 
 
-def verify_required_ohos_ui(root: Path) -> None:
+def verify_required_ohos_ui(root: Path, runtime: Path = None) -> None:
     """Require the reviewed actual host source, after full manifest verification.
 
     The profile verifier already checks every helper/font hash and rejects mixed
@@ -169,11 +182,11 @@ def verify_required_ohos_ui(root: Path) -> None:
     A version string or a matching manifest alone is never UI identity proof.
     """
     root = Path(root).resolve()
-    runtime = root / 'build' / 'pal-keyboard-runtime'
+    runtime = Path(runtime) if runtime else root / 'build' / MAPPING['runtime']
     host = runtime / 'src' / 'host' / 'host.cpp'
     labels = runtime / 'src' / 'host' / 'host_menu_text.h'
-    remedy = ('请使用当前仓库 tools/winbuild.py build --recompile 重新生成映射 runtime，'
-              '确认成功后再构建 HAP；不会修改旧 runtime 或自动绕过校验。')
+    remedy = ('请使用当前仓库 tools/winbuild.py build --recompile（加速生成用 '
+              '--pal-options）重新生成 runtime，确认成功后再构建 HAP；不会修改旧 runtime 或自动绕过校验。')
     if (runtime.resolve() != runtime or not runtime.is_dir() or
             any(p.is_symlink() or p.resolve() != p or not p.is_file() for p in (host, labels))):
         raise SystemExit('OHOS UI 缺件或路径不安全；' + remedy)
@@ -187,41 +200,46 @@ def verify_required_ohos_ui(root: Path) -> None:
     print(f'OHOS host UI identity: v{OHOS_HOST_UI_VERSION}; host.cpp normalized_lf_sha256={digest}; PASS')
 
 
-def verify_existing_runtime(root: Path) -> None:
-    """只校验已生成的映射 runtime；缺 manifest 时禁止走 prepare 的注入分支。"""
+def verify_existing_runtime(root: Path, generation: dict = MAPPING) -> None:
+    """只校验已生成的 runtime；缺 manifest 时禁止走 prepare 的注入分支。"""
     root = Path(root).resolve()
-    recomp = root / 'build' / 'recomp'
-    runtime = root / 'build' / 'pal-keyboard-runtime'
-    manifest = recomp / 'pal-keyboard-manifest.json'
+    recomp = root / 'build' / generation['recomp']
+    runtime = root / 'build' / generation['runtime']
+    manifest = recomp / generation['manifest']
     if manifest.is_symlink() or manifest.resolve() != manifest or not manifest.is_file():
-        raise SystemExit('缺少或不安全的 pal-keyboard-manifest.json；请先重新生成映射 runtime，不会自动注入。')
+        raise SystemExit(f'缺少或不安全的 {generation["manifest"]}；请先重新生成 runtime，不会自动注入。')
     # 普通 import 使用本脚本所在 tools 目录；不生成新的字节码缓存。
     bytecode_setting = sys.dont_write_bytecode
     try:
         sys.dont_write_bytecode = True
-        import pal_keyboard_profile
+        planner = __import__(generation['planner'])
     except ImportError:
-        raise SystemExit('无法导入本仓库的 pal_keyboard_profile；请更新 tools 后重新生成。') from None
+        raise SystemExit(f'无法导入本仓库的 {generation["planner"]}；请更新 tools 后重新生成。') from None
     finally:
         sys.dont_write_bytecode = bytecode_setting
-    source = getattr(pal_keyboard_profile, '__file__', None)
-    if source is None or Path(source).resolve() != (root / 'tools' / 'pal_keyboard_profile.py').resolve():
-        raise SystemExit('拒绝使用其他目录的 pal_keyboard_profile；请从本仓库启动。')
+    source = getattr(planner, '__file__', None)
+    if source is None or Path(source).resolve() != (root / 'tools' / f'{generation["planner"]}.py').resolve():
+        raise SystemExit(f'拒绝使用其他目录的 {generation["planner"]}；请从本仓库启动。')
     try:
-        pal_keyboard_profile.prepare_keyboard(recomp, runtime, root, verify_only=True)
-        verify_required_ohos_ui(root)
+        # Both planners no-op on a generation that is already current; verify_only keeps the
+        # accelerated one from being injected here when it is stale.
+        if generation['planner'] == 'pal_options':
+            planner.prepare_options(recomp, runtime, root, verify_only=True)
+        else:
+            planner.prepare_keyboard(recomp, runtime, root, verify_only=True)
+        verify_required_ohos_ui(root, runtime)
     except (OSError, ValueError) as error:
-        raise SystemExit(f'现有映射 runtime 校验失败；请先重新生成映射 runtime 再打包'
+        raise SystemExit(f'现有 runtime 校验失败；请先重新生成再打包'
                          f'（Windows: tools/winbuild.py build；Linux: python -m saturnrecomp.build）：{error}') from None
-    print('Existing keyboard runtime version/hash verification: PASS')
+    print(f'Existing {generation["planner"]} runtime version/hash verification: PASS')
 
 
-def verify_movie_hook(root: Path) -> None:
+def verify_movie_hook(root: Path, generation: dict = MAPPING) -> None:
     """The registry implementation and generated callsite are both required."""
     root = Path(root).resolve()
     import re
     hook = re.compile(r"\bsh2_hook\s*\(\s*c\s*,\s*0x06021[Cc]1[Ee][uU]?\s*\)")
-    sources = sorted((root / 'build' / 'recomp').glob('p_true_*.cpp'))
+    sources = sorted((root / 'build' / generation['recomp']).glob('p_true_*.cpp'))
     found = []
     for source in sources:
         if source.is_symlink() or source.resolve() != source:
@@ -235,10 +253,56 @@ def verify_movie_hook(root: Path) -> None:
     print('PAL generated movie hook: 06021C1E present in ' + found[0])
 
 
+def drop_stale_native_caches(runtime: Path) -> int:
+    """Discard a recorded SATURN_RUNTIME that no longer matches the generation being packaged.
+
+    hvigor reuses entry/.cxx/**/CMakeCache.txt, and a CACHE default cannot replace the value already
+    in it, so switching generation would otherwise fail the entry's identity check until someone
+    deletes the cache by hand. Only a cache that disagrees is dropped; a matching one is kept.
+    """
+    import re
+    dropped = 0
+    for cache in (PROJECT / 'entry' / '.cxx').rglob('CMakeCache.txt'):
+        if cache.is_symlink():
+            continue
+        recorded = re.search(r'^SATURN_RUNTIME:PATH=(.*)$', cache.read_text(encoding='utf-8', errors='replace'),
+                             re.M)
+        if recorded and recorded.group(1).replace('\\', '/') != runtime.as_posix():
+            cache.unlink()
+            dropped += 1
+    return dropped
+
+
+def write_generation_pointer(generation: dict) -> None:
+    """Tell the entry CMake which generation ohosbuild just verified.
+
+    The entry refuses a SATURN_RUNTIME that differs from what was verified, so the two have to agree
+    by construction: this file is the single place that says which pair of directories the HAP is
+    compiled from. Removing it puts the entry back on the mapping generation.
+    """
+    pointer = ROOT / 'build' / GENERATION_POINTER_NAME
+    if generation is MAPPING:
+        pointer.unlink(missing_ok=True)
+        print('OHOS generation: build/recomp (mapping, original timing)')
+        return
+    runtime = ROOT / 'build' / generation['runtime']
+    pointer.write_text(
+        '# written by tools/ohosbuild.py; do not edit - the pair below is what the manifest was verified against\n'
+        f'set(PAL_OHOS_RECOMP "{(ROOT / "build" / generation["recomp"]).as_posix()}")\n'
+        f'set(PAL_OHOS_RUNTIME "{runtime.as_posix()}")\n',
+        encoding='utf-8', newline='\n')
+    stale = drop_stale_native_caches(runtime)
+    print(f'OHOS generation: {generation["recomp"]} (accelerated); pointer {pointer.name}'
+          + (f'; dropped {stale} stale native cache(s)' if stale else ''))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--deveco', type=Path, default=None)
-    ap.add_argument('--skip-learn', action='store_true', help='沿用已有 build/recomp；仍需通过映射 runtime 版本/哈希校验')
+    ap.add_argument('--skip-learn', action='store_true', help='沿用已有生成；仍需通过 runtime 版本/哈希校验')
+    ap.add_argument('--speed', choices=('accelerated', 'mapping'), default='accelerated',
+                    help='打包用哪一份生成：accelerated（默认，与 Windows 发行包同一份，含施法准备/法术动画/读盘提速）'
+                         '或 mapping（原始节奏，只带键盘映射）')
     ap.add_argument('--install', action='store_true', help='构建后用 hdc 安装（要求已签名）')
     ap.add_argument('--selftest', choices=('on', 'off'), help='真机自测：on 就打一张合成盘验 SDL 窗口')
     ap.add_argument('--device', help='hdc 在线序列号；单台在线自动选，多台必须指定')
@@ -273,10 +337,19 @@ def main(argv=None):
     python = ROOT / 'build' / 'venv' / 'Scripts' / 'python.exe'
     if not python.is_file():
         python = Path(sys.executable)
+    generation = ACCELERATED if args.speed == 'accelerated' else MAPPING
     if not args.skip_learn:
-        run([python, ROOT / 'tools' / 'winbuild.py', 'learn'], ROOT, env)
-    verify_existing_runtime(ROOT)
-    verify_movie_hook(ROOT)
+        command = [python, ROOT / 'tools' / 'winbuild.py', 'learn']
+        if generation is ACCELERATED:
+            command.append('--pal-options')
+            learner = ROOT / 'build' / ACCELERATED['recomp'].split('/')[0] / 'recomp-build' / 'saturn.exe'
+            if not learner.is_file():
+                raise SystemExit('加速生成还没有可运行的学习器；先跑 '
+                                 'tools/winbuild.py build --recompile --pal-options --sdl-dir <SDL3 cmake 目录>。')
+        run(command, ROOT, env)
+    verify_existing_runtime(ROOT, generation)
+    verify_movie_hook(ROOT, generation)
+    write_generation_pointer(generation)
     print_sdl_revision()
     print(f'hvigor mode: {args.build_mode}; 请核查实际 native 编译旗标，模式名不是优化证明。')
     before = hap_snapshot()

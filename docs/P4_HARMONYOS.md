@@ -463,3 +463,38 @@ Windows 侧先把结论说清楚：**0016 让 `selftest` 目标在两个平台�
 平板 `saves/pal-saturn.bup` 与 `dist/pal-saturn-recomp-win-x64/saves/pal-saturn.bup` 同一份；
 换下来的两份分别备份成 `saves/pal-saturn.before-fox-woman-20261011.bak.bup`（Windows，`a4d8f748…`）
 和 `saves/tablet-before-fox-woman-20261011.bup`（平板原档，`bb27077e…`）。
+
+## 18. 平板终于和 PC 一样快：HAP 改走增强生成（2026-10-11 23:3x）
+
+现象是"平板动画很卡、PC 没问题"。原因不在参数：施法准备、法术动画 1.5x、读盘提速这些**调用点**是
+`tools/pal_options.py` 注入到生成代码里的，而 `tools/ohosbuild.py:277` 只跑 `winbuild.py learn`
+（不带 `--pal-options`），`pal_keyboard_profile.py` 里 `cadence`/`effect_wait` 出现 0 次。
+`src/pal_game/pal_effect_cadence_runtime.h` 的默认 1.5x 两边都编译，但没有调用点就无从生效，
+设备上又设不了环境变量，所以没有绕法。
+
+现在 HAP 默认就打在**和 Windows 发行包同一份增强生成**上：
+
+- `tools/ohosbuild.py` 多一个 `--speed {accelerated,mapping}`，默认 `accelerated`；learn 变成
+  `winbuild.py learn --pal-options`，生成物取 `build/windows-pal-options/{recomp,runtime}`。
+  想要原始节奏就 `--speed mapping`，Windows 那条链完全没动。
+- 入口 CMake 靠 `build/pal-ohos-generation.cmake` 这个指针对齐：ohosbuild 校验完哪一对目录就写哪一对，
+  `SATURN_RUNTIME` 与 `add_subdirectory` 都按它取；没有指针文件时行为与过去逐字相同（`build/recomp` +
+  `build/pal-keyboard-runtime`），所以原有身份测试照旧通过。
+- 三道门各自补齐：UI 世代白名单加了增强代 host.cpp 的 `bd2449a5…`（映射代 `c69b7a17…` 仍在）；
+  manifest 从 `pal-keyboard-manifest.json` 换成 `pal-options-manifest.json`（给 `prepare_options`
+  加了 `verify_only`，只校验不注入）；换生成时旧 native cache 里记着的 `SATURN_RUNTIME` 会让入口门直接失败，
+  所以 `drop_stale_native_caches()` 只删与实际生成不一致的那些缓存。
+
+途中挖出两个只在整树构建下才暴露的坑：
+
+1. **`selftest` 拖垮打包**。它只链 `core+stub`，而增强生成的 guest 代码引用真硬件符号
+   （`g_vdp2_regs`、`pal_pfq_*`、`pal_input_peek`）。桌面链只编 `saturn` 目标所以从没撞上，hvigor 编整树
+   就炸。它不参与 `libmain.so`，入口里 `EXCLUDE_FROM_ALL` 掉；要跑得照旧 `--target selftest` 显式编。
+2. **配对帧队列的实现没进 libmain**。生成的 CMakeLists 把 `pal_paired_frame_queue.cpp` 只挂在桌面
+   `saturn` 上（`build/windows-pal-options/recomp/CMakeLists.txt:67`），`main` 是另一个目标，
+   `--no-undefined` 下 `scu.cpp` 找不到 `pal_pfq_enabled`。入口按同一份文件补挂到 `main`。
+
+复验：`libmain.so` 里 `pal_effect_cadence`/`pal_effect_wait`/`pal_pfq_enabled`/`pal_input_peek` 符号都在；
+HAP 29,607,822 字节装到 MLR-AL10，23:33:15 起新进程 `PROG activated`（旧包是同一份 argv，只能靠符号与
+生成本认）；真人实机反馈动画速度已正常。`pytest tools/tests` **259 passed**（新增默认生成、`--speed mapping`
+不留指针、只废弃不一致缓存三条）。

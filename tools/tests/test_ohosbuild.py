@@ -24,7 +24,8 @@ driver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)
 
 
-class LauncherTests(unittest.TestCase):
+class LauncherFixture:
+    """Fake DevEco/hdc tree shared by the launcher and generation tests."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='test-', dir=AUDIT)
         self.addCleanup(self.tmp.cleanup)
@@ -40,6 +41,14 @@ class LauncherTests(unittest.TestCase):
         generated = self.root / 'build/recomp'
         generated.mkdir(parents=True)
         (generated / 'p_true_000.cpp').write_text('sh2_hook(c, 0x06021C1Eu);')
+        # Packaging defaults to the accelerated generation, so the fixture carries that tree too:
+        # its movie hook plus the learner winbuild.py learn needs before it can generate.
+        options = self.root / 'build/windows-pal-options'
+        (options / 'recomp').mkdir(parents=True)
+        (options / 'recomp/p_true_000.cpp').write_text('sh2_hook(c, 0x06021C1Eu);')
+        (options / 'recomp-build').mkdir()
+        (options / 'recomp-build/saturn.exe').touch()
+        self.recomp = options / 'recomp'
         self.project = self.root / 'harmony/pal-saturn-openharmony'
         self.output = self.project / 'entry/build/default/outputs/default'
         self.output.mkdir(parents=True)
@@ -72,7 +81,8 @@ class LauncherTests(unittest.TestCase):
             self.addCleanup(mocker.stop)
         self.real_verify = getattr(driver, 'verify_existing_runtime', None)
         mocker = patch.object(driver, 'verify_existing_runtime',
-                              side_effect=lambda root: self.events.append('verify'), create=True)
+                              side_effect=lambda root, generation=driver.MAPPING: self.events.append('verify'),
+                              create=True)
         self.verify = mocker.start()
         self.addCleanup(mocker.stop)
 
@@ -108,14 +118,15 @@ class LauncherTests(unittest.TestCase):
     def commands(self):
         return [cmd for cmd, kwargs in self.calls]
 
+class LauncherTests(LauncherFixture, unittest.TestCase):
     def test_missing_movie_hook_blocks_hvigor(self):
-        (self.root / 'build/recomp/p_true_000.cpp').write_text('// old source without call')
+        (self.recomp / 'p_true_000.cpp').write_text('// old source without call')
         with self.assertRaises(SystemExit):
             self.invoke('--skip-learn')
         self.assertFalse(any('assembleHap' in c for c in self.commands()))
 
     def test_movie_hook_guard_after_learn(self):
-        (self.root / 'build/recomp/p_true_000.cpp').write_text('')
+        (self.recomp / 'p_true_000.cpp').write_text('')
         with self.assertRaises(SystemExit):
             self.invoke()
         self.assertIn('learn', self.events)
@@ -142,12 +153,12 @@ class LauncherTests(unittest.TestCase):
 
     def test_verify_runs_after_learn_and_before_hvigor(self):
         self.invoke()
-        self.verify.assert_called_once_with(self.root)
+        self.verify.assert_called_once_with(self.root, driver.ACCELERATED)
         self.assertEqual(self.events, ['learn', 'verify', 'hvigor'])
 
     def test_skip_learn_still_verifies_before_hvigor(self):
         self.invoke('--skip-learn')
-        self.verify.assert_called_once_with(self.root)
+        self.verify.assert_called_once_with(self.root, driver.ACCELERATED)
         self.assertEqual(self.events, ['verify', 'hvigor'])
 
     def test_logs_does_not_verify_or_import_runtime(self):
@@ -197,7 +208,7 @@ class LauncherTests(unittest.TestCase):
             profile = self.fake_profile()
             with patch.dict(sys.modules, {'pal_keyboard_profile': profile}):
                 with self.assertRaisesRegex(SystemExit, '身份不符'):
-                    self.invoke(*(['--skip-learn'] if skip else []))
+                    self.invoke(*(['--speed', 'mapping'] + (['--skip-learn'] if skip else [])))
             profile.prepare_keyboard.assert_called_once()
             self.assertFalse(any('assembleHap' in cmd or 'install' in cmd for cmd in self.commands()))
 
@@ -225,7 +236,7 @@ class LauncherTests(unittest.TestCase):
                     self.verify.side_effect = self.real_verify
                     with patch.dict(sys.modules, {'pal_keyboard_profile': profile}):
                         with self.assertRaises(SystemExit):
-                            self.invoke(*(['--skip-learn'] if skip else []))
+                            self.invoke(*(['--speed', 'mapping'] + (['--skip-learn'] if skip else [])))
                     self.assertFalse(any('assembleHap' in cmd or 'install' in cmd for cmd in self.commands()))
                     if kind == 'missing':
                         profile.prepare_keyboard.assert_not_called()
@@ -466,6 +477,41 @@ class LauncherTests(unittest.TestCase):
         self.assertNotEqual(before[path], driver.hap_snapshot()[path])
 
 
+
+class GenerationSelectionTests(LauncherFixture, unittest.TestCase):
+    """Which generation a HAP is packaged from, and what that costs the native cache."""
+
+    def pointer(self):
+        return self.root / 'build/pal-ohos-generation.cmake'
+
+    def test_accelerated_is_the_default_and_its_pointer_is_published(self):
+        code, out = self.invoke()
+        self.assertEqual(code, 0, out)
+        self.assertTrue(any('--pal-options' in cmd for cmd in self.commands()),
+                        'learn must run the accelerated generation by default')
+        text = self.pointer().read_text()
+        self.assertIn('set(PAL_OHOS_RECOMP "', text)
+        self.assertIn('windows-pal-options/recomp', text)
+        self.assertIn('windows-pal-options/runtime', text)
+
+    def test_mapping_generation_leaves_no_pointer_behind(self):
+        self.invoke('--speed', 'mapping')
+        self.assertFalse(self.pointer().exists())
+        self.assertFalse(any('--pal-options' in cmd for cmd in self.commands()))
+        # Switching back and forth must not leave the previous pointer in place.
+        self.invoke()
+        self.assertTrue(self.pointer().is_file())
+
+    def test_only_a_disagreeing_native_cache_is_dropped(self):
+        keep = self.project / 'entry/.cxx/keep/CMakeCache.txt'
+        drop = self.project / 'entry/.cxx/drop/CMakeCache.txt'
+        runtime = (self.root / 'build/windows-pal-options/runtime').as_posix()
+        for path, value in ((keep, runtime), (drop, (self.root / 'build/pal-keyboard-runtime').as_posix())):
+            path.parent.mkdir(parents=True)
+            path.write_text('SATURN_RUNTIME:PATH=' + value + '\n', encoding='utf-8')
+        self.assertEqual(driver.drop_stale_native_caches(self.root / 'build/windows-pal-options/runtime'), 1)
+        self.assertTrue(keep.is_file())
+        self.assertFalse(drop.exists())
 class RequiredUiTests(unittest.TestCase):
     """Source identity tests; the general planner still owns full helper hashes."""
     def setUp(self):
@@ -488,7 +534,7 @@ class RequiredUiTests(unittest.TestCase):
 
     def verify(self):
         with contextlib.redirect_stdout(io.StringIO()):
-            driver.verify_required_ohos_ui(self.root)
+            driver.verify_required_ohos_ui(self.root, self.runtime)
 
     def test_new_0013_host_is_accepted(self):
         self.verify()

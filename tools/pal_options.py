@@ -58,7 +58,7 @@ def function(texts, pc, transform):
     return p
 
 
-def prepare_options(recomp: Path, runtime: Path, root: Path):
+def prepare_options(recomp: Path, runtime: Path, root: Path, *, verify_only: bool = False):
     root, recomp, runtime = (Path(p).resolve() for p in (root, recomp, runtime))
     build = root / 'build'
     if not all(p.is_relative_to(build) for p in (recomp, runtime)):
@@ -98,6 +98,11 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
                         not p.is_relative_to(base) or not p.is_file() or digest(p.read_bytes()) != expected):
                     raise ValueError(f'Previously injected {group}/{name} changed; regenerate a fresh build')
         return previous  # Strictly no writes on an identical second application.
+
+    if verify_only:
+        # ohosbuild calls this before packaging: a matching manifest above already returned, so
+        # reaching here means the generation is missing or stale and must be regenerated, not injected.
+        raise ValueError('Existing option generation is not current; regenerate it before packaging')
 
     originals = {p: p.read_bytes() for p in files}
     texts = {p: data.decode('utf-8').replace('\r\n', '\n') for p, data in originals.items()}

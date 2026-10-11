@@ -13,26 +13,45 @@ endif()
 # entry/src/main/cpp -> 仓库根
 get_filename_component(PAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../" REALPATH)
 
-# build/recomp 由 tools/winbuild.py（或 ohosbuild）生成，它只认那个分离出去的 PAL runtime 副本
-set(SATURN_RUNTIME "${PAL_ROOT}/build/pal-keyboard-runtime" CACHE PATH "patched runtime copy")
+# build/recomp 由 tools/winbuild.py（或 ohosbuild）生成，它只认那个分离出去的 PAL runtime 副本。
+# ohosbuild 用 --speed accelerated 打包时会写 build/pal-ohos-generation.cmake，指明本轮真正学出来的
+# 是增强生成（施法准备/法术动画/读盘提速）的哪一对目录；没有这个文件就还是映射生成，行为照旧。
+set(_PAL_OHOS_GENERATION "${PAL_ROOT}/build/pal-ohos-generation.cmake")
+if(EXISTS "${_PAL_OHOS_GENERATION}")
+    include("${_PAL_OHOS_GENERATION}")
+endif()
+
+set(SATURN_RUNTIME "${PAL_OHOS_RUNTIME}" CACHE PATH "patched runtime copy")
 set(SATURN_EXTRA "${PAL_ROOT}/src/pal_game/pal_game.cmake" CACHE FILEPATH "PAL game layer")
 
 # PAL_OHOS_RUNTIME_IDENTITY_BEGIN
 # CACHE defaults do not replace a stale value. Refuse another selected runtime
 # instead of configuring one tree after ohosbuild verified a different tree.
-set(_PAL_EXPECTED_RUNTIME "${PAL_ROOT}/build/pal-keyboard-runtime")
+set(_PAL_EXPECTED_RUNTIME "${PAL_OHOS_RUNTIME}")
+if(NOT _PAL_EXPECTED_RUNTIME)
+    # Fixtures that extract this block alone never see the generation file, and the mapping
+    # generation stays the default for them.
+    set(_PAL_EXPECTED_RUNTIME "${PAL_ROOT}/build/pal-keyboard-runtime")
+endif()
 get_filename_component(_PAL_SELECTED_RUNTIME "${SATURN_RUNTIME}" REALPATH)
 get_filename_component(_PAL_RUNTIME_CANONICAL "${_PAL_EXPECTED_RUNTIME}" REALPATH)
 if(NOT _PAL_SELECTED_RUNTIME STREQUAL _PAL_EXPECTED_RUNTIME OR
    NOT _PAL_RUNTIME_CANONICAL STREQUAL _PAL_EXPECTED_RUNTIME)
-    message(FATAL_ERROR "OHOS must compile this checkout's verified build/pal-keyboard-runtime; clear the stale native CMake cache and regenerate with tools/winbuild.py build --recompile")
+    message(FATAL_ERROR "OHOS must compile this checkout's verified ${_PAL_EXPECTED_RUNTIME}; clear the stale native CMake cache and regenerate with tools/ohosbuild.py")
 endif()
 # PAL_OHOS_RUNTIME_IDENTITY_END
 
 add_subdirectory("${PAL_ROOT}/third_party/sdl3-src" sdl3)
 # runtime.cmake 用 find_package(SDL3 CONFIG) 决定真 host 还是空 host，见 cmake/SDL3Config.cmake
 set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-add_subdirectory("${PAL_ROOT}/build/recomp" saturn_recomp)
+add_subdirectory("${PAL_OHOS_RECOMP}" saturn_recomp)
+
+# selftest 链的是 core+stub，而增强生成的 guest 代码会引用真硬件符号（g_vdp2_regs、配对帧队列、
+# pal_input_peek 等），hvigor 构建的是整树，于是打包被这个调试目标拖垮。它不参与 libmain.so，
+# 桌面链路要跑得用 cmake --build ... --target selftest 显式构建。
+if(TARGET selftest)
+    set_target_properties(selftest PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
 
 # PAL_OHOS_HOST_IDENTITY_BEGIN
 # Resolve the source actually owned by saturn_host, not a marker in the entry.
@@ -98,6 +117,11 @@ set_target_properties(main PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 set_property(TARGET main APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-undefined")
 # The generated saturn executable is not the library loaded by OHOS.
 # Include game-specific hook registration in the actual libmain entry too.
+# 增强生成把配对帧队列的实现挂在桌面 saturn 上（生成的 CMakeLists 里那句 target_sources），而 libmain
+# 是另一个目标； scu.cpp 引用的 pal_pfq_* 因此要在入口补同一份实现，映射生成里没有这个文件就跳过。
+if(EXISTS "${PAL_OHOS_RECOMP}/pal_paired_frame_queue.cpp")
+    target_sources(main PRIVATE "${PAL_OHOS_RECOMP}/pal_paired_frame_queue.cpp")
+endif()
 set(PAL_GAME_TARGET main)
 include("${PAL_ROOT}/src/pal_game/pal_game.cmake")
 unset(PAL_GAME_TARGET)
