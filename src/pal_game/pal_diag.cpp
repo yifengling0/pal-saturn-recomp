@@ -13,10 +13,26 @@
 #include <cstring>
 #include "pal_dump_parse.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <saturn/sh2.h>
 #include "saturn.h"          // sat_note / sat_vblanks，运行时内部头（saturn 目标已带该包含路径）
 
 namespace {
+
+// 链接成 GUI 子系统后进程没有控制台，日志无处可看；PAL_CONSOLE=1 时把终端的控制台借过来。
+void attach_console() {
+#ifdef _WIN32
+    const char* want = std::getenv("PAL_CONSOLE");
+    if (!want || std::strcmp(want, "1")) return;
+    if (!AttachConsole(ATTACH_PARENT_PROCESS) && !AllocConsole()) return;
+    std::freopen("CONOUT$", "w", stdout);
+    std::freopen("CONOUT$", "w", stderr);
+    std::setvbuf(stderr, nullptr, _IONBF, 0);
+#endif
+}
 
 constexpr int kMaxHooks = 32;
 
@@ -87,6 +103,7 @@ void report(SH2Context& c, uint32_t addr) {
 
 struct Register {
     Register() {
+        attach_console();
         read_env();
         for (int i = 0; i < g_nhooks; ++i) sh2_hook_add(g_hooks[i].addr, report);
         if (g_nhooks) sat_note("PALDIAG armed %d hook(s) from PAL_HOOKS", g_nhooks);
