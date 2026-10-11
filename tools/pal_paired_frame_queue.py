@@ -14,7 +14,8 @@ RUNTIME_FILES = tuple(EXPECTED["runtime_sha256"])
 HELPER_FILES = tuple(EXPECTED["source_sha256"])
 # Exact post-input host variants; unrelated runtime drift remains rejected.
 HOST_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/host/host.cpp'],
- 'a50e312b94040e4110ac5c38ab92dbf121b96a793831c228bb4f3b2409d58843'}
+ 'a50e312b94040e4110ac5c38ab92dbf121b96a793831c228bb4f3b2409d58843',
+ 'e64c92f63a209e67e00619a8f1ac31096b766521d4a17ca4bc97181d412700fe'}
 
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))

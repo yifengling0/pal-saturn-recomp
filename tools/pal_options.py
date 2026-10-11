@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-4-ohos-input-audio'
+VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-5-ohos-touch-ui'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
@@ -74,6 +74,8 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         raise ValueError('No generated PROG sources')
     source_headers = {name: (root / 'src/pal_game' / name).read_bytes() for name in (*HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h')}
     header_hashes = {name: digest(data) for name, data in source_headers.items()}
+    from pal_keyboard_profile import runtime_support_inputs
+    support_inputs = runtime_support_inputs(runtime)
     manifest = recomp / MANIFEST
     if manifest.exists():
         previous = json.loads(manifest.read_text(encoding='utf-8'))
@@ -146,6 +148,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     smpc = runtime / 'src/machine/smpc.cpp'
     runtime_original = {p: p.read_bytes() for p in (host, null, smpc)}
     rt = {p: data.decode('utf-8').replace('\r\n', '\n') for p, data in runtime_original.items()}
+    runtime_original.update(support_inputs)
     if any('pal_host_direction_edge' in text or 'g_pal_edge' in text for text in rt.values()):
         raise ValueError('Runtime is already instrumented without a matching option manifest')
     rt[smpc] += ('\n// PAL opt-in input observation API; INTBACK stays unchanged.\n'
@@ -154,9 +157,15 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         'uint16_t pal_input_edges() { uint16_t edge=pal_host_direction_edge(); return host_drives() ? edge : 0; }\n')
     rt[null] += '\nuint16_t pal_host_direction_edge() { return 0; }\n'
     host_text = '#include "pal_host_edge.h"\n' + rt[host]
+    menu_states = [anchor for anchor in ('static bool g_menu_open, g_quitting;',
+                                         'static bool g_menu_open, g_quitting, g_confirm_quit;')
+                   if host_text.count(anchor) == 1]
+    if len(menu_states) != 1:
+        raise ValueError('SDL host: menu state declaration changed')
+    menu_state = menu_states[0]
     replacements = [
-        ('static bool g_menu_open, g_quitting;',
-         'static bool g_menu_open, g_quitting;\nstatic PalHostEdge g_pal_edge;\n'
+        (menu_state,
+         menu_state + '\nstatic PalHostEdge g_pal_edge;\n'
          'uint16_t pal_host_direction_edge() { return g_pal_edge.take(); }\n'
          'static void pal_host_clear_edge() { g_pal_edge.clear(); }'),
         ('static uint16_t touch_read();', 'static uint16_t touch_read();\nstatic void pal_host_clear_edge();'),
@@ -244,7 +253,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
                                  source_headers['pal_keyboard_profile.h']))
     all_original = {**originals, **runtime_original, cmake: cmake_original}
     for p, data in all_original.items():
-        if p.read_bytes() != data:
+        if p.resolve() != p or p.read_bytes() != data:
             raise ValueError(f'Source changed while preparing injection: {p}')
     data = {'version': VERSION, 'runtime': relative_runtime, 'headers_sha256': header_hashes,
         'defaults': {'PAL_RESPONSIVE_INPUT': '0', 'PAL_RESPONSIVE_ALIGN': '0',

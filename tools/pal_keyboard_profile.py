@@ -8,10 +8,13 @@ manifest idempotence, and CMake runtime selection. Repeated raw planning fails.
 """
 from pathlib import Path
 import hashlib,re
-VERSION='pal-keyboard-profile-v1-mapping-4-ohos-input-audio'
+VERSION='pal-keyboard-profile-v1-mapping-5-ohos-touch-ui'
 def sha(s):return hashlib.sha256(s.encode() if isinstance(s,str) else s).hexdigest()
 RUNTIME_HASHES = {'host.cpp': ['6b82aaa5f9720e3ad9a53db35e6dda8ef08198d4dbcacf7f3f0f6b25f2a9518d', '9af5f2ac245114cb7cdf858c69a90ecb0c217a29f423c9168c353558bf0222a4', '16fd0b06648fb3f3c1dda96b3200aa7bf8baaff1f2aca9d0b4e0ffa720055937', 'f4c957d90193478ac77588f6592b1061226686b062bbd3e7561ba7a236da94a1'], 'settings.cpp': ['4da2c93a0eec58ca861c972076961eaf4d64d4ecb471b4d29d94af73f1705b66', '6dd16bf8b13057ddd35aa50a474aaf958df2515e94e877a533b99f5430df9cfb'], 'launcher.cpp': ['23d65e3b6f854823fd33a1f3b1373584d22e98b9edf247125458648fad863e32']}
 RUNTIME_HASHES['host.cpp'].append('4b2c32d213a9a28823c214cbfe3f62ac166e238beb127105441e1baee1eef7ed')
+RUNTIME_HASHES['host.cpp'].append('f3c49e658ea2e687bcf5734e935d698f0e012654882141f108ba9c87aa4af49b')
+RUNTIME_HASHES['host.cpp'].append('811878f044cdaeb55f442d31d3524e2b4ae8aaee20f4652df76b967c74340dfb')
+RUNTIME_HASHES['settings.cpp'].append('909ea2d8fdf41755ceae9ef8eaf8730ad6a12d9269d91f95b607185bd7de556b')
 RUNTIME_HASHES['host.cpp'].append('476a8cd5b88eb926d3cdd581bbd31c94d2c4ac6114a9983906a74e7bb85f2ffd')
 RUNTIME_HASHES['launcher.cpp'].append('6fab3c98d05f4f9eb69c2c14672b205f487964fc6c02f9815289699525b4fc57')
 FUNCTION_HASHES = {'06020040': ['49fc15d214cc14ad85134d3301ce577f699d38aec8301287d632dd5b545bad7c'], '06026D84': ['9e83b5975b9f141c3d0e22f15907be2ada11b74aab7237444cde410ae4fefaaa', 'f04a09eb1154c18fcdb61a95fd4f3f945106da5daccf7eec6131edf88800e8a8'], '06021F14': ['1a72d209543cdd95d863b4e62b28c7639a24c2098c855279d2a97075203722e0'], '06026F90': ['33b311616b04e42b7e6cb85366ff11f58e1ecc4a1573fd5b9d7b8527cb2fcb75', '677f5eb849f6f0f3731cf35a0292d91dacef58e127de7d427fb659101b56e056'], '0604A5B8': ['38a41b3879208ad03418cbe48ed1efeb1888129062f385fc362955afd8e0ce50'], '060516B4': ['8d243239da6d34c6b188603ca3108a13b9984f855348edf66a04759c5a93b60d'], '06020058': ['9548908855627449ef75ff2a63a87d8083fc953294231d447073e05bec6beca7']}
@@ -256,6 +259,35 @@ RUNTIME_HASHES["settings.h"] = ["2f3c544cc54529a9243ac022a79ccb707bd4e86338569fb
 MANIFEST = 'pal-keyboard-manifest.json'
 HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165d9f5edf185529caaf9461bce175d7784e', 'touch_menu_paging.h': 'a05761a95eebe222e1c51602b44f75ea19c4a68daaa9cbdb047cfc84c78710e7', 'pal_audio_queue_policy.h': 'b873e70bc52a265c7f74626dc771a914774b86b76e36f0379a27f2bb0ae30c67', 'pal_audio_jitter_policy.h': '893d30bfdf8b9a3373881b510064e086d516989232a1946f735011fbd46c89d8', 'host_sdl.h': 'a02c549b334ae98c3713adf8480e06183b9cf4b724c2acd3fe8be5ecc11ee954'}
 
+# Pin the unchanged UI implementation as well as its new helpers and fonts.
+HARMONY_RUNTIME_HELPERS.update({'touch_pad.h': '3c0aa2e16c81ce00be55b826692469ac4eba85ed55449695fa97a9fe8508bdf1', 'ui.cpp': 'f01298ab0b09b17f3dad1744ecf7f544cfb9631a4798669381bd481277b9994d', 'ui.h': '092475fc1f6698f407578218a6be84dfe87a91fa9fec4d6eed42765efb8c5b10'})
+HARMONY_UI_RUNTIME_FILES = {'src/host/host_menu_text.h': '71f353f340bcd725ef9a6699e436b0f173d7d989a5203af97badc762bac23fff', 'src/host/touch_mobile_layout.h': 'ca10a5dbe807d3fd9e3fe6451ad1a6c0ab0eb94e87a74a10eb8de9041ff14000', 'src/host/touch_pad.h': 'ce116e1efa1a511dfcb83f97537dfc5b973864f9a438c4dcf432ad4c20f61dd0', 'src/host/touch_positions.h': '17e93a289335fff39e353c1cafeab145bb832670163ecbaaec39f9562b1eccea', 'src/host/ui.cpp': 'ad46a6c467a7789cc0cb97cd7378915acefb60886587c8b6c3ccde5cbb748094', 'src/host/ui.h': 'a84b5e37be41e5b78c139eb8e5d30d395fae8b66531c469d182a3b05ad6852c5', 'third_party/pal-menu-cjk/LICENSE.txt': '1dd173adfb86606c086ab1c2a5c7d3e6a1c373cd6b2ef7c729955a5f8c71f44f', 'third_party/pal-menu-cjk/README.md': 'b9db583f9951e03107353d8b19d9e7b57d0588f713097cb713e0f0aca2852f92', 'third_party/pal-menu-cjk/generate.py': '7d41876b9272d80d9b58cbae16774f5e1215b1c37ab4adbb9145ee0ea77e4320', 'third_party/pal-menu-cjk/glyphs.h': 'e42e2beefd508e1443eea17c2ce971143d2ec38b8a857140f183475000a36422', 'third_party/pal-menu-cjk/manifest.json': '40f74db2b4f2543d221e5e175d4d186370f41d5594d61b11456fe8b5b7c5f79f', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': 'e286ee6609147260e1efea30827c653bbcd8f01a392fd3328f466cbb79b3fe5f', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'e86226d416450c52d258c99dc94dbe43af422a57c79dd6e5f8f441556dfa6201'}
+
+def runtime_support_inputs(runtime):
+ """Read and verify one complete reviewed runtime support variant."""
+ runtime=Path(runtime)
+ if not runtime.is_absolute() or runtime.resolve()!=runtime:raise ValueError('Unsafe runtime support root')
+ expected={'src/host/'+name:value for name,value in HARMONY_RUNTIME_HELPERS.items()}
+ ui_only=set(HARMONY_UI_RUNTIME_FILES)-set(expected)
+ host=runtime/'src/host/host.cpp'
+ settings=runtime/'src/host/settings.cpp'
+ if any(p.resolve()!=p or p.is_symlink() or not p.is_file() for p in (host,settings)):raise ValueError('Unsafe runtime variant source path')
+ uses_ui=b'#include "host_menu_text.h"' in host.read_bytes()
+ settings_ui=b'layout_version = )"' in settings.read_bytes()
+ if uses_ui!=settings_ui or (not uses_ui and any((runtime/name).exists() or (runtime/name).is_symlink() for name in ui_only)):
+  raise ValueError('Mixed Harmony runtime UI variants; regenerate')
+ if uses_ui:
+  expected.update(HARMONY_UI_RUNTIME_FILES)
+ inputs={}
+ for name,value in expected.items():
+  if Path(name).is_absolute() or '..' in Path(name).parts:raise ValueError('Unsafe runtime support path')
+  p=runtime/name
+  if p.resolve()!=p or not p.is_relative_to(runtime) or p.is_symlink() or not p.is_file():raise ValueError('Harmony runtime helper changed or missing; regenerate: '+name)
+  raw=p.read_bytes()
+  if sha(raw.replace(b'\r\n',b'\n'))!=value:raise ValueError('Harmony runtime helper changed or missing; regenerate: '+name)
+  inputs[p]=raw
+ return inputs
+
 def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  """Verify/inject mapping-only detached sources. No compiler or game execution."""
  import json, os
@@ -272,9 +304,7 @@ def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  if any(c in relative for c in '\n\r";$'):raise ValueError('Unsupported runtime path')
  manifest=recomp/MANIFEST
  if manifest.is_symlink() or manifest.parent.resolve()!=manifest.parent:raise ValueError('Unsafe manifest path')
- for name,expected in HARMONY_RUNTIME_HELPERS.items():
-  helper_path=runtime/'src/host'/name
-  if helper_path.resolve()!=helper_path or helper_path.is_symlink() or not helper_path.is_file() or sha(helper_path.read_bytes().replace(b'\r\n',b'\n'))!=expected:raise ValueError('Harmony runtime helper changed or missing; regenerate: '+name)
+ support_inputs=runtime_support_inputs(runtime)
  if manifest.exists():
   old=json.loads(manifest.read_text())
   if old.get('version')!=VERSION or old.get('header_sha256')!=header_hash or old.get('runtime')!=relative:raise ValueError('Keyboard source/version changed; regenerate')
@@ -297,6 +327,7 @@ def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  if any(p.resolve()!=p or not p.resolve().is_relative_to(recomp if p.is_relative_to(recomp) else runtime) for p in paths):raise ValueError('Source symlink escapes detached tree')
  if any(p.stat().st_nlink!=1 for p in paths):raise ValueError('Hardlinked generated inputs are not writable')
  originals={p:p.read_bytes() for p in paths}
+ originals.update(support_inputs)
  texts={p:originals[p].decode().replace('\r\n','\n') for p in files}
  rt={p:originals[p].decode().replace('\r\n','\n') for p in paths if p.is_relative_to(runtime)}
  changes=plan_keyboard(recomp,runtime,texts,rt,header)
