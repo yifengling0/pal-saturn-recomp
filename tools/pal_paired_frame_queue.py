@@ -24,6 +24,9 @@ HOST_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/host/host.cpp'],
 # UI13 + 0014/0015 after the unchanged precise-input host transform.
 HOST_INPUT_SHA256.add('811c1789dae3b183c059922cd3f977ef0d43dae3db727fb7d1ce990c39c57681')
 
+# Frozen field-host r2 after the unchanged precise-input transform, full-chain replay.
+HOST_INPUT_SHA256.add('7441a6f17a9b448fd8b383f6baf760eed517297b37bac6dc61daee09c9847771')
+
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))
 def once(s,a,b,label):

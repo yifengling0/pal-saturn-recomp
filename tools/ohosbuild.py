@@ -38,7 +38,7 @@ DEFAULT_DEVECO = Path(r'C:/Program Files/Huawei/DevEco Studio')
 OHOS_HOST_UI_VERSION = 13
 # UI generation remains 13; require its current 0014/0015 ordinary-PC98 source.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
-    'a63b07ab5b5df353e89f8b2f4983e037fd3d2a4d23a61660551c7eb07343f4bf',
+    'c69b7a176ecf926c06ad5351c2d6b7d5edcab507c9a61639e949308190c495c6',
 })
 
 

@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-8-ohos-tap-hold-identity'
+VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-9-field-consume'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
@@ -73,6 +73,9 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
     if not files:
         raise ValueError('No generated PROG sources')
     source_headers = {name: (root / 'src/pal_game' / name).read_bytes() for name in (*HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h')}
+    field_enabled = b'pal_field_input_ledger.h' in (runtime/'src/host/host.cpp').read_bytes()
+    if field_enabled:
+        source_headers['pal_field_input.h'] = (root/'src/pal_game/pal_field_input.h').read_bytes()
     header_hashes = {name: digest(data) for name, data in source_headers.items()}
     from pal_keyboard_profile import runtime_support_inputs, verify_runtime_support_manifest
     support_inputs = runtime_support_inputs(runtime)
@@ -84,10 +87,15 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
             raise ValueError('Option/header version changed; regenerate a fresh detached build')
         if previous.get('runtime') != os.path.relpath(runtime, recomp).replace('\\', '/'):
             raise ValueError('Detached runtime changed; regenerate a fresh detached build')
+        if field_enabled and 'pal_field_input.h' not in previous.get('outputs_sha256', {}).get('recomp', {}):
+            raise ValueError('Incomplete field input output manifest')
         for group, base in [('recomp', recomp), ('runtime', runtime)]:
-            for name, expected in previous['outputs_sha256'][group].items():
+            verified = {**previous.get('inputs_sha256', {}).get(group, {}),
+                        **previous['outputs_sha256'][group]}
+            for name, expected in verified.items():
                 p = base / name
-                if not p.is_file() or digest(p.read_bytes()) != expected:
+                if ('..' in Path(name).parts or Path(name).is_absolute() or p.resolve() != p or
+                        not p.is_relative_to(base) or not p.is_file() or digest(p.read_bytes()) != expected):
                     raise ValueError(f'Previously injected {group}/{name} changed; regenerate a fresh build')
         return previous  # Strictly no writes on an identical second application.
 
@@ -253,6 +261,15 @@ def prepare_options(recomp: Path, runtime: Path, root: Path):
         raise ValueError('Unexpected preexisting keyboard helper; regenerate')
     changes.update(plan_keyboard(recomp, runtime, keyboard_texts, rt,
                                  source_headers['pal_keyboard_profile.h']))
+    if field_enabled:
+        field_output = recomp / 'pal_field_input.h'
+        if field_output.exists() or field_output.is_symlink():
+            raise ValueError('Unexpected preexisting field helper; regenerate')
+        from pal_field_input import plan_field_input
+        field_texts = {p: changes.get(p, originals[p]).decode('utf-8').replace('\r\n','\n') for p in keyboard_texts}
+        changes.update(plan_field_input(recomp, field_texts, source_headers['pal_field_input.h']))
+        if (root/'src/pal_game/pal_field_input.h').read_bytes() != source_headers['pal_field_input.h']:
+            raise ValueError('Field helper changed while preparing injection')
     all_original = {**originals, **runtime_original, cmake: cmake_original}
     for p, data in all_original.items():
         if p.resolve() != p or p.read_bytes() != data:

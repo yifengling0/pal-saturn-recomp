@@ -11,7 +11,7 @@ import time
 PIN = '086c372c67d9e0f94fcc64cedd6e6b63cc5542b5'
 ROOT = Path(__file__).resolve().parents[1]
 # 0006 belongs to the options builder, which applies it to its own runtime copy.
-NUMBERS = (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+NUMBERS = (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
 
 
 def patch_set(numbers=NUMBERS):

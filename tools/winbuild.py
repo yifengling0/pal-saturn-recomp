@@ -84,6 +84,9 @@ def option_build_manifest(game):
             "exe_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
             "instrumentation_manifest_sha256": hashlib.sha256(injected.read_bytes()).hexdigest(),
             "features": ["input_v4", "effect_wait_v3", "data_cd_speed", "effect_cadence_v4_manual_pair", "paired_frame_queue_v3", "keyboard_profile_v1"] if OPTIONS else ["keyboard_profile_v1"]}
+    staged = json.loads(injected.read_text(encoding="utf-8"))
+    if staged.get("field_header_sha256") or staged.get("headers_sha256", {}).get("pal_field_input.h"):
+        data["features"].append("field_input_v1")
     (binary.parent / "pal-options-build.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
