@@ -12,8 +12,7 @@
 name = "Legend of Sword and Fairy (Saturn, T-37401H V1.000)"
 seeds = "tools/seeds.json"
 build = "build"
-cmake = ["SATURN_EXTRA=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/src/pal_game/pal_game.cmake",
-         "SDL3_DIR=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/third_party/sdl3/SDL3-3.4.18/cmake"]
+cmake = ["SATURN_EXTRA=C:/Users/liufeng/Downloads/Palhero.net-pal-ss/PAL-Saturn-Recomp/src/pal_game/pal_game.cmake"]
 
 [[module]]
 name = "P0"

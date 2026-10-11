@@ -1259,6 +1259,62 @@ node tools/vdp2_replay.js build/run/ab_none/dump-6100.bin build/run/replay-6100.
 
 - 为出窗口装了 SDL3：`third_party/sdl3/SDL3-3.4.18`（官方 `SDL3-devel-3.4.18-VC.zip`，本机 clang 是 `x86_64-pc-windows-msvc` ABI 所以用 VC 包），`game.toml` 的 `cmake` 加 `SDL3_DIR=…/SDL3-3.4.18/cmake`，`SDL3.dll` 复制到 `build/recomp-build/`。`objdump -p` 已确认 `DLL Name: SDL3.dll`，`saturn_host` 从 `host_null.cpp` 切到 `host.cpp`。SDL3 属本地依赖，不入库。
 
+### 4.15 第九次修正：§4.14 的"VDP2 旋转层"结论作废，真因是 SH-2 DMA 16 字节突发短拷（2026-10-11）
+
+接手方在 `docs/DMA_BURST_FIX.md` 给出了带实盘证据的根因，我 §4.14 的推断被推翻，此处按证据更正：
+
+- **真因**：上游 `onchip.cpp::dma` 在 16 字节突发（`ts==3`）里除了按突发计数外还多 `i += 3`，于是 64 字节请求只拷 16 字节就清 TCR 并报完成。`patches/0005` 只删那一行。
+- **实盘链路**：地图数据经 `f_0602F118` 从 `MGOP.JOE` 读入，再由 DMA 包装 `f_0605D4DC` 搬到 `0608C310`（地图）与 `0x25C10000`（瓦片贴图），`f_0605DA60` 等完成。修复前贴图请求 `0x25DA0` 字节只有 `0x9770` 字节与源一致——**正好四分之一**；地图未拷到的行索引为 0，而 0 号瓦片本身就是黑色菱形，于是背景全黑。
+- **我错在哪**：我把"VDP2 VRAM 只剩 640 非零字节 + VDP1 VRAM 有约 65 KB 内容"读成了"背景作为旋转贴图已装好、运行时不画旋转层"。那些 VDP1 内容正是**被截短的贴图**，`NBG0CFG=0x4300` 只是这一幕的模式，不是丢画面的原因。§4.14 ②③④ 的因果链因此作废，其中的**测量数字仍然有效**。
+- **另一处更正**：我此前当作"可操作地图/洞窟已渲染"证据的 `dump-map/shot-2700.png`、`trans/shot-4400.png`，按接手方核对是 `A3.AVI` **开场影片帧**，不能作为可操作地图的证据；README 已按此改写。
+- 仍然成立：输入链路活着、模式 4 是等动作的分派器、`[gbr+972]` 各模块装的都是 idle 桩、停滞段仍新跑 81 个 PROG 函数。
+- 任务 #8（实现 RBG 旋转）随之作废；剩余真问题是 Windows 侧验收：走路/动画/载入/演出速度的实机 A-B，以及新工具 `tools/synthetic_check.py` 在 Windows 上 native selftest 以 `0xC0000409` 中止的可移植性缺陷。
+
 ### Linux 静态复核补记（2026-10-10；待镜像核对）
 
 本次无镜像静态复核发现 §4.14 的 `0x4300 & 0x30 = 0x30` 算术不成立，实际为 `0`；该节的 `0013` 运行日志与所列 dump 值需要按同一帧、寄存器偏移及字节序重新对齐。上游缺少 RBG 实现可由源码确认，但它与特定黑屏的因果关系尚未由本轮复现。保留历史记录，不将旧结论升级为 Linux 已验证。详见 `LINUX_CLOUD_BUILD.md`。
+
+### 4.16 第十次修正：**"开场影片卡住"不是死机**，是片尾等按键；Windows 与 Linux 输出逐字节一致（2026-10-11）
+
+用户实机反馈"启动视频卡住，Linux 版没音频反而没问题"。按此复取证据，结论是**此前把"片尾静帧等输入"误判成挂死**，Windows 侧没有独立的开场缺陷。
+
+**① 同一停滞点，加一次 START 就通了**
+
+无输入跑（`build/run/avi2-head`）从 VB1500 起 PNG 哈希恒为 `d5054485…`（地球+陨星那一帧），一直静止到 VB4000，看起来就是"卡住"。加输入后画面立刻继续（`build/run/avistart`，输入 `1600:START,1612:,1800:A,1812:,2000:START,2012:`）：
+
+| VBlank | PNG 前 8 位 | 画面 |
+| --- | --- | --- |
+| 1500 | `d5054485` | 陨星静帧（片尾，等按键） |
+| 1700 | `4a46dde0` | 黑（淡出/淡入中） |
+| 1900 | `9abeb31b` | **标题画面**：仙劍奇俠傳 + 葫芦剑 +「新的故事／舊的回憶」+ © 1998 SOFTSTAR |
+| 2300 | `ef13cf96` | **已进入游戏地图**，李逍遥站立 |
+| 2600 | `541326ef` | 同一地图，角色换姿势 |
+
+**② 只需一次按键，标题是自动淡入的**
+
+只按 START、之后完全不给输入（`build/run/skiponly`，输入 `1600:START,1612:`）：VB1620–1850 为黑，VB1900 起恒为 `9abeb31b`（标题）。也就是说 START 之后约 250 VBlank 的淡入是**自动完成**的，不需要第二次按键——用户上次"按了开始就黑屏"看到的正是这段约 4 秒的黑场。
+
+**③ 走路与演出在 Windows 上是通的**
+
+`build/run/walk1`（VB2500–3200 交替给 DOWN/RIGHT/UP/LEFT）：VB2300→3900 每帧哈希都不同，角色朝向随输入改变、镜头跟随滚动；VB3600 切到洞窟场景，VB3900 是角色躺地的演出帧。收尾 `master pr 06034F06`、`TRUE:06034EDA x2202`，与 §DMA_BURST_FIX 里修好的地图/瓦片链路（`f_060344A0` 一带）一致。
+
+**④ Windows 与 Linux：读档回归逐字节吻合**
+
+按私有包 `pal-private-checkpoints-20261010-v11` 的说明跑读档回归（工作副本 `build/run-win-latest.bup`，原包只读、SHA256SUMS 全绿）：
+
+```
+./build/recomp-build/saturn.exe --cue disc/pal_t37401h_13tr.cue --headless --vblanks 3401 \
+  --save build/run-win-latest.bup --settings - --clock 1998-11-01T12:00:00 \
+  --input "@build/cp11/pal-private-checkpoints-v11/inputs/boot-load.txt" \
+  --shot 1600,2000,2700,3000,3401 --out build/run/bootload
+```
+
+VB3401 的 PNG 为 `7f410a40b8ee582a9a9db9514d801ee03ad09f9f4cbc1ab25a1e53565598ff10`，与包内 README 记录的 Linux 基准 load PNG 哈希**完全相同**；VB2700 是「本機進度／卡匣進度一…四」读档菜单，VB3401 是竹篱笆旁的村庄场景（李逍遥+赵灵儿）。另外 `inputs/boot-load.txt` 开头就是 `1500:START`——接手方在 Linux 上同样是用一次 START 越过片尾的，这从旁印证了 ①②。
+
+**⑤ 新确认的上游渲染缺口（记下来，别当成本轮回归）**
+
+读档后的场景第一次触发 `VDP2: line or vertical cell scroll (SCRCTL) (0002) is not done`（`runtime/src/video/vdp2.cpp:350`，只报一次）。行滚动被忽略，仙剑里靠它做的彩虹/水面一类效果会不对；本轮截图未见明显错乱，故只登记为已知缺口，未追。
+
+**⑥ 仍未解释的一点（下一步）**
+
+片头本身偏短：VB700–1150 是同一静帧 `03b43474` 持续 450 VBlank，VB1175–1275 黑，真正在动的只有 VB1300–1450 约 200 VBlank，然后就是 `d5054485` 片尾帧。影片播放器自己认定"放完了"（START 能干净地进标题），所以这不是数据断供；但片头动画合计约 3 秒，与真机印象不符，需要按 AVI 文件扇区数/帧数核对是否**丢帧**（播放器按 FRC 计时，停滞期唯一的轮询就是 `0xFFFFFE12/13`，每帧 11 次）。这条列为 P1 收尾项，不阻塞走路/读档验收。

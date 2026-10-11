@@ -43,9 +43,10 @@ for p in "$PWD"/patches/000{1,2,3,4,5}-*.patch; do
   git -C third_party/saturn-recomp-pal apply --check "$p" && \
   git -C third_party/saturn-recomp-pal apply "$p" || exit 1
 done
-# 想要窗口/手柄/声音，再放一份 SDL3（本仓库也不入库）：解压后把 cmake 目录写进 game.toml 的 cmake 数组
-#   SDL3-devel-<ver>-VC.zip → third_party/sdl3/ ，并加
-#   "SDL3_DIR=<仓库绝对路径>/third_party/sdl3/SDL3-<ver>/cmake"；SDL3.dll 复制到 build/recomp-build/
+# 想要窗口/手柄/声音，再放一份 SDL3（本仓库也不入库）。机器路径不进 game.toml——用命令行传：
+#   SDL3-devel-<ver>-VC.zip 解压到 third_party/sdl3/ ，然后
+#   python tools/winbuild.py build --sdl-dir third_party/sdl3/SDL3-<ver>/cmake
+#   并把 SDL3.dll 复制到 build/recomp-build/（exe 旁边）；不带 --sdl-dir 时用 --headless
 # 原盘：把本地 MDF/MDS 还原出的 BIN+CUE 放进 disc/（自行准备，不提供下载）
 ```
 
