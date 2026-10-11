@@ -31,7 +31,7 @@ class LauncherTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         runtime = self.root / 'build/pal-keyboard-runtime/src/host'
         runtime.mkdir(parents=True)
-        current_host = b'#include "host_menu_text.h"\n// reviewed fixture host v12\n'
+        current_host = b'#include "host_menu_text.h"\n// reviewed fixture host v13\n'
         (runtime / 'host.cpp').write_bytes(current_host)
         (runtime / 'host_menu_text.h').write_bytes(b'// fixture labels\n')
         mocker = patch.object(driver, 'OHOS_HOST_UI_SHA256', frozenset({hashlib.sha256(current_host).hexdigest()}))
@@ -477,7 +477,7 @@ class RequiredUiTests(unittest.TestCase):
         self.labels = self.host.with_name('host_menu_text.h')
         self.host.parent.mkdir(parents=True)
         self.current = (b'#include "host_menu_text.h"\n'
-                        b'extern "C" int pal_host_ui_feature_version() { return 12; }\n'
+                        b'extern "C" int pal_host_ui_feature_version() { return 13; }\n'
                         b'// current reviewed layout implementation\n')
         self.host.write_bytes(self.current)
         self.labels.write_bytes(b'// reviewed labels; hashes owned by full verifier\n')
@@ -490,7 +490,7 @@ class RequiredUiTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             driver.verify_required_ohos_ui(self.root)
 
-    def test_new_0012_host_is_accepted(self):
+    def test_new_0013_host_is_accepted(self):
         self.verify()
 
     def test_crlf_equivalent_approved_source_is_accepted(self):
@@ -508,7 +508,12 @@ class RequiredUiTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, '身份不符'):
             self.verify()
 
-    def test_old_host_with_version_12_pasted_on_is_rejected(self):
+    def test_self_consistent_0012_host_with_identity_symbols_is_rejected(self):
+        self.host.write_bytes(self.current.replace(b'return 13;', b'return 12;'))
+        with self.assertRaisesRegex(SystemExit, '身份不符'):
+            self.verify()
+
+    def test_old_host_with_version_13_pasted_on_is_rejected(self):
         self.host.write_bytes(self.current.replace(b'current reviewed', b'old 0011'))
         with self.assertRaisesRegex(SystemExit, '身份不符'):
             self.verify()
@@ -621,6 +626,8 @@ class NativeIdentityContractTests(unittest.TestCase):
         if not self.cxx:
             self.skipTest('C++ compiler unavailable')
         entry = (self.cpp / 'pal_ohos_entry.cpp').read_text()
+        required = driver.OHOS_HOST_UI_VERSION
+        self.assertIn(f'if (host_ui_version != {required})', entry)
         cmake = (self.cpp / 'CMakeLists.txt').read_text()
         self.assertIn('set_property(TARGET main APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-undefined")', cmake)
         declarations = []
@@ -631,9 +638,9 @@ class NativeIdentityContractTests(unittest.TestCase):
             self.assertGreaterEqual(entry.count(symbol + '()'), 2)
             declarations.append(declaration)
         client = self.root / 'client.cpp'
-        client.write_text('#include <cstdio>\n' + '\n'.join(declarations) +
-                          '\nint main() { std::printf("%d %s\\n", pal_host_ui_feature_version(), '
-                          'pal_host_ui_source_hash()); return pal_host_ui_feature_version() != 12; }\n')
+        client.write_text('\n'.join(declarations) +
+                          '\nint main() { return pal_host_ui_feature_version() != ' + str(required) +
+                          ' || !pal_host_ui_source_hash(); }\n')
         self.host.write_text(source)
         digest = hashlib.sha256(self.host.read_bytes()).hexdigest()
         binary = self.root / ('identity.dll' if os.name == 'nt' else 'libidentity.so')
@@ -648,20 +655,31 @@ class NativeIdentityContractTests(unittest.TestCase):
         self.assertIn('pal_host_ui_feature_version', result.stderr)
 
     def test_version_only_marker_missing_source_symbol_fails_link(self):
-        result, _, _ = self.link('extern "C" int pal_host_ui_feature_version() { return 12; }\n')
+        result, _, _ = self.link('extern "C" int pal_host_ui_feature_version() { return 13; }\n')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('pal_host_ui_source_hash', result.stderr)
 
     def test_new_host_object_links_and_reports_actual_source_hash(self):
         result, binary, digest = self.link(
-            'extern "C" int pal_host_ui_feature_version() { return 12; }\n'
+            'extern "C" int pal_host_ui_feature_version() { return 13; }\n'
             'extern "C" const char* pal_host_ui_source_hash() { return PAL_HOST_UI_SOURCE_SHA256; }\n')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         library = ctypes.CDLL(str(binary))
         library.pal_host_ui_feature_version.restype = ctypes.c_int
         library.pal_host_ui_source_hash.restype = ctypes.c_char_p
-        self.assertEqual(library.pal_host_ui_feature_version(), 12)
+        self.assertEqual(library.pal_host_ui_feature_version(), 13)
         self.assertEqual(library.pal_host_ui_source_hash().decode(), digest)
+        library.main.restype = ctypes.c_int
+        self.assertEqual(library.main(), 0)
+
+    def test_ui12_strong_symbols_link_but_fail_ui13_version_gate(self):
+        result, binary, _ = self.link(
+            'extern "C" int pal_host_ui_feature_version() { return 12; }\n'
+            'extern "C" const char* pal_host_ui_source_hash() { return PAL_HOST_UI_SOURCE_SHA256; }\n')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        library = ctypes.CDLL(str(binary))
+        library.main.restype = ctypes.c_int
+        self.assertEqual(library.main(), 1)
 
 
 if __name__ == '__main__':
