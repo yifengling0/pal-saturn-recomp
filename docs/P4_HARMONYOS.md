@@ -286,7 +286,7 @@ if (d < 0.1f * l.dpad_r) continue;        // 原来 0.2f
 
 ### 构建与验收
 
-- 补丁：`patches/0012-harmony-smaller-dpad-dead-zone.patch`；补丁清单仍是 1-5、7-12。
+- 补丁：`patches/0014-harmony-smaller-dpad-dead-zone.patch`（专家先占了 0012/0013，这两枚顺延到 0014/0015）；清单 1-5、7-15。
 - 判据登记：`HARMONY_RUNTIME_HELPERS['touch_pad.h']` 和 `HARMONY_UI_RUNTIME_FILES['src/host/touch_pad.h']`
   **必须一起改**——后者在 `runtime_support_inputs()` 里会覆盖前者，只改一处等于没改（这次就踩过）。
   两处现在都是 `c8da777f3f1964b26e11327d229290b60a8cc0117ed83243dcd5160e94efdfc2`。
@@ -374,7 +374,7 @@ if (d < 0.1f * l.dpad_r) continue;        // 原来 0.2f
 `host.h`（`host.h` 会拉进 `video.h`，纯逻辑探针就没有独立编译的资格了），方向位由 `read_pads()`
 在调用处传进来，头文件只留两个常数。
 
-改名也要如实：补丁现在叫 `patches/0013-windows-harmony-presses-held-for-the-game.patch`，
+改名也要如实：补丁现在叫 `patches/0015-windows-harmony-presses-held-for-the-game.patch`，
 不再叫"三帧"。
 
 ### 复验
@@ -422,5 +422,5 @@ if (d < 0.1f * l.dpad_r) continue;        // 原来 0.2f
 - 构建：Windows `tools/winbuild.py --options`，鸿蒙 `tools/ohosbuild.py`。
 - 开关：`PAL_TAP_HOLD=0` 回到原始采样；0012 的死区在 `touch_pad.h`（0.2→0.1）。
 
-补丁本身在 `patches/0012-*.patch`、`patches/0013-windows-harmony-presses-held-for-the-game.patch`；
+补丁本身在 `patches/0014-harmony-smaller-dpad-dead-zone.patch`、`patches/0015-windows-harmony-presses-held-for-the-game.patch`；
 `third_party/` 不入库，按 README 拉固定上游提交后 `git am patches/*` 重放。

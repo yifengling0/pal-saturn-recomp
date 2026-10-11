@@ -1,0 +1,86 @@
+diff --git a/runtime/src/host/host.cpp b/runtime/src/host/host.cpp
+index 3ebb99f..d768d96 100644
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -42,6 +42,7 @@
+ #include "touch_edge_swipe.h"
+ #include "pal_audio_queue_policy.h"
+ #include "pal_audio_jitter_policy.h"
++#include "pal_tap_hold.h"
+ #include "ui.h"
+ #include "host_menu_text.h"
+ namespace hm = host_menu;
+@@ -461,6 +462,7 @@ static uint16_t gamepad_buttons(SDL_Gamepad* pad, const PadMap& m) {
+ }
+ 
+ static uint16_t g_held_over[kHostSlots];        // held as the menu closed: ignored until let go
++static PalTapHold g_pal_taps[kHostSlots];       // presses too quick for a poll, kept for the game
+ static uint16_t touch_read();
+ 
+ static void read_pads() {
+@@ -475,10 +477,15 @@ static void read_pads() {
+         if (s >= 0) b[s] |= gamepad_buttons(p.pad, p.map);
+     }
+     for (int s = 0; s < kHostSlots; ++s) {
+-        if ((b[s] & (B_LEFT | B_RIGHT)) == (B_LEFT | B_RIGHT)) b[s] &= (uint16_t)~(B_LEFT | B_RIGHT);   // not on a real pad
+-        if ((b[s] & (B_UP | B_DOWN)) == (B_UP | B_DOWN)) b[s] &= (uint16_t)~(B_UP | B_DOWN);
+         g_held_over[s] &= b[s];
+-        g_buttons[s] = b[s] & (uint16_t)~g_held_over[s];
++        g_pal_taps[s].forget(g_held_over[s]);
++        // A press the game was owed is published before the directions cancel, so a stretch can never
++        // leave both of a pair on.
++        const uint16_t moving = B_UP | B_DOWN | B_LEFT | B_RIGHT;
++        uint16_t pad = g_pal_taps[s].publish(b[s] & (uint16_t)~g_held_over[s], sat_vblanks(), moving);
++        if ((pad & (B_LEFT | B_RIGHT)) == (B_LEFT | B_RIGHT)) pad &= (uint16_t)~(B_LEFT | B_RIGHT);   // not on a real pad
++        if ((pad & (B_UP | B_DOWN)) == (B_UP | B_DOWN)) pad &= (uint16_t)~(B_UP | B_DOWN);
++        g_buttons[s] = pad;
+     }
+ }
+ 
+@@ -1018,6 +1025,7 @@ static void menu_open() {
+     g_confirm_quit = false; g_confirm_layout = false;
+     g_menu_page = 0;
+     g_menu_at = 0;
++    for (auto& taps : g_pal_taps) taps.forget(0xFFFF);   // a press owed to the game does not cross a menu
+     g_fingers.clear();
+     g_lifted.clear();
+     g_unread.clear();
+@@ -1104,8 +1112,28 @@ static bool edge_menu_event(const SDL_Event& e) {
+     return result != Edge::Result::Pass;
+ }
+ 
++// A tap that begins and ends between two polls is invisible to SDL_GetKeyboardState and to a
++// gamepad's live buttons, so the event is the only proof the player pressed it at all. The menu's own
++// keys stay out of here: they navigate the menu, and what the menu leaves behind is its business.
++static void pal_note_press(const SDL_Event& e) {
++    if (g_menu_open) return;
++    uint16_t bits = 0;
++    int slot = 0;
++    if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
++        for (auto& [key, bit] : g_keys) if (key == e.key.scancode) bits |= bit;
++    } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
++        for (auto& p : g_pads) {
++            if (p.id != e.gbutton.which) continue;
++            slot = g_slots.slot_of(p.id);
++            for (auto& in : p.map.inputs) if (in.button == (int)e.gbutton.button) bits |= in.bit;
++        }
++    }
++    if (bits && slot >= 0) g_pal_taps[slot].press(bits);
++}
++
+ static void on_event(const SDL_Event& e) {
+     host_pad_event(e);
++    pal_note_press(e);
+     if (edge_menu_event(e)) return;
+     switch (e.type) {
+     case SDL_EVENT_WINDOW_FOCUS_LOST:
+@@ -1113,6 +1141,9 @@ static void on_event(const SDL_Event& e) {
+     case SDL_EVENT_WILL_ENTER_BACKGROUND:
+     case SDL_EVENT_DID_ENTER_BACKGROUND:
+         g_fingers.clear(); g_lifted.clear(); g_unread.clear(); g_touch_held = 0; g_slider_finger = 0; g_slider_active = false; g_edit_dragging=false;
++        // The run stops by the time the window comes back, so a tap queued moments before it went
++        // away would otherwise be spent on the game when play resumes.
++        for (auto& taps : g_pal_taps) taps.forget(0xFFFF);
+         break;
+     case SDL_EVENT_QUIT:
+         menu_close();

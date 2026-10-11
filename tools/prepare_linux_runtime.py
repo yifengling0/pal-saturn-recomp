@@ -10,6 +10,25 @@ import time
 
 PIN = '086c372c67d9e0f94fcc64cedd6e6b63cc5542b5'
 ROOT = Path(__file__).resolve().parents[1]
+# 0006 belongs to the options builder, which applies it to its own runtime copy.
+NUMBERS = (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+
+
+def patch_set(numbers=NUMBERS):
+    """Resolve one patch per number, or stop.
+
+    Two people numbering the same release each add a 0012 and a 0013, and `next(glob(...))` then
+    picks one of the two by filename and builds without ever mentioning the other.
+    """
+    out = []
+    for n in numbers:
+        found = sorted((ROOT / 'patches').glob(f'{n:04d}-*.patch'))
+        if len(found) > 1:
+            raise ValueError(f'{n:04d}-*.patch is ambiguous: ' + ', '.join(p.name for p in found))
+        if not found:
+            raise ValueError(f'{n:04d}-*.patch is missing')
+        out.append(found[0])
+    return out
 
 
 def git(path, *args):
@@ -73,9 +92,7 @@ def prepare(clean: Path, patched: Path, pin: str, patches: list[Path]):
 
 def main():
     clean = ROOT / 'third_party/saturn-recomp'
-    # 0006 belongs to the options builder, which applies it to its own runtime copy.
-    patches = [next((ROOT / 'patches').glob(f'{n:04d}-*.patch')) for n in (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13)]
-    made = prepare(clean, ROOT / 'third_party/saturn-recomp-pal', PIN, patches)
+    made = prepare(clean, ROOT / 'third_party/saturn-recomp-pal', PIN, patch_set())
     print('Patched runtime prepared' if made else 'Existing runtime identity verified')
 
 

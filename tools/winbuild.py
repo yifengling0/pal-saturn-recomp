@@ -65,14 +65,12 @@ def win_stale(game):
 def verify_options_runtime():
     # This helper is platform-neutral despite its historical filename. It
     # preserves a clean parser checkout and verifies the exact five-patch diff.
-    from prepare_linux_runtime import prepare, PIN
+    from prepare_linux_runtime import prepare, PIN, patch_set
     expected = PATCHED_RUNTIME.parent / "src/saturnrecomp/build.py"
     if Path(build.__file__).resolve() != expected.resolve():
         raise SystemExit("Wrong imported generator: install with python -m pip install -e third_party/saturn-recomp-pal")
     clean = Path(ROOT) / "third_party/saturn-recomp"
-    # 0006 is the options builder's own: it goes on a private runtime copy only.
-    patches = [next((Path(ROOT) / "patches").glob(f"{n:04d}-*.patch")) for n in (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13)]
-    prepare(clean, PATCHED_RUNTIME.parent, PIN, patches)
+    prepare(clean, PATCHED_RUNTIME.parent, PIN, patch_set())
 
 
 def option_build_manifest(game):
