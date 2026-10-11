@@ -7,7 +7,8 @@
 ## 包含什么
 
 - 上游固定 `086c372c67d9e0f94fcc64cedd6e6b63cc5542b5`，顺序应用 `0001` 至
-  `0005`。其中 `0005` 修正 SH-2 burst DMA 短拷贝；旧版黑背景由此恢复。
+  `0005`。可选 `0006` 由选项构建器只应用到其专用runtime副本，不修改共享checkout。
+  其中 `0005` 修正 SH-2 burst DMA 短拷贝；旧版黑背景由此恢复。
 - `--pal-options` 将精准输入 v4 和快速施法 v3 同时编入独立 executable。
   **两项运行行为默认关闭**，环境变量缺省/`0` 使用原时序。
 - `PAL_RESPONSIVE_INPUT=1`：短按意图一次消费，按住重复受控，转身和踏步合并。
@@ -18,6 +19,8 @@
   **随机轨迹可能不同**，不是逐状态等价修复。
 - `PAL_RESPONSIVE_ALIGN` / `PAL_RESPONSIVE_WAKE` 默认 `0`。二者为额外实验时序
   改动，会增加 NPC/脚本/RNG 执行机会，不是推荐的精准输入基本档。
+- 可选数据CD读取倍率见 [DATA_CD_SPEED.md](DATA_CD_SPEED.md)：`--data-cd-speed 1/2/4`，
+  默认1，仅改变数据扇区就绪时间，CDDA与全局时钟不加速。
 - 已弃用的仅切 VDP1 buffer 早显原型不在此构建中。
 
 ## 一次搭建（PowerShell，从仓库根目录）
@@ -83,7 +86,7 @@ $cue = 'C:\你的镜像\pal_t37401h_13tr.cue'
 & $py tools\run_pal_profile.py precise --quick-spell --exe $exe -- --cue $cue --save - --settings - --out build\win-combined
 ```
 
-启动器会显式设置全部输入/施法档位，避免继承上一轮 shell 残留。先测单项再测
+启动器会显式设置全部输入/施法档位，避免继承上一轮 shell 残留。数据CD默认1；确认单项收益后可另加 `--data-cd-speed 2` 或 `4`。先测单项再测
 合开，才能区分收益和问题。观察短按一步、松开停止、迅速换向、菜单游标、
 对话和切场后是否残留方向；战斗观察首次特效、完整动作、伤害、MP、回菜单。
 连续行走速度和全局 VBlank/CPU 时钟没有整体降速。

@@ -752,3 +752,27 @@ next step is delivery to the physician; treatment is not yet declared complete.
 This three-ingredient save also loads in an independent original-build process,
 exit0 with source/input unchanged. Evidence:
 `build/linux-three-ingredients-load-001/summary.json`.
+
+## Pause for Windows testing handoff
+
+At the user's request, further story input is paused after a real save at
+VB509937, scene50/world(1008,936), outside the Bai He rice shop. Li remains
+alone; fruit281, carp282 and antler283 each have quantity1, the fishing rod
+has been returned and the trap has been consumed normally. Ingredients have
+not yet been delivered and Liu Shen Dan has not been obtained. Battle flag0,
+all buttons released and FATAL count0.
+
+`baihe-three-ingredients-delivery-pending-windows-handoff.bup` SHA256:
+`1bdcc46b9f46eb78e640fcf10811583098b825c73e91a5077066591df3aa515c`.
+`replay-to-windows-handoff-509937.txt` has9104 original-bridge pad events, SHA256
+`47c8bbc83794cb7bcf662946e9c18019ba43dd41535745156c104e08b49e8412`.
+This is a normal game save, not a forced runtime state or story skip.
+
+After the two verified source commits were published, the old controller
+handle was unavailable. No input was sent through that unknown handle. A new
+controlled process loads an independent copy of the pause BUP normally;
+VB3401 restores scene50/world(1008,936), battle0, with source save and original
+executable hashes unchanged. Further `live005` replay records use this pause
+BUP as their source, not the much earlier island bridge. All `live004` evidence
+is preserved. This recovery is not evidence that the old underlying process
+was definitely dead, nor a replay reset to change a battle result.

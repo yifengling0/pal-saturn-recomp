@@ -50,3 +50,19 @@ def test_original_accepts_baseline_and_missing_exe_fails(tmp_path):
     with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)):
         assert m.main(['original', '--exe', str(exe)]) == 0
     assert m.main(['original', '--exe', str(exe.parent / 'missing.exe')]) == 3
+
+
+def test_data_cd_multiplier_requires_compiled_capability(tmp_path):
+    exe = make_exe(tmp_path)
+    proof = {'schema': 1, 'exe_sha256': m.sha256(exe), 'features': ['input_v4', 'effect_wait_v3']}
+    manifest = exe.parent / m.MANIFEST
+    manifest.write_text(json.dumps(proof))
+    with patch.object(m.subprocess, 'run') as run:
+        assert m.main(['original', '--data-cd-speed', '4', '--exe', str(exe)]) == 3
+        run.assert_not_called()
+    proof['features'].append('data_cd_speed')
+    manifest.write_text(json.dumps(proof))
+    for speed in ('1', '2', '4'):
+        with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+            assert m.main(['original', '--data-cd-speed', speed, '--exe', str(exe)]) == 0
+            assert run.call_args.kwargs['env']['SATURN_DATA_CD_SPEED'] == speed

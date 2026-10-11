@@ -82,7 +82,7 @@ def option_build_manifest(game):
     data = {"schema": 1, "version": VERSION,
             "exe_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
             "instrumentation_manifest_sha256": hashlib.sha256(injected.read_bytes()).hexdigest(),
-            "features": ["input_v4", "effect_wait_v3"]}
+            "features": ["input_v4", "effect_wait_v3", "data_cd_speed"]}
     (binary.parent / "pal-options-build.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
@@ -145,6 +145,8 @@ def win_recompile(game, log=log):
             if directory.exists():
                 shutil.rmtree(directory)
         shutil.copytree(PATCHED_RUNTIME, Path(game.build) / "runtime")
+        from pal_data_cd_speed import apply_data_cd_speed
+        apply_data_cd_speed(Path(game.build) / "runtime")
     generate(specs, out, log=log, hooks=game.hooks, tasks=tasks)
     if OPTIONS:
         from pal_options import prepare_options
@@ -163,6 +165,11 @@ def win_recompile(game, log=log):
 def win_build(game):
     build_dir = os.path.join(game.build, "recomp-build")
     proof = Path(build_dir) / "pal-options-build.json"
+    if OPTIONS:
+        from pal_options import prepare_options
+        from pal_data_cd_speed import apply_data_cd_speed
+        apply_data_cd_speed(Path(game.build) / "runtime")
+        prepare_options(Path(game.build) / "recomp", Path(game.build) / "runtime", Path(ROOT))
     if OPTIONS and proof.exists():
         proof.unlink()  # A failed rebuild must not leave an old capability proof.
     _run("the build", ["cmake", "--build", build_dir, "--target", "saturn", "--parallel", str(JOBS)], build_dir)
@@ -282,7 +289,7 @@ def main(argv=None):
         original_inputs = build.inputs
         def option_inputs(game):
             data = original_inputs(game)
-            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
+            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
                 data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
             return data
         build.inputs = option_inputs

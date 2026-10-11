@@ -1,0 +1,47 @@
+--- a/runtime/src/machine/cdblock.cpp
++++ b/runtime/src/machine/cdblock.cpp
+@@ -17,6 +17,7 @@
+ #include "saturn.h"
+ #include "state.h"
+ #include <cstring>
++#include <cstdlib>
+ #include <deque>
+ #include <string>
+ #include <vector>
+@@ -49,6 +50,16 @@
+ static uint32_t g_fad = 150, g_play_end, g_play_start;
+ static int g_repeat, g_repeat_left;
+ static bool g_audio_play;
++// Multiplier of the existing 300-sector/s data path; CD-DA remains 75 sectors/s.
++// Host configuration, fixed at initialization, rather than guest CD hardware state.
++static unsigned g_data_cd_speed = 1;
++static unsigned data_cd_speed_from_environment() {
++    const char* value = std::getenv("SATURN_DATA_CD_SPEED");
++    if (!value || !std::strcmp(value, "1")) return 1;
++    if (!std::strcmp(value, "2")) return 2;
++    if (!std::strcmp(value, "4")) return 4;
++    sat_fatal("SATURN_DATA_CD_SPEED must be 1, 2, or 4 (got '%s')", value);
++}
+ static uint64_t g_play_t0, g_play_done;         // time the play began, sectors read since
+ static int g_getlen = 2048;
+ static std::deque<int16_t> g_cdda;              // the audio played, not yet taken by the SCSP (L, R)
+@@ -203,7 +214,7 @@
+ void cd_tick() {
+     uint64_t now = sat_now();
+     if (g_status == ST_PLAY) {
+-        uint64_t rate = g_audio_play ? 75 : 150 * 2;
++        uint64_t rate = g_audio_play ? 75 : 300ull * g_data_cd_speed;
+         uint64_t due = (now - g_play_t0) * rate / 1000000000ull;
+         while (g_play_done < due && g_status == ST_PLAY) {
+             if (g_fad >= g_play_end) { play_ended(); break; }
+@@ -530,6 +541,10 @@
+ }
+ 
+ void cd_init() {
++    g_data_cd_speed = data_cd_speed_from_environment();
++    if (g_data_cd_speed != 1)
++        sat_note("CD data delivery: %ux baseline (%u sectors/s); CD-DA unchanged at 75 sectors/s",
++                 g_data_cd_speed, 300 * g_data_cd_speed);
+     reset_all();
+     g_cddev = 0;                                // as the BIOS leaves it after reading the boot files
+     g_status = ST_PAUSE;

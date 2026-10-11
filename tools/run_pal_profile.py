@@ -43,12 +43,15 @@ def main(argv=None):
     parser.add_argument('profile', choices=PROFILES)
     parser.add_argument('--exe', type=Path, required=True)
     parser.add_argument('--quick-spell', action='store_true')
+    parser.add_argument('--data-cd-speed', choices=('1', '2', '4'), default='1', help='Multiplier of original 300-sector/s data delivery; CD-DA unchanged')
     args = parser.parse_args(own)
     exe = args.exe.resolve()
     if not exe.is_file():
         print(f'Missing executable: {exe}', file=sys.stderr)
         return 3
     required = (['input_v4'] if args.profile != 'original' else []) + (['effect_wait_v3'] if args.quick_spell else [])
+    if args.data_cd_speed != '1':
+        required.append('data_cd_speed')
     try:
         verify_options(exe, required)
     except ValueError as error:
@@ -59,13 +62,15 @@ def main(argv=None):
         env[key] = value
     env['PAL_SHORT_EFFECT_PREP'] = '1' if args.quick_spell else '0'
     # A profile is explicit: do not accidentally inherit an unrelated timing experiment.
-    env['SATURN_DATA_CD_SPEED'] = '1'
+    env['SATURN_DATA_CD_SPEED'] = args.data_cd_speed
     env['PAL_COMPLETED_FRAME_PREVIEW'] = '0'
     if args.profile == 'experimental-fast':
         print('Experimental fast input changes field/NPC/script/RNG opportunities.', file=sys.stderr)
     if args.quick_spell:
         print('Quick spell preparation changes battle tick/RNG opportunities; animation frames are retained in tested cases.', file=sys.stderr)
-    print(f'PAL profile={args.profile} quick_spell={args.quick_spell} exe_sha256={sha256(exe)}', flush=True)
+    if args.data_cd_speed != '1':
+        print('Faster data delivery changes guest waiting/RNG timing; CD-DA and CPU clocks stay unchanged.', file=sys.stderr)
+    print(f'PAL profile={args.profile} quick_spell={args.quick_spell} data_cd_speed={args.data_cd_speed} exe_sha256={sha256(exe)}', flush=True)
     try:
         return subprocess.run([str(exe), *forwarded], env=env).returncode
     except OSError as error:

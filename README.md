@@ -7,7 +7,7 @@
 
 ## Windows 选项验证入口
 
-本轮跨平台接入与本地测试步骤见 [docs/WINDOWS_OPTIONS_TEST.md](docs/WINDOWS_OPTIONS_TEST.md)。`winbuild.py --pal-options` 编入精准输入v4及快速施法v3，两者运行时默认关闭；用新的Python profile启动器分别对照，不再依赖Linux实验目录。Windows实际声卡仍待本地验证。当前玩法覆盖见 [docs/COVERAGE_STATUS.md](docs/COVERAGE_STATUS.md)，不要把下文早期阶段描述当成最新验收范围。
+本轮跨平台接入与本地测试步骤见 [docs/WINDOWS_OPTIONS_TEST.md](docs/WINDOWS_OPTIONS_TEST.md)。`winbuild.py --pal-options` 编入精准输入v4及快速施法v3，两者运行时默认关闭；用新的Python profile启动器分别对照，不再依赖Linux实验目录。Windows实际声卡仍待本地验证。数据扇区提速的默认1、可选2/4档见 [docs/DATA_CD_SPEED.md](docs/DATA_CD_SPEED.md)，不改变CDDA或全局时钟。当前玩法覆盖见 [docs/COVERAGE_STATUS.md](docs/COVERAGE_STATUS.md)，不要把下文早期阶段描述当成最新验收范围。
 
 ## 一分钟结论
 

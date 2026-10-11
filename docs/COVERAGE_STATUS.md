@@ -77,7 +77,10 @@ working physical sound-device path. The user's Windows startup/audio stall
 has not been reproduced on Windows. SDL v4 headless equivalence is not a new
 native keyboard acceptance run.
 
-Source is committed locally. Remote publication has not yet been confirmed.
+Verified source and Windows option integration were published on the feature
+branch fix/linux-sdl-dma-20261010 in commits6de5e9d and eae3cda. The downloaded
+remote tree matches the207 local tracked files at aa6d347 exactly; master was
+not merged. No GitHub Actions workflows exist, so no remote CI pass is claimed.
 Source recovery packages exclude ROM, BIOS, extracted modules, generated
 commercial game source/executables and saves. Only this task's generated saves
 and input records go into the separate private checkpoint package.
