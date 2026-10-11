@@ -106,5 +106,90 @@ int main() {
     latch.down(enter, Confirm, false, true, false);
     latch.up(enter);
     check(latch.read(enter) == 0, "mapping-only helper is not a short-tap queue");
+    static_assert(Strongest == 0x0008 && Repeat == 0x0010);
+    constexpr int f = 9, r = 21;
+    BattlePressLatch battle;
+    PressLatch existing;
+    existing.down(enter, Confirm, false, true, false);
+    field();
+    battle.down(f, Strongest, false, true, false);
+    check(battle.read(f) == 0, "field strongest is consumed as zero");
+    const auto old_general_boundary = boundary;
+    {
+        BattleCommandsScope main(true);
+        check(battle_commands, "main command scope enables shortcuts");
+        check(boundary == old_general_boundary, "battle phase leaves Enter/Escape boundary alone");
+        check(battle.read(f) == 0, "field hold cannot queue into battle main menu");
+        battle.down(f, Strongest, true, true, false);
+        battle.down(f, Strongest, false, true, false);
+        check(battle.read(f) == 0, "field hold needs real release even with duplicate down");
+        battle.up(f);
+        battle.down(f, Strongest, false, true, false);
+        check(battle.read(f) == Strongest, "fresh F maps only native L");
+        battle.down(r, Repeat, false, true, false);
+        check(battle.read(r) == Repeat, "fresh R maps only native Z");
+    }
+    check(!battle_commands && battle.read(f) == 0 && battle.read(r) == 0, "scope exit retires both shortcuts");
+    check(existing.read(enter) == Confirm, "battle phase does not retire existing Enter latch");
+    {
+        BattleCommandsScope next(true);
+        check(battle.read(f) == 0 && battle.read(r) == 0, "held F/R cannot repeat across actor/turn menus");
+        battle.down(r, Repeat, true, true, false);
+        check(battle.read(r) == 0, "OS repeat cannot reactivate retired R");
+        battle.up(r);
+        battle.down(r, Repeat, false, true, false);
+        check(battle.read(r) == Repeat, "release then new R works in next menu");
+        battle.block();
+        check(battle.read(r) == 0, "host overlay/focus/profile boundary blocks battle shortcut");
+        battle.down(r, Repeat, false, true, false);
+        check(battle.read(r) == 0, "blocked hold cannot restart until release");
+    }
+    // Every non-command phase uses the same closed gate. Test each named case.
+    for (const char* phase : {"spell list", "item list", "target selection", "enemy animation", "dialogue", "field"}) {
+        (void)phase;
+        battle.up(f);
+        battle.down(f, Strongest, false, true, false);
+        check(battle.read(f) == 0, "non-command phase cannot emit native L");
+        BattleCommandsScope next(true);
+        check(battle.read(f) == 0, "non-command phase cannot queue strongest into next menu");
+    }
+    battle.up(f);
+    {
+        BattleCommandsScope main(true);
+        // Boundary is deliberately not observed before this fresh edge.
+        battle.down(f, Strongest, false, true, false);
+        check(battle.read(f) == Strongest, "first edge after boundary survives later pad read");
+        clear();
+        check(!battle_commands && battle.read(f) == 0, "scene clear closes active command gate");
+    }
+    check(!battle_commands, "scope unwinding after clear cannot reactivate gate");
+    battle.up(f);
+    {
+        BattleCommandsScope invalid(false);
+        battle.down(f, Strongest, false, true, false);
+        check(!battle_commands && battle.read(f) == 0, "battle flag false fails closed");
+    }
+    battle.up(f);
+    try {
+        BattleCommandsScope main(true);
+        battle.down(f, Strongest, false, true, false);
+        throw 1;
+    } catch (int) {}
+    check(!battle_commands && battle.read(f) == 0, "exception unwinding closes gate");
+    battle.up(f);
+    {
+        BattleCommandsScope main(true);
+        battle.down(f, Strongest, false, false, false);
+        check(battle.read(f) == 0, "unfocused strongest blocked");
+        battle.up(f);
+        battle.down(f, Strongest, false, true, true);
+        check(battle.read(f) == 0, "Alt or host menu blocks strongest");
+        battle.up(f);
+        battle.down(f, Strongest, false, true, false);
+        battle.up(f);
+        check(battle.read(f) == 0, "battle helper is mapping only, no short-tap queue");
+        ui();
+        check(!battle_commands, "explicit UI boundary fails closed");
+    }
     std::cout << "PASS: " << checks << " context/latch checks; no game or SDL execution\n";
 }

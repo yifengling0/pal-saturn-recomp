@@ -59,6 +59,22 @@ class PlannerTests(unittest.TestCase):
         self.assertIn('static void read_pads() {\n    sync_pc_boundary();', host)
         self.assertIn('g_pc_boundary = pal_keyboard::boundary; g_pc_press.block();', host)
 
+    def test_battle_scope_is_only_in_main_command_menu(self):
+        out = self.plan()
+        hook = b'pal_keyboard::BattleCommandsScope pal_battle_commands(ld16(0x060768ECu) == 0xFFFFu);'
+        self.assertEqual(sum(value.count(hook) for value in out.values()), 1)
+        self.assertIn(hook, out[self.f.paths['0604A0BC']])
+        self.assertNotIn(hook, out[self.f.paths['0604A5B8']])
+
+    def test_battle_shortcuts_respect_existing_binding_priorities(self):
+        out = self.plan()[self.f.runtime / 'src/host/host.cpp'].decode()
+        self.assertIn('!native_bound && !semantic_key(key)', out)
+        self.assertIn('add_battle_keys("strongest", g_strongest_keys);', out)
+        self.assertIn('add_battle_keys("repeat", g_repeat_keys);', out)
+        self.assertIn('repeat_command ? pal_keyboard::Repeat : pal_keyboard::Strongest', out)
+        self.assertIn('g_battle_press.up(e.key.scancode)', out)
+        self.assertEqual(out.count('g_pc_press.block(); g_battle_press.block();'), 2)
+
     def test_real_helper_digest_is_pinned(self):
         self.assertEqual(digest(HEADER.read_bytes().replace(b'\r\n', b'\n')), m.HEADER_SHA256)
 
@@ -242,7 +258,7 @@ class PlannerTests(unittest.TestCase):
         out = self.plan()[self.f.runtime / 'src/host/settings.cpp'].decode()
         self.assertEqual(out.count('PAL_KEYBOARD_PROFILE_V1'), 1)
         for expected in ('keyboard_profile = pc98', '[keyboard pc98]', 'confirm = Return, Keypad Enter, Space',
-                         'menu_cancel = Escape', 'start = Tab', 'has_profile ? "pc98" : "saturn"',
+                         'menu_cancel = Escape', 'strongest = F', 'repeat = R', 'start = Tab', 'has_profile ? "pc98" : "saturn"',
                          '{"keyboard_profile", {"pc98", "saturn"}}'):
             self.assertIn(expected, out)
         self.assertIn('[keyboard]\na = Z', out)
@@ -254,7 +270,7 @@ class PlannerTests(unittest.TestCase):
                          '!semantic_key(key)', '!(pc_keyboard() && key == SDL_SCANCODE_F10)',
                          'pc_keyboard() || !f10_bound || g_menu_open',
                          'g_pc_boundary != pal_keyboard::boundary',
-                         'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) g_pc_press.reset();',
+                         'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); }',
                          'g_menu_open || (e.key.mod & SDL_KMOD_ALT)',
                          'e.key.windowID != wid || SDL_GetKeyboardFocus() != g_win',
                          'existing_close_hook();', 'existing_open_hook();'):

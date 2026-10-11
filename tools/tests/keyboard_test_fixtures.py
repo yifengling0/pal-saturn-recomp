@@ -145,6 +145,7 @@ class Fixture:
             '0604A5B8': function('0604A5B8', '    synthetic_guest_step(c); // 0604A8C0 synthetic instruction\n'),
             '060516B4': function('060516B4'),
             '06020058': function('06020058'),
+            '0604A0BC': function('0604A0BC'),
         }
         self.paths = {pc: self.recomp / f'{"p_true" if pc == "06020058" else "p_prog"}_{i + 90:03}.cpp'
                       for i, pc in enumerate(self.functions)}
@@ -157,7 +158,8 @@ class Fixture:
     @contextmanager
     def hashes(self, module):
         # Only fake source inputs are blessed. The real helper digest is never patched.
-        with patch.object(module, 'FUNCTION_HASHES', {pc: [digest(text)] for pc, text in self.functions.items()}), \
+        with patch.object(module, 'HARMONY_RUNTIME_HELPERS', {}, create=True), \
+             patch.object(module, 'FUNCTION_HASHES', {pc: [digest(text)] for pc, text in self.functions.items()}), \
              patch.object(module, 'RUNTIME_HASHES', {p.name: [digest(text)] for p, text in self.rt.items()}):
             yield
 
