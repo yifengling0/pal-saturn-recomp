@@ -8,7 +8,7 @@ manifest idempotence, and CMake runtime selection. Repeated raw planning fails.
 """
 from pathlib import Path
 import hashlib,re
-VERSION='pal-keyboard-profile-v1-mapping-7-ohos-edge-menu'
+VERSION='pal-keyboard-profile-v1-mapping-8-ohos-tap-hold-identity'
 def sha(s):return hashlib.sha256(s.encode() if isinstance(s,str) else s).hexdigest()
 RUNTIME_HASHES = {'host.cpp': ['6b82aaa5f9720e3ad9a53db35e6dda8ef08198d4dbcacf7f3f0f6b25f2a9518d', '9af5f2ac245114cb7cdf858c69a90ecb0c217a29f423c9168c353558bf0222a4', '16fd0b06648fb3f3c1dda96b3200aa7bf8baaff1f2aca9d0b4e0ffa720055937', 'f4c957d90193478ac77588f6592b1061226686b062bbd3e7561ba7a236da94a1'], 'settings.cpp': ['4da2c93a0eec58ca861c972076961eaf4d64d4ecb471b4d29d94af73f1705b66', '6dd16bf8b13057ddd35aa50a474aaf958df2515e94e877a533b99f5430df9cfb'], 'launcher.cpp': ['23d65e3b6f854823fd33a1f3b1373584d22e98b9edf247125458648fad863e32']}
 RUNTIME_HASHES['host.cpp'].append('4b2c32d213a9a28823c214cbfe3f62ac166e238beb127105441e1baee1eef7ed')
@@ -26,6 +26,10 @@ RUNTIME_HASHES['launcher.cpp'].append('6fab3c98d05f4f9eb69c2c14672b205f487964fc6
 RUNTIME_HASHES['host.cpp'].append('bc6134fcf2b9509fe339aca897586efe5e0412ce9f89074db2dc7edfccf6ea56')
 # 0013 again as the options build hands it to this planner: after that build's own input stages.
 RUNTIME_HASHES['host.cpp'].append('c681e48800584a4384ccb85daf1502541ae300f21a0c2d4d3477f2283bf2e8f7')
+# Full fixed-upstream UI13 + 0014 + restored 0015; see input build identity audit.
+RUNTIME_HASHES['host.cpp'].append('17236f5e8e8d8316482040b00ba72dbdda7d19daadaf9e101ed31eae7f20168e')
+# The same complete chain after existing precise-input and paired-queue stages.
+RUNTIME_HASHES['host.cpp'].append('1486417a81f3546751aa1d7b0293b2f4c98e8316034576f3bac14c838bbf2fa0')
 FUNCTION_HASHES = {'06020040': ['49fc15d214cc14ad85134d3301ce577f699d38aec8301287d632dd5b545bad7c'], '06026D84': ['9e83b5975b9f141c3d0e22f15907be2ada11b74aab7237444cde410ae4fefaaa', 'f04a09eb1154c18fcdb61a95fd4f3f945106da5daccf7eec6131edf88800e8a8'], '06021F14': ['1a72d209543cdd95d863b4e62b28c7639a24c2098c855279d2a97075203722e0'], '06026F90': ['33b311616b04e42b7e6cb85366ff11f58e1ecc4a1573fd5b9d7b8527cb2fcb75', '677f5eb849f6f0f3731cf35a0292d91dacef58e127de7d427fb659101b56e056'], '0604A5B8': ['38a41b3879208ad03418cbe48ed1efeb1888129062f385fc362955afd8e0ce50'], '060516B4': ['8d243239da6d34c6b188603ca3108a13b9984f855348edf66a04759c5a93b60d'], '06020058': ['9548908855627449ef75ff2a63a87d8083fc953294231d447073e05bec6beca7']}
 FUNCTION_HASHES['0604A0BC'] = ['ab7cfc91ca77e9b977d3bc6e986174bdc7ff89baed1a1ab21630540fe749cae1']
 HEADER_SHA256 = '70fdaa671060e63881ff6987e214964a1a603f7381b81b22754392a36f25b043'
@@ -274,14 +278,28 @@ HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165
 # Pin the unchanged UI implementation as well as its new helpers and fonts.
 # The UI variant below overrides a helper pin for the same file name, so a patch that
 # touches one of these (0012 rewrote touch_pad.h) has to move both entries together.
-HARMONY_RUNTIME_HELPERS.update({'touch_pad.h': 'c8da777f3f1964b26e11327d229290b60a8cc0117ed83243dcd5160e94efdfc2', 'ui.cpp': 'f01298ab0b09b17f3dad1744ecf7f544cfb9631a4798669381bd481277b9994d', 'ui.h': '092475fc1f6698f407578218a6be84dfe87a91fa9fec4d6eed42765efb8c5b10'})
-HARMONY_UI_RUNTIME_FILES = {'src/host/host_menu_text.h': '71f353f340bcd725ef9a6699e436b0f173d7d989a5203af97badc762bac23fff', 'src/host/touch_mobile_layout.h': 'ca10a5dbe807d3fd9e3fe6451ad1a6c0ab0eb94e87a74a10eb8de9041ff14000', 'src/host/touch_pad.h': 'c8da777f3f1964b26e11327d229290b60a8cc0117ed83243dcd5160e94efdfc2', 'src/host/touch_positions.h': '17e93a289335fff39e353c1cafeab145bb832670163ecbaaec39f9562b1eccea', 'src/host/ui.cpp': 'ad46a6c467a7789cc0cb97cd7378915acefb60886587c8b6c3ccde5cbb748094', 'src/host/ui.h': 'a84b5e37be41e5b78c139eb8e5d30d395fae8b66531c469d182a3b05ad6852c5', 'third_party/pal-menu-cjk/LICENSE.txt': '1dd173adfb86606c086ab1c2a5c7d3e6a1c373cd6b2ef7c729955a5f8c71f44f', 'third_party/pal-menu-cjk/README.md': 'b9db583f9951e03107353d8b19d9e7b57d0588f713097cb713e0f0aca2852f92', 'third_party/pal-menu-cjk/generate.py': '7d41876b9272d80d9b58cbae16774f5e1215b1c37ab4adbb9145ee0ea77e4320', 'third_party/pal-menu-cjk/glyphs.h': 'e42e2beefd508e1443eea17c2ce971143d2ec38b8a857140f183475000a36422', 'third_party/pal-menu-cjk/manifest.json': '40f74db2b4f2543d221e5e175d4d186370f41d5594d61b11456fe8b5b7c5f79f', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': 'e286ee6609147260e1efea30827c653bbcd8f01a392fd3328f466cbb79b3fe5f', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'e86226d416450c52d258c99dc94dbe43af422a57c79dd6e5f8f441556dfa6201'}
+HARMONY_RUNTIME_HELPERS.update({'touch_pad.h': '3c0aa2e16c81ce00be55b826692469ac4eba85ed55449695fa97a9fe8508bdf1', 'ui.cpp': 'f01298ab0b09b17f3dad1744ecf7f544cfb9631a4798669381bd481277b9994d', 'ui.h': '092475fc1f6698f407578218a6be84dfe87a91fa9fec4d6eed42765efb8c5b10'})
+HARMONY_UI_RUNTIME_FILES = {'src/host/host_menu_text.h': '71f353f340bcd725ef9a6699e436b0f173d7d989a5203af97badc762bac23fff', 'src/host/touch_mobile_layout.h': 'ca10a5dbe807d3fd9e3fe6451ad1a6c0ab0eb94e87a74a10eb8de9041ff14000', 'src/host/touch_pad.h': 'ce116e1efa1a511dfcb83f97537dfc5b973864f9a438c4dcf432ad4c20f61dd0', 'src/host/touch_positions.h': '17e93a289335fff39e353c1cafeab145bb832670163ecbaaec39f9562b1eccea', 'src/host/ui.cpp': 'ad46a6c467a7789cc0cb97cd7378915acefb60886587c8b6c3ccde5cbb748094', 'src/host/ui.h': 'a84b5e37be41e5b78c139eb8e5d30d395fae8b66531c469d182a3b05ad6852c5', 'third_party/pal-menu-cjk/LICENSE.txt': '1dd173adfb86606c086ab1c2a5c7d3e6a1c373cd6b2ef7c729955a5f8c71f44f', 'third_party/pal-menu-cjk/README.md': 'b9db583f9951e03107353d8b19d9e7b57d0588f713097cb713e0f0aca2852f92', 'third_party/pal-menu-cjk/generate.py': '7d41876b9272d80d9b58cbae16774f5e1215b1c37ab4adbb9145ee0ea77e4320', 'third_party/pal-menu-cjk/glyphs.h': 'e42e2beefd508e1443eea17c2ce971143d2ec38b8a857140f183475000a36422', 'third_party/pal-menu-cjk/manifest.json': '40f74db2b4f2543d221e5e175d4d186370f41d5594d61b11456fe8b5b7c5f79f', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': 'e286ee6609147260e1efea30827c653bbcd8f01a392fd3328f466cbb79b3fe5f', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'e86226d416450c52d258c99dc94dbe43af422a57c79dd6e5f8f441556dfa6201'}
 
 # UI12 discovery text and its complete font subset form one reviewed variant.
 HARMONY_DISCOVERY_RUNTIME_FILES = {**HARMONY_UI_RUNTIME_FILES, **{'src/host/host_menu_text.h': '12140edd671050e1c769d517a09adb5a3d94575dca9720f5fc3ec6fb81a6fa4e', 'third_party/pal-menu-cjk/glyphs.h': '9b4c9b126fade635023cd72223e1001a2c72d586458fb9fa44b99319b6b08536', 'third_party/pal-menu-cjk/manifest.json': '6c9f1f15f6d8aa811abdfc20234279a3c128bf1f14287dc829a32e2662887dd6', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '395bbfea07f8562866897ae48c5d2a56093a0cd5b2d05f091c05df22b6b7740d', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'abe6d558461f64ac0bca21f6b3ddb19434aec8c18a810c52a1b80a18140ab518'}}
 
 # UI13 edge menu, translated hints and font subset are one exact variant.
 HARMONY_EDGE_RUNTIME_FILES = {**HARMONY_DISCOVERY_RUNTIME_FILES, **{'src/host/host_menu_text.h': '2cfa468a58ae53dee04211dc89f6fcdb7d72c81aa8de2d030b5e6dc9236bdaf5', 'src/host/touch_edge_swipe.h': '3e96b5ca8a2416833385ae42aff8d80707bd0f5e9cf3030268db672d9a225717', 'third_party/pal-menu-cjk/glyphs.h': '7af51e87823ec02022dab795251d2673f7590f305bdf3afa671bc4e827618ca8', 'third_party/pal-menu-cjk/manifest.json': '1804b4de6cfdea61062d3c027d6273c06b467ca93dd88a109d61b4ee78f91c4f', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '5e9e006d0fb5a416763bf447f144bf79074a16c019384c5f1906e20933c8256c', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': '1add110f177b7c3624d1a30be80b17bef3c1609018d03665f5b9ffa9fc2703fe'}}
+
+# 0014/0015 add one reviewed support variant without weakening older complete ones.
+# The 81-line helper is restored verbatim from 3b27d10's original tap-hold patch.
+TAP_HOLD_RUNTIME_FILES = {
+ 'src/host/touch_pad.h': 'c8da777f3f1964b26e11327d229290b60a8cc0117ed83243dcd5160e94efdfc2',
+ 'src/host/pal_tap_hold.h': '072788032e2f8abce11764caa48068ff43c9d0fafc24236240f63debd2288a47',
+}
+
+def verify_runtime_support_manifest(manifest, runtime, support_inputs):
+ """Every unchanged runtime dependency belongs to the same complete manifest."""
+ recorded=manifest.get('inputs_sha256',{}).get('runtime',{})
+ for path,raw in support_inputs.items():
+  name=path.relative_to(runtime).as_posix()
+  if recorded.get(name)!=sha(raw):raise ValueError('Incomplete runtime support manifest: '+name)
 
 def runtime_support_inputs(runtime):
  """Read and verify one complete reviewed runtime support variant."""
@@ -304,6 +322,12 @@ def runtime_support_inputs(runtime):
   raise ValueError('Mixed Harmony runtime UI variants; regenerate')
  if uses_ui:
   expected.update(HARMONY_EDGE_RUNTIME_FILES if uses_edge else HARMONY_DISCOVERY_RUNTIME_FILES if uses_discovery else HARMONY_UI_RUNTIME_FILES)
+ uses_tap=b'#include "pal_tap_hold.h"' in host.read_bytes()
+ tap=runtime/'src/host/pal_tap_hold.h'
+ if uses_tap:
+  expected.update(TAP_HOLD_RUNTIME_FILES)
+ elif tap.exists() or tap.is_symlink():
+  raise ValueError('Mixed tap-hold runtime variant; regenerate')
  inputs={}
  for name,value in expected.items():
   if Path(name).is_absolute() or '..' in Path(name).parts:raise ValueError('Unsafe runtime support path')
@@ -333,6 +357,7 @@ def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  support_inputs=runtime_support_inputs(runtime)
  if manifest.exists():
   old=json.loads(manifest.read_text())
+  verify_runtime_support_manifest(old,runtime,support_inputs)
   if old.get('version')!=VERSION or old.get('header_sha256')!=header_hash or old.get('runtime')!=relative:raise ValueError('Keyboard source/version changed; regenerate')
   inventory=sorted(p.name for pattern in ('p_prog_*.cpp','p_true_*.cpp') for p in recomp.glob(pattern))
   if inventory!=old.get('generated_files'):raise ValueError('Generated source inventory changed; regenerate')

@@ -17,10 +17,12 @@ HELPER_FILES = tuple(EXPECTED["source_sha256"])
 HOST_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/host/host.cpp'],
  'a50e312b94040e4110ac5c38ab92dbf121b96a793831c228bb4f3b2409d58843',
  'e64c92f63a209e67e00619a8f1ac31096b766521d4a17ca4bc97181d412700fe',
-<<<<<<< HEAD
  '2a562eb0c593029c9363691fc3e500385cfbe031e2473ed70070c4968fea3cb1',
  'baa0ebd22bc2e364a5a398d59f0f6bddaf9de54bc79284b4f6647e55ec1ecb74',
  'bafa40a8fa223e74b3a5ea65ad1b69b077704c1f77b694a4bac50b38570c6658'}
+
+# UI13 + 0014/0015 after the unchanged precise-input host transform.
+HOST_INPUT_SHA256.add('811c1789dae3b183c059922cd3f977ef0d43dae3db727fb7d1ce990c39c57681')
 
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))

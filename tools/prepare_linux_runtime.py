@@ -78,8 +78,9 @@ def prepare(clean: Path, patched: Path, pin: str, patches: list[Path]):
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         git(scratch, 'checkout', '-b', 'pal-linux', pin)
         for patch in patches:
-            git(scratch, 'apply', '--check', str(patch.resolve()))
-            git(scratch, 'apply', str(patch.resolve()))
+            # Include newly added helpers in diff HEAD and the repeat identity check.
+            git(scratch, 'apply', '--check', '--index', str(patch.resolve()))
+            git(scratch, 'apply', '--index', str(patch.resolve()))
         data = {'pin': pin, 'patches': inputs,
                 'diff_sha256': hashlib.sha256(git(scratch, 'diff', 'HEAD', '--binary')).hexdigest()}
         (scratch / '.git/pal-setup-manifest.json').write_text(json.dumps(data, indent=2) + '\n')
