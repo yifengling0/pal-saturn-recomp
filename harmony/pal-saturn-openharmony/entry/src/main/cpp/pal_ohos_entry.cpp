@@ -294,8 +294,8 @@ extern "C" int SDL_main(int argc, char** argv)
     note("PAL features: %s", pal_movie_cache_feature());
     const int host_ui_version = pal_host_ui_feature_version();
     note("PAL host UI: version=%d source_bytes_sha256=%s", host_ui_version, pal_host_ui_source_hash());
-    if (host_ui_version != 12) {
-        note("host UI version mismatch: require 12; rebuild the verified OHOS runtime");
+    if (host_ui_version != 13) {
+        note("host UI version mismatch: require 13; rebuild the verified OHOS runtime");
         return 2;
     }
     const int result = saturn_main((int)argv_out.size() - 1, argv_out.data());
