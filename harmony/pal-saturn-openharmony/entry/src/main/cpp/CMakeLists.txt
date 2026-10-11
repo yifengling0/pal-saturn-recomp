@@ -20,7 +20,32 @@ set(SDL3_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 add_subdirectory("${PAL_ROOT}/build/recomp" saturn_recomp)
 # Missing display.presentation defaults to aspect-preserving fit on OHOS only.
 # An explicit user original/fit/stretch setting still wins.
-target_compile_definitions(saturn_host PRIVATE PAL_OHOS_DEFAULTS=1)
+target_compile_definitions(saturn_host PRIVATE PAL_OHOS_DEFAULTS=1 PAL_OHOS_INPUT=1)
+
+option(PAL_OHOS_GAMEPAD_BRIDGE "Use Game Controller Kit API 21+ through SDL virtual gamepads" ON)
+if(PAL_OHOS_GAMEPAD_BRIDGE)
+    include(CheckIncludeFileCXX)
+    check_include_file_cxx("GameControllerKit/game_device.h" PAL_HAS_GAME_DEVICE_H)
+    check_include_file_cxx("GameControllerKit/game_pad.h" PAL_HAS_GAME_PAD_H)
+    if(NOT PAL_HAS_GAME_DEVICE_H OR NOT PAL_HAS_GAME_PAD_H)
+        message(FATAL_ERROR "Physical gamepad bridge requires Game Controller Kit API 21+ SDK headers. Update the SDK, or explicitly set PAL_OHOS_GAMEPAD_BRIDGE=OFF for touch/keyboard-only builds.")
+    endif()
+    if(DEFINED SDL_JOYSTICK AND NOT SDL_JOYSTICK)
+        message(FATAL_ERROR "PAL gamepads require SDL_JOYSTICK=ON")
+    endif()
+    if(NOT SDL_VIRTUAL_JOYSTICK)
+        message(FATAL_ERROR "PAL gamepad bridge requires SDL_VIRTUAL_JOYSTICK=ON")
+    endif()
+    target_compile_definitions(saturn_host PRIVATE PAL_OHOS_GAMEPAD_BRIDGE=1)
+    message(STATUS "PAL physical gamepads: Game Controller Kit API 21+; runtime capability checked dynamically")
+else()
+    target_compile_definitions(saturn_host PRIVATE PAL_OHOS_GAMEPAD_BRIDGE=0)
+    message(WARNING "PAL physical gamepad bridge disabled: the current SDL OHOS dummy/virtual backend cannot read hardware controllers")
+endif()
+target_sources(saturn_host PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/pal_ohos_gamepad.cpp")
+target_include_directories(saturn_host PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+# Dynamic loading preserves the existing API 16 minimum; no new load-time NEEDED entry.
+target_link_libraries(saturn_host PUBLIC ${CMAKE_DL_LIBS})
 
 # 生成工程里的 find_package(Threads) 只在它自己的目录作用域有效，壳这层要自己找一次
 find_package(Threads REQUIRED)

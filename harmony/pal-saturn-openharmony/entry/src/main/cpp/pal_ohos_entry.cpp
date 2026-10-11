@@ -25,6 +25,7 @@
 
 // src/app/main.cpp is compiled with -Dmain=saturn_main for this target.
 extern int saturn_main(int argc, char** argv);
+extern void host_shutdown_input();
 extern "C" const char* pal_movie_cache_feature();
 
 #ifndef PAL_BUNDLE_NAME
@@ -287,5 +288,7 @@ extern "C" int SDL_main(int argc, char** argv)
     for (std::string& a : args) argv_out.push_back(a.data());
     argv_out.push_back(nullptr);
     note("PAL features: %s", pal_movie_cache_feature());
-    return saturn_main((int)argv_out.size() - 1, argv_out.data());
+    const int result = saturn_main((int)argv_out.size() - 1, argv_out.data());
+    host_shutdown_input();
+    return result;
 }
