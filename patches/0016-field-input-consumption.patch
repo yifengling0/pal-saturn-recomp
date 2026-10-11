@@ -1,0 +1,509 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -43,6 +43,9 @@
+ #include "pal_audio_queue_policy.h"
+ #include "pal_audio_jitter_policy.h"
+ #include "pal_tap_hold.h"
++#include "pal_field_input_api.h"
++#include "pal_field_input_ledger.h"
++#include <set>
+ #include "ui.h"
+ #include "host_menu_text.h"
+ namespace hm = host_menu;
+@@ -136,7 +139,7 @@
+     static bool noted=false;
+     if(noted)return;
+     noted=true;
+-    sat_note("PAL host UI features: UI%d edge-swipe-v1 touch-editor-v2 legacy-layout-draft next-page-label layout=%d locale=%s",
++    sat_note("PAL host UI features: UI%d edge-swipe-v1 touch-editor-v2 legacy-layout-draft next-page-label layout=%d locale=%s field-input-v1 source-held-edge-single",
+         pal_host_ui_feature_version(),g_settings.number("touch","layout_version"),PAL_HOST_MENU_CHINESE?"zh-CN":"en");
+ }
+ 
+@@ -461,6 +464,37 @@
+     return b;
+ }
+ 
++// Stable source domains: each key, each player-one controller, each touch contact.
++static pal_field_host::Ledger g_field_ledger;
++static bool g_field_mode = false, g_field_focus = true, g_field_foreground = true;
++static bool g_field_servicing = false;
++static uint64_t g_field_touch_serial = 0;
++struct FieldTouch { TouchFinger finger; uint64_t source; bool armed; };
++using FieldTouchKey = std::pair<SDL_TouchID, SDL_FingerID>;
++static std::map<FieldTouchKey, FieldTouch> g_field_touches;
++static std::set<uint64_t> g_field_polled_sources;
++static std::map<SDL_JoystickID, uint16_t> g_field_pad_events;
++static constexpr uint16_t kFieldDirections = pal_field_host::Ledger::Directions;
++static uint64_t field_key_source(SDL_Scancode key) { return (uint64_t(1) << 60) | uint32_t(key); }
++static uint64_t field_pad_source(SDL_JoystickID id) { return (uint64_t(2) << 60) | uint32_t(id); }
++namespace pal_field_host {
++bool available() {
++    if (!SDL_IsMainThread()) return false;
++    const char* value = std::getenv("PAL_FIELD_INPUT");
++    const bool enabled = !value || !std::strcmp(value, "1");
++    return enabled && g_win && !g_cfg.headless && (g_cfg.input.empty() || (g_cfg.resume && !sat_resuming()));
++}
++}
++static bool field_intercepts() { return pal_field_host::available() && g_field_mode; }
++static void field_boundary() {
++    g_field_ledger.context(false, true);
++    for (auto& [key, touch] : g_field_touches) g_field_ledger.cancel(touch.source);
++    g_field_touches.clear();
++}
++static void field_reconcile_inputs();
++static void field_note_event(const SDL_Event& e);
++static void field_touch_event(const SDL_Event& e, float x, float y);
++
+ static uint16_t g_held_over[kHostSlots];        // held as the menu closed: ignored until let go
+ static PalTapHold g_pal_taps[kHostSlots];       // presses too quick for a poll, kept for the game
+ static uint16_t touch_read();
+@@ -476,13 +510,21 @@
+         int s = g_slots.slot_of(p.id);
+         if (s >= 0) b[s] |= gamepad_buttons(p.pad, p.map);
+     }
++    field_reconcile_inputs();
++    const bool field = field_intercepts();
++    if (field) b[0] = uint16_t((b[0] & ~kFieldDirections) | g_field_ledger.held());
+     for (int s = 0; s < kHostSlots; ++s) {
+         g_held_over[s] &= b[s];
+         g_pal_taps[s].forget(g_held_over[s]);
+         // A press the game was owed is published before the directions cancel, so a stretch can never
+         // leave both of a pair on.
+         const uint16_t moving = B_UP | B_DOWN | B_LEFT | B_RIGHT;
+-        uint16_t pad = g_pal_taps[s].publish(b[s] & (uint16_t)~g_held_over[s], sat_vblanks(), moving);
++        const uint16_t live = b[s] & uint16_t(~g_held_over[s]);
++        uint16_t pad;
++        if (field && s == 0) {
++            g_pal_taps[s].forget(moving);
++            pad = g_pal_taps[s].publish(live & uint16_t(~moving), sat_vblanks(), moving) | (live & moving);
++        } else pad = g_pal_taps[s].publish(live, sat_vblanks(), moving);
+         if ((pad & (B_LEFT | B_RIGHT)) == (B_LEFT | B_RIGHT)) pad &= (uint16_t)~(B_LEFT | B_RIGHT);   // not on a real pad
+         if ((pad & (B_UP | B_DOWN)) == (B_UP | B_DOWN)) pad &= (uint16_t)~(B_UP | B_DOWN);
+         g_buttons[s] = pad;
+@@ -543,6 +585,7 @@
+ }
+ 
+ void host_shutdown_input() {
++    field_boundary();
+     while (!g_pads.empty()) pad_removed(g_pads.back().id);
+     g_slots = PadSlots(kHostSlots);
+     std::fill(std::begin(g_buttons), std::end(g_buttons), 0);
+@@ -553,6 +596,7 @@
+ }
+ 
+ void host_rebind() {
++    field_boundary();
+     bind_keyboard();
+     for (auto& p : g_pads) {
+         char guid[33];
+@@ -642,8 +686,11 @@
+ static std::map<SDL_FingerID, TouchFinger> g_fingers;
+ // Fingers lifted before the pads were read since they went down: each holds its button for that one read,
+ // so a tap quicker than a frame still presses it.
+-static std::vector<SDL_FingerID> g_lifted;
+-static std::map<SDL_FingerID, bool> g_unread;
++// A recycled SDL finger ID must not let an old release retire its new contact.
++using TouchGeneration = uint64_t;
++static TouchGeneration g_touch_generation = 0;
++static std::vector<std::pair<SDL_FingerID, TouchGeneration>> g_lifted;
++static std::map<SDL_FingerID, TouchGeneration> g_unread;
+ static uint16_t g_touch_held;
+ 
+ static bool g_layout_edit, g_edit_dragging;
+@@ -694,7 +741,10 @@
+ static uint16_t touch_read() {
+     std::vector<TouchFinger> fingers;
+     for (auto& [id, f] : g_fingers) fingers.push_back(f);
+-    for (SDL_FingerID id : g_lifted) g_fingers.erase(id);
++    for (auto [id, generation] : g_lifted) {
++        const auto unread = g_unread.find(id);
++        if (unread != g_unread.end() && unread->second == generation) g_fingers.erase(id);
++    }
+     g_lifted.clear();
+     g_unread.clear();
+     if (!touch_shown() || fingers.empty()) return g_touch_held = 0;
+@@ -860,6 +910,7 @@
+ }
+ 
+ static void menu_close() {
++    field_boundary();
+     g_menu_open = false;
+     g_confirm_quit = false; g_confirm_layout = false;
+     g_layout_edit=false;g_edit_dragging=false;
+@@ -1021,6 +1072,7 @@
+ 
+ static void menu_open() {
+     if (g_menu_open || g_quitting) return;
++    field_boundary();
+     g_menu_open = true;
+     g_confirm_quit = false; g_confirm_layout = false;
+     g_menu_page = 0;
+@@ -1131,7 +1183,99 @@
+     if (bits && slot >= 0) g_pal_taps[slot].press(bits);
+ }
+ 
++static void field_reconcile_inputs() {
++    if (!pal_field_host::available()) return;
++    const auto layout = pad_layout();
++    for (auto& [key, touch] : g_field_touches) {
++        if (!touch_shown()) touch.armed = false;
++        const uint16_t direction = touch.armed ? touch_buttons(layout, {touch.finger}) & kFieldDirections : 0;
++        if (direction) g_field_ledger.observe(touch.source, direction);
++        else g_field_ledger.cancel(touch.source);
++    }
++    std::set<uint64_t> current;
++    std::map<SDL_Scancode, uint16_t> directions;
++    for (const auto& [key, bit] : g_keys) directions[key] |= bit & kFieldDirections;
++    const bool* keyboard = SDL_GetKeyboardState(nullptr);
++    for (const auto& [key, bits] : directions) if (bits) {
++        const auto source = field_key_source(key); current.insert(source);
++        g_field_ledger.observe(source, keyboard[key] ? bits : 0);
++    }
++    for (const auto& pad : g_pads) if (g_slots.slot_of(pad.id) == 0) {
++        const auto source = field_pad_source(pad.id); current.insert(source);
++        const auto bits = gamepad_buttons(pad.pad, pad.map) & kFieldDirections;
++        g_field_pad_events[pad.id] = bits;
++        g_field_ledger.observe(source, bits);
++    }
++    for (auto source : g_field_polled_sources) if (!current.count(source)) g_field_ledger.cancel(source);
++    g_field_polled_sources = std::move(current);
++}
++
++static void field_note_event(const SDL_Event& e) {
++    switch (e.type) {
++    case SDL_EVENT_WINDOW_FOCUS_LOST: g_field_focus = false; field_boundary(); break;
++    case SDL_EVENT_WINDOW_FOCUS_GAINED: g_field_focus = true; break;
++    case SDL_EVENT_WILL_ENTER_BACKGROUND:
++    case SDL_EVENT_DID_ENTER_BACKGROUND: g_field_foreground = false; field_boundary(); break;
++    case SDL_EVENT_DID_ENTER_FOREGROUND: g_field_foreground = true; break;
++    case SDL_EVENT_WINDOW_RESIZED:
++    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
++    case SDL_EVENT_DISPLAY_ORIENTATION:
++    case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: field_boundary(); break;
++    default: break;
++    }
++    if (!pal_field_host::available()) return;
++    if (e.type == SDL_EVENT_KEY_UP) g_field_ledger.release(field_key_source(e.key.scancode));
++    if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat && !g_menu_open &&
++        g_field_focus && g_field_foreground && !(e.key.mod & SDL_KMOD_ALT) &&
++        e.key.windowID == SDL_GetWindowID(g_win) && SDL_GetKeyboardFocus() == g_win) {
++        uint16_t bits = 0;
++        for (const auto& [key, bit] : g_keys) if (key == e.key.scancode) bits |= bit & kFieldDirections;
++        if (bits) g_field_ledger.observe(field_key_source(e.key.scancode), bits, true);
++    }
++    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || e.type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
++        for (const auto& pad : g_pads) if (pad.id == e.gbutton.which && g_slots.slot_of(pad.id) == 0) {
++            uint16_t bits = 0;
++            for (const auto& binding : pad.map.inputs) if (binding.button == int(e.gbutton.button)) bits |= binding.bit & kFieldDirections;
++            if (!bits) break;
++            auto& held = g_field_pad_events[pad.id];
++            if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) held |= bits;
++            else held &= uint16_t(~bits);
++            g_field_ledger.observe(field_pad_source(pad.id), held, e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
++        }
++    }
++    if (e.type == SDL_EVENT_GAMEPAD_REMOVED) {
++        g_field_ledger.cancel(field_pad_source(e.gdevice.which));
++        g_field_pad_events.erase(e.gdevice.which);
++    }
++}
++
++static void field_touch_event(const SDL_Event& e, float x, float y) {
++    if (!pal_field_host::available()) return;
++    const FieldTouchKey key{e.tfinger.touchID, e.tfinger.fingerID};
++    auto it = g_field_touches.find(key);
++    if (e.type == SDL_EVENT_FINGER_DOWN) {
++        if (it != g_field_touches.end()) g_field_ledger.cancel(it->second.source);
++        const uint64_t source = (uint64_t(3) << 60) | ++g_field_touch_serial;
++        const auto layout = pad_layout();
++        it = g_field_touches.insert_or_assign(key, FieldTouch{{x,y,touch_on_dpad(layout,x,y)},source,
++            g_field_ledger.active() && g_field_focus && g_field_foreground && !g_menu_open}).first;
++    }
++    if (it == g_field_touches.end()) return;
++    auto& touch = it->second;
++    if (e.type == SDL_EVENT_FINGER_CANCELED) {
++        g_field_ledger.cancel(touch.source); g_field_touches.erase(it); return;
++    }
++    touch.finger.x = x; touch.finger.y = y;
++    const uint16_t direction = touch.armed ? touch_buttons(pad_layout(), {touch.finger}) & kFieldDirections : 0;
++    if (direction) g_field_ledger.observe(touch.source, direction, e.type == SDL_EVENT_FINGER_DOWN);
++    else g_field_ledger.cancel(touch.source);
++    if (e.type == SDL_EVENT_FINGER_UP) {
++        g_field_ledger.release(touch.source); g_field_touches.erase(it);
++    }
++}
++
+ static void on_event(const SDL_Event& e) {
++    field_note_event(e);
+     host_pad_event(e);
+     pal_note_press(e);
+     if (edge_menu_event(e)) return;
+@@ -1213,9 +1357,10 @@
+             break;
+         }
+         if (!touch_shown()) break;
++        field_touch_event(e, x, y);
+         if (e.type == SDL_EVENT_FINGER_DOWN) {
+             g_fingers[e.tfinger.fingerID] = {x, y, touch_on_dpad(l, x, y)};
+-            g_unread[e.tfinger.fingerID] = true;
++            g_unread[e.tfinger.fingerID] = ++g_touch_generation;
+         } else if (auto f = g_fingers.find(e.tfinger.fingerID); f != g_fingers.end()) {
+             f->second.x = x;
+             f->second.y = y;
+@@ -1224,9 +1369,20 @@
+     }
+     case SDL_EVENT_FINGER_UP:
+     case SDL_EVENT_FINGER_CANCELED:
++        field_touch_event(e, e.tfinger.x * g_out_w, e.tfinger.y * g_out_h);
+         if(g_layout_edit){touch_edit_pointer(e.type,e.tfinger.fingerID,0,0);break;}
+-        if (e.type == SDL_EVENT_FINGER_UP && g_unread.count(e.tfinger.fingerID)) g_lifted.push_back(e.tfinger.fingerID);
+-        else g_fingers.erase(e.tfinger.fingerID);
++        if (e.type == SDL_EVENT_FINGER_UP) {
++            const auto unread = g_unread.find(e.tfinger.fingerID);
++            if (unread != g_unread.end()) g_lifted.push_back({unread->first, unread->second});
++            else g_fingers.erase(e.tfinger.fingerID);
++        } else {
++            // Cancellation never owes a quick-tap sample. Retire only this
++            // contact's raw state; never clear another source's published bit.
++            g_fingers.erase(e.tfinger.fingerID);
++            g_unread.erase(e.tfinger.fingerID);
++            g_lifted.erase(std::remove_if(g_lifted.begin(), g_lifted.end(),
++                [&](const auto& lifted) { return lifted.first == e.tfinger.fingerID; }), g_lifted.end());
++        }
+         if (g_slider_active && e.tfinger.fingerID == g_slider_finger) { g_slider_finger = 0; g_slider_active = false; }
+         break;
+     }
+@@ -1240,6 +1396,37 @@
+     while (SDL_PollEvent(&e)) on_event(e);
+     read_pads();
+ }
++
++namespace pal_field_host {
++void context(bool active, bool discard) {
++    if (!SDL_IsMainThread()) return;
++    if (!available()) { g_field_mode = false; g_field_ledger.context(false, true); return; }
++    if (active && !g_field_mode) g_pal_taps[0].forget(kFieldDirections);
++    if (active) g_field_mode = true;
++    else if (discard) g_field_mode = false;
++    if (discard) {
++        for (auto& [key, touch] : g_field_touches) g_field_ledger.cancel(touch.source);
++        g_field_touches.clear();
++    }
++    g_field_ledger.context(active && g_field_focus && g_field_foreground && !g_menu_open && !g_quitting, discard);
++}
++Read begin() {
++    if (!SDL_IsMainThread()) { Read out; out.blocked=true; return out; }
++    if (!available()) return {};
++    if (g_field_servicing) { Read out; out.active=true; out.blocked=true; return out; }
++    struct Guard { Guard(){g_field_servicing=true;} ~Guard(){g_field_servicing=false;} } guard;
++    tasks_on_thread_stack([](void*) { events(); }, nullptr);
++    return g_field_ledger.begin(g_menu_open || g_quitting || !g_field_focus || !g_field_foreground);
++}
++bool current(const Read& read) {
++    if (!SDL_IsMainThread() || !available() || g_menu_open || g_quitting || !g_field_focus || !g_field_foreground) return false;
++    return g_field_ledger.current(read);
++}
++bool acknowledge(const Read& read) {
++    if (!SDL_IsMainThread() || !available() || g_menu_open || g_quitting || !g_field_focus || !g_field_foreground) return false;
++    return g_field_ledger.acknowledge(read);
++}
++} // namespace pal_field_host
+ 
+ // ---- drawing ----------------------------------------------------------------------------------
+ static SDL_FColor rgba(float r, float g, float b, float a) { return {r, g, b, a}; }
+--- /dev/null
++++ b/runtime/src/host/pal_field_input_ledger.h
+@@ -0,0 +1,130 @@
++#pragma once
++#include "pal_field_input_api.h"
++#include <map>
++#include <cstdint>
++
++namespace pal_field_host {
++// Per-source live levels plus one globally coalesced, unconsumed direction edge.
++// No renderer ticks, VBlank deadlines or guest memory are involved.
++class Ledger {
++public:
++    static constexpr uint16_t Directions = 0xF000;
++    static uint16_t normalize(uint16_t value) {
++        value &= Directions;
++        if ((value & 0xC000) == 0xC000) value &= uint16_t(~0xC000);
++        if ((value & 0x3000) == 0x3000) value &= uint16_t(~0x3000);
++        return value;
++    }
++    // Original guest f060227F8's four diagonal combinations select one
++    // cardinal. Keep raw bits in held(), but never give the guest a multibit
++    // direction that its transactional single-direction guard rejects.
++    static uint16_t cardinal(uint16_t value) {
++        value = normalize(value);
++        switch (value) {
++        case 0x9000: return 0x1000; // Up + Right -> Up
++        case 0x6000: return 0x2000; // Down + Left -> Down
++        case 0x5000: return 0x4000; // Up + Left -> Left
++        case 0xA000: return 0x8000; // Down + Right -> Right
++        default: return value;
++        }
++    }
++    void context(bool active, bool discard) {
++        if (discard) {
++            ++epoch_; ++read_seq_; pending_ = {};
++            for (auto& [id, s] : sources_) if (s.raw) s.disarmed = true;
++        }
++        active_ = active;
++    }
++    bool active() const { return active_; }
++    uint64_t epoch() const { return epoch_; }
++    // explicit_down is a new physical press, never an OS repeat. Polling may
++    // also discover a fresh zero->nonzero level after a verified release.
++    void observe(uint64_t source, uint16_t direction, bool explicit_down = false) {
++        direction = normalize(direction);
++        auto it = sources_.find(source);
++        if (!direction && it == sources_.end()) return;
++        auto& s = sources_[source];
++        const uint16_t before = s.raw;
++        s.raw = direction;
++        if (!direction) {
++            s.disarmed = false;
++            prune(source);
++            return;
++        }
++        if (!active_) {
++            if (before != direction || explicit_down) s.disarmed = true;
++            return;
++        }
++        if (s.disarmed && !explicit_down) return;
++        if (explicit_down) s.disarmed = false;
++        if (s.direction != cardinal(direction) || explicit_down || !s.press) {
++            s.press = ++press_seq_;
++            s.direction = cardinal(direction);
++            pending_ = {source, s.press, epoch_, s.direction};
++        }
++    }
++    void release(uint64_t source) { observe(source, 0); }
++    void cancel(uint64_t source) {
++        if (pending_.source == source) pending_ = {};
++        sources_.erase(source);
++    }
++    // The raw peripheral retains its ordinary aggregate/conflict policy.
++    uint16_t held() const {
++        uint16_t out = 0;
++        for (const auto& [id, s] : sources_) if (!s.disarmed) out |= s.raw;
++        return out;
++    }
++    Read begin(bool blocked = false) {
++        Read out = choice();
++        out.read_seq = ++read_seq_;
++        out.active = active_;
++        out.blocked = blocked;
++        if (blocked || !active_) { out.direction = 0; out.pending = false; }
++        return out;
++    }
++    // Epoch/read ownership for an action that keeps native non-movement priority.
++    // A newer direction does not invalidate this context check or consume it.
++    bool current(const Read& read) const {
++        return active_ && read.active && !read.blocked && read.epoch == epoch_ && read.read_seq == read_seq_;
++    }
++    // Validation and consumption are one operation. UP after an unconsumed
++    // edge remains eligible once; UP after an already consumed hold is stale.
++    bool acknowledge(const Read& read) {
++        if (!active_ || !read.active || read.blocked || read.epoch != epoch_ || read.read_seq != read_seq_ || read.read_seq == acknowledged_read_) return false;
++        const Read now = choice();
++        if (now.source != read.source || now.press_seq != read.press_seq || now.direction != read.direction) return false;
++        if (read.pending) {
++            if (pending_.source != read.source || pending_.press != read.press_seq || pending_.epoch != read.epoch || pending_.direction != read.direction) return false;
++            const auto source = pending_.source;
++            pending_ = {};
++            prune(source);
++        }
++        acknowledged_read_ = read.read_seq;
++        return true;
++    }
++private:
++    struct Source { uint16_t raw = 0, direction = 0; uint64_t press = 0; bool disarmed = false; };
++    struct Pending { uint64_t source = 0, press = 0, epoch = 0; uint16_t direction = 0; };
++    std::map<uint64_t, Source> sources_;
++    Pending pending_;
++    uint64_t epoch_ = 1, press_seq_ = 0, read_seq_ = 0, acknowledged_read_ = 0;
++    bool active_ = false;
++    void prune(uint64_t source) {
++        const auto it = sources_.find(source);
++        if (it != sources_.end() && !it->second.raw && pending_.source != source) sources_.erase(it);
++    }
++    Read choice() const {
++        Read out; out.epoch = epoch_; out.held = held(); out.active = active_;
++        for (const auto& [id, s] : sources_) {
++            if (!s.disarmed && s.raw && s.press > out.press_seq) {
++                out.source = id; out.press_seq = s.press; out.direction = s.direction;
++            }
++        }
++        if (pending_.press && pending_.press >= out.press_seq) {
++            out.source = pending_.source; out.press_seq = pending_.press;
++            out.direction = pending_.direction; out.pending = true;
++        }
++        return out;
++    }
++};
++} // namespace pal_field_host
+--- /dev/null
++++ b/runtime/include/pal_field_input_api.h
+@@ -0,0 +1,26 @@
++#pragma once
++#include <cstdint>
++
++// PAL-specific field input transaction. No SDL or guest-memory types here.
++// source/press/epoch/read identities make stale acknowledgements harmless.
++namespace pal_field_host {
++struct Read {
++    uint64_t source = 0, press_seq = 0, epoch = 0, read_seq = 0;
++    uint16_t direction = 0, held = 0;
++    bool active = false, pending = false, blocked = false;
++};
++// True only for the enabled live host path, never scripted/headless playback.
++bool available();
++// Suspend capture without discarding during a synchronous guest callback;
++// discard=true is a hard boundary and disarms contacts until their release.
++void context(bool active, bool discard);
++// Service events on the SDL owner thread/safe stack without nested rendering
++// or menu waits, then freeze one complete field-direction transaction.
++Read begin();
++// Accept exactly the frozen attempt, even if the original collision blocks it.
++// Returns false if epoch/gesture/read ownership became stale; no guest writes
++// may be made for a rejected read. A valid neutral read returns true as well.
++// Read-only context validity across converter polls; never consumes an edge.
++bool current(const Read& read);
++bool acknowledge(const Read& read);
++} // namespace pal_field_host
+--- a/runtime/src/host/host_null.cpp
++++ b/runtime/src/host/host_null.cpp
+@@ -22,3 +22,14 @@
+ bool host_audio_open() { return false; }
+ void host_audio_push(const int16_t*, int) {}
+ void host_audio_report() {}
++
++// Link exactly once only in host_null, services_stub, or isolated test targets.
++// Never link this object together with the SDL host implementation.
++#include "pal_field_input_api.h"
++namespace pal_field_host {
++bool available() { return false; }
++void context(bool, bool) {}
++Read begin() { return {}; }
++bool current(const Read&) { return false; }
++bool acknowledge(const Read&) { return false; }
++} // namespace pal_field_host
+--- a/runtime/src/stub/services_stub.cpp
++++ b/runtime/src/stub/services_stub.cpp
+@@ -38,3 +38,14 @@
+     std::fprintf(stderr, "saturn-recomp: %d-byte write of %08X to %08X (no hardware)\n", size, v, a);
+     std::exit(1);
+ }
++
++// Link exactly once only in host_null, services_stub, or isolated test targets.
++// Never link this object together with the SDL host implementation.
++#include "pal_field_input_api.h"
++namespace pal_field_host {
++bool available() { return false; }
++void context(bool, bool) {}
++Read begin() { return {}; }
++bool current(const Read&) { return false; }
++bool acknowledge(const Read&) { return false; }
++} // namespace pal_field_host
