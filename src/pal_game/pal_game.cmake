@@ -10,6 +10,12 @@ endif()
 target_sources(${PAL_GAME_TARGET} PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/pal_diag.cpp
   ${CMAKE_CURRENT_LIST_DIR}/pal_audio_stream_init.cpp)
+# Windows application icon; Harmony uses its own layered media resources.
+if(WIN32)
+  enable_language(RC)
+  target_sources(${PAL_GAME_TARGET} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/app_icon/pal_app.rc)
+  target_include_directories(${PAL_GAME_TARGET} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/app_icon)
+endif()
 if(_pal_default_target)
   unset(PAL_GAME_TARGET)
   unset(_pal_default_target)
