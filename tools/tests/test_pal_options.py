@@ -34,7 +34,7 @@ class InjectionTests(unittest.TestCase):
         self.runtime = self.root / 'build/test options/runtime'
         for p in (self.recomp, self.runtime / 'src/host', self.runtime / 'src/machine', self.root / 'src/pal_game'):
             p.mkdir(parents=True, exist_ok=True)
-        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h'):
+        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h'):
             shutil.copy2(REPO / 'src/pal_game' / name, self.root / 'src/pal_game' / name)
         self.source = self.recomp / 'p_prog_099.cpp'  # No dependence on generator chunk number.
         points = [('06026E1C', 'f_06035410(c)'), ('06026E58', 'exts.w r0,r1'),
@@ -73,6 +73,12 @@ class InjectionTests(unittest.TestCase):
         # its own portable synthetic suite and full-ROM integration runs.
         self.keyboard = patch('pal_keyboard_profile.plan_keyboard', side_effect=lambda recomp,runtime,texts,rt,header: {runtime/'include/saturn/pal_keyboard_profile.h':header})
         self.keyboard.start()
+        # Field hooks have their own exact-function planner tests. Keep this
+        # hand-written source fixture focused on the options transaction.
+        self.field = patch('pal_field_input.plan_field_input',
+                           side_effect=lambda recomp, texts, header: {recomp/'pal_field_input.h': header})
+        self.field.start()
+        self.addCleanup(self.field.stop)
         for name in (*RUNTIME_FILES, 'src/machine/machine.cpp'):
             dest = self.runtime / name
             dest.parent.mkdir(parents=True, exist_ok=True)

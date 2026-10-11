@@ -118,8 +118,8 @@ class PatchNumberIdentityTests(unittest.TestCase):
         mocker.start()
         self.addCleanup(mocker.stop)
 
-    def test_user_patch_numbers_include_14_and_15_once(self):
-        self.assertEqual(setup.NUMBERS[-2:], (14, 15))
+    def test_user_patch_numbers_include_14_15_and_16_once(self):
+        self.assertEqual(setup.NUMBERS[-3:], (14, 15, 16))
         self.assertEqual(len(setup.NUMBERS), len(set(setup.NUMBERS)))
 
     def test_resolves_unique_numbered_files(self):
