@@ -854,3 +854,16 @@ Mainline is paused safely while the requested PC keyboard profile and remaining
 first-step/turn latency are investigated. The user's Windows play report
 confirms playability and a substantial walking improvement, but does not alone
 close independent opening-movie, physical-audio, or Windows selftest checks.
+
+## Temple double victory and equipped checkpoint (2026-10-11 05:26 UTC)
+
+Resumed from the existing ec6 temple-exterior save using the frozen stable
+Release-source Linux executable and original experience settings. Completed
+the main-hall double battle, actual abbot summons, reward/item flow and the
+vanished-temple return. Latest normal save is scene58/world1184,560 with Jade
+Buddha Beads equipped on Ling and Luo Han Robe on Li, SHA256
+`24ae135aa7562a7e177bc66c9312eee7c03df665d57b60b9c76ea04465a383a4`.
+Fresh-process ordinary load recovered the exact scene, equipment and decoded
+field RGB. Full replay from ec6 through54863 has1018 successful agent pad events
+plus the boot prefix. Detailed bounded evidence is in JADE_BUDDHA_VALIDATION.md.
+The earlier first-step and short-tap prototypes remain frozen, outside Release.

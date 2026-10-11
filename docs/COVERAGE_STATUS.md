@@ -199,3 +199,15 @@ with direct Z on the immutable previous binary. Mapping acceptance does not
 claim this existing sampling weakness is fixed. The additional early-complete-
 frame experiment and any semantic pending-edge queue are excluded from this
 mapping batch; further first-step latency work remains separate.
+
+## Jade Buddha Temple chapter (2026-10-11 05:26 UTC)
+
+The stable Release-source original-tempo mainline has now completed both
+consecutive temple battles, including the abbot's two actual summons, reward
+processing, Luo Han Robe acquisition, Jade Buddha Beads and the temple's
+vanishing scene transition. Normal menus equipped the beads on Ling and the
+robe on Li. Both post-battle and post-equipment saves loaded successfully in
+fresh processes; final equipment fields and decoded field RGB match. See
+[JADE_BUDDHA_VALIDATION.md](JADE_BUDDHA_VALIDATION.md) for identities, limits and
+private replay/save hashes. This supersedes the earlier temple-exterior pause;
+Black Water Town and the tomb gate remain the next untested mainline segment.
