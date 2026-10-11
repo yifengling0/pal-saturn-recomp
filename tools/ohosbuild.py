@@ -179,6 +179,25 @@ def verify_existing_runtime(root: Path) -> None:
     print('Existing keyboard runtime version/hash verification: PASS')
 
 
+def verify_movie_hook(root: Path) -> None:
+    """The registry implementation and generated callsite are both required."""
+    root = Path(root).resolve()
+    import re
+    hook = re.compile(r"\bsh2_hook\s*\(\s*c\s*,\s*0x06021[Cc]1[Ee][uU]?\s*\)")
+    sources = sorted((root / 'build' / 'recomp').glob('p_true_*.cpp'))
+    found = []
+    for source in sources:
+        if source.is_symlink() or source.resolve() != source:
+            raise SystemExit('TRUE generated source path is unsafe; regenerate before HAP build.')
+        text = source.read_text(encoding='utf-8')
+        text = re.sub(r'/\*.*?\*/|//[^\n]*', '', text, flags=re.S)
+        if hook.search(text):
+            found.append(source.name)
+    if len(found) != 1:
+        raise SystemExit('Missing or ambiguous TRUE movie-cache hook 06021C1E; run winbuild.py build --recompile before --skip-learn. Refusing a stale HAP.')
+    print('PAL generated movie hook: 06021C1E present in ' + found[0])
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--deveco', type=Path, default=None)
@@ -220,6 +239,7 @@ def main(argv=None):
     if not args.skip_learn:
         run([python, ROOT / 'tools' / 'winbuild.py', 'learn'], ROOT, env)
     verify_existing_runtime(ROOT)
+    verify_movie_hook(ROOT)
     print_sdl_revision()
     print(f'hvigor mode: {args.build_mode}; 请核查实际 native 编译旗标，模式名不是优化证明。')
     before = hap_snapshot()
