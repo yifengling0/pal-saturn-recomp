@@ -12,6 +12,9 @@ import re
 EXPECTED = {'version': 'paired-rgb-queue-prototype-v3-portable-release-gate-1', 'runtime_sha256': {'src/video/vdp1.cpp': 'fa02008639d95c8cf4495ba90105787601d7ea736dbcdc806aac945193be9257', 'src/video/video.cpp': 'c5b60810fd60d0dd84863b880b377fcb77be5950765538afbee8c681ff5236a3', 'src/video/video.h': 'ac712aceb90eba545dc64570ef35aa9f534e897da05326f638648d7dc94a1c92', 'src/video/vdp2.cpp': '52921c0ba3b3ba6c48d055252a8ad598bd0c7266966aff174274a453ec7c6169', 'src/machine/scu.cpp': '29b796d946d821fd111de4ba5ade0a410e50c7ac80cf0e3a80331f6a25985ee2', 'src/host/host.cpp': '72e5be22df26c094f438ae35e74746b1337a0f29c297bbe9bea2011c1c09f2d6'}, 'input_headers_sha256': {'pal_responsive_input.h': '53152f3895590c8308cd05b654b93eb4329b848deb3617412e865f0dd065e366', 'pal_input_intent.h': '5c0389dfd664c3a4f8bf3d7aeb76b37d4952017c95624073cf3872a798a36ba7', 'pal_input_wait.h': '2eb804283850210ae7eb41316bba9100572117ddfc5da9557cfc7608b9d45378'}, 'source_sha256': {'pal_paired_frame_queue.cpp': 'bcf4798b875a9a975aac9ca3be44049422235b04efa33313d6051eab51dd4226', 'pal_paired_frame_queue.h': '1ddce67acdcbca8f4dcb697166f704666333587c105e46f75a084bdd6c385a2c'}}
 RUNTIME_FILES = tuple(EXPECTED["runtime_sha256"])
 HELPER_FILES = tuple(EXPECTED["source_sha256"])
+# Exact post-input host variants; unrelated runtime drift remains rejected.
+HOST_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/host/host.cpp'],
+ 'a50e312b94040e4110ac5c38ab92dbf121b96a793831c228bb4f3b2409d58843'}
 
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))
@@ -55,7 +58,7 @@ def plan_queue(recomp, runtime, texts, rt, cmake_text, helper_bytes):
  selected_rt={}
  for name,h in expected['runtime_sha256'].items():
   p=runtime/name
-  if p not in rt or sha(norm(rt[p]).encode())!=h:
+  if p not in rt or sha(norm(rt[p]).encode()) not in (HOST_INPUT_SHA256 if name=='src/host/host.cpp' else {h}):
    raise ValueError('Runtime source/version changed: '+name)
   selected_rt[p]=rt[p].replace('\r\n','\n')
  rt=selected_rt

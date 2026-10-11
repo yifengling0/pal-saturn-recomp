@@ -8,12 +8,16 @@ manifest idempotence, and CMake runtime selection. Repeated raw planning fails.
 """
 from pathlib import Path
 import hashlib,re
-VERSION='pal-keyboard-profile-v1-mapping-3-ohos'
+VERSION='pal-keyboard-profile-v1-mapping-4-ohos-input-audio'
 def sha(s):return hashlib.sha256(s.encode() if isinstance(s,str) else s).hexdigest()
 RUNTIME_HASHES = {'host.cpp': ['6b82aaa5f9720e3ad9a53db35e6dda8ef08198d4dbcacf7f3f0f6b25f2a9518d', '9af5f2ac245114cb7cdf858c69a90ecb0c217a29f423c9168c353558bf0222a4', '16fd0b06648fb3f3c1dda96b3200aa7bf8baaff1f2aca9d0b4e0ffa720055937', 'f4c957d90193478ac77588f6592b1061226686b062bbd3e7561ba7a236da94a1'], 'settings.cpp': ['4da2c93a0eec58ca861c972076961eaf4d64d4ecb471b4d29d94af73f1705b66', '6dd16bf8b13057ddd35aa50a474aaf958df2515e94e877a533b99f5430df9cfb'], 'launcher.cpp': ['23d65e3b6f854823fd33a1f3b1373584d22e98b9edf247125458648fad863e32']}
+RUNTIME_HASHES['host.cpp'].append('4b2c32d213a9a28823c214cbfe3f62ac166e238beb127105441e1baee1eef7ed')
+RUNTIME_HASHES['host.cpp'].append('476a8cd5b88eb926d3cdd581bbd31c94d2c4ac6114a9983906a74e7bb85f2ffd')
+RUNTIME_HASHES['launcher.cpp'].append('6fab3c98d05f4f9eb69c2c14672b205f487964fc6c02f9815289699525b4fc57')
 FUNCTION_HASHES = {'06020040': ['49fc15d214cc14ad85134d3301ce577f699d38aec8301287d632dd5b545bad7c'], '06026D84': ['9e83b5975b9f141c3d0e22f15907be2ada11b74aab7237444cde410ae4fefaaa', 'f04a09eb1154c18fcdb61a95fd4f3f945106da5daccf7eec6131edf88800e8a8'], '06021F14': ['1a72d209543cdd95d863b4e62b28c7639a24c2098c855279d2a97075203722e0'], '06026F90': ['33b311616b04e42b7e6cb85366ff11f58e1ecc4a1573fd5b9d7b8527cb2fcb75', '677f5eb849f6f0f3731cf35a0292d91dacef58e127de7d427fb659101b56e056'], '0604A5B8': ['38a41b3879208ad03418cbe48ed1efeb1888129062f385fc362955afd8e0ce50'], '060516B4': ['8d243239da6d34c6b188603ca3108a13b9984f855348edf66a04759c5a93b60d'], '06020058': ['9548908855627449ef75ff2a63a87d8083fc953294231d447073e05bec6beca7']}
-HEADER_SHA256 = '3cb6b4a9019d341b3a38eecd14c3c3eae3a613b32e7fd07afe1ec48efca5d9e3'
-LAUNCHER_HUNKS = [('        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_ == "keyboard") name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n', '        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_.rfind("keyboard", 0) == 0) name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n'), ('\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_ == "keyboard" ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. Every gamepad uses these.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n', '\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        const bool pc = set_.get("controls", "keyboard_profile") == "pc98";\n        if (ImGui::RadioButton("PC98 keyboard", pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "pc98"); save();\n        }\n        ImGui::SameLine();\n        if (ImGui::RadioButton("Saturn keyboard", !pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "saturn"); save();\n        }\n        ImGui::TextWrapped("PC98 F10: host menu. PC98: Enter confirms/interacts; Esc opens the game menu or cancels. Gamepad bindings are independent.");\n        const char* keyboard_section = pc ? "keyboard pc98" : "keyboard";\n        if (pc) {\n            for (const char* key : {"confirm", "menu_cancel"}) {\n                ImGui::TextUnformatted(key == std::string("confirm") ? "Confirm / interact" : "Game menu / cancel");\n                ImGui::SameLine();\n                std::string id = set_.get(keyboard_section, key) + "##semantic" + key;\n                if (ImGui::Button(id.c_str()) && binding_.empty()) { binding_ = key; binding_section_ = keyboard_section; }\n            }\n        }\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_.rfind("keyboard", 0) == 0 ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. PC98 reserves F10. Saturn keeps custom F10 bindings. Esc cancels binding capture.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n'), ('                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {"keyboard", "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n', '                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {keyboard_section, "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n'), ('        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {"keyboard", "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n', '        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {keyboard_section, "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n')]
+FUNCTION_HASHES['0604A0BC'] = ['ab7cfc91ca77e9b977d3bc6e986174bdc7ff89baed1a1ab21630540fe749cae1']
+HEADER_SHA256 = '70fdaa671060e63881ff6987e214964a1a603f7381b81b22754392a36f25b043'
+LAUNCHER_HUNKS = [('        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_ == "keyboard") name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n', '        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_.rfind("keyboard", 0) == 0) name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n'), ('\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_ == "keyboard" ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. Every gamepad uses these.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n', '\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        const bool pc = set_.get("controls", "keyboard_profile") == "pc98";\n        if (ImGui::RadioButton("PC98 keyboard", pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "pc98"); save();\n        }\n        ImGui::SameLine();\n        if (ImGui::RadioButton("Saturn keyboard", !pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "saturn"); save();\n        }\n        ImGui::TextWrapped("PC98 F10: host menu. Enter confirms/interacts; Esc opens the game menu or cancels. In the battle main menu, F uses native strongest attacks and R repeats previous commands for the remaining party. Gamepad bindings are independent.");\n        const char* keyboard_section = pc ? "keyboard pc98" : "keyboard";\n        if (pc) {\n            for (const char* key : {"confirm", "menu_cancel", "strongest", "repeat"}) {\n                ImGui::TextUnformatted(key == std::string("confirm") ? "Confirm / interact" : key == std::string("menu_cancel") ? "Game menu / cancel" : key == std::string("strongest") ? "Strongest attacks (battle)" : "Repeat commands (battle)");\n                ImGui::SameLine();\n                std::string id = set_.get(keyboard_section, key) + "##semantic" + key;\n                if (ImGui::Button(id.c_str()) && binding_.empty()) { binding_ = key; binding_section_ = keyboard_section; }\n            }\n        }\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_.rfind("keyboard", 0) == 0 ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. PC98 reserves F10. Existing ordinary/confirm/cancel bindings and host hotkeys take priority over battle shortcuts. Saturn keeps custom F10 bindings. Esc cancels binding capture.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n'), ('                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {"keyboard", "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n', '                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {keyboard_section, "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n'), ('        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {"keyboard", "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n', '        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {keyboard_section, "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n')]
 
 
 def once(s,a,b):
@@ -41,6 +45,10 @@ l = Q
 r = W
 confirm = Return, Keypad Enter, Space
 menu_cancel = Escape
+; Battle main command menu only: original Saturn L strongest / Z repeat.
+; Existing ordinary/confirm/cancel bindings win conflicts; F10 stays host menu.
+strongest = F
+repeat = R
 
 '''
  s=once(s,anchor,new+anchor)
@@ -59,14 +67,21 @@ def host(s):
  s='#include <saturn/pal_keyboard_profile.h>\n'+s
  s=once(s,'static std::vector<std::pair<SDL_Scancode, uint16_t>> g_keys;','''static std::vector<std::pair<SDL_Scancode, uint16_t>> g_keys;
 static std::vector<SDL_Scancode> g_confirm_keys, g_cancel_keys;
+static std::vector<SDL_Scancode> g_strongest_keys, g_repeat_keys;
+static pal_keyboard::BattlePressLatch g_battle_press;
+static bool battle_key(SDL_Scancode key) {
+    return std::find(g_strongest_keys.begin(), g_strongest_keys.end(), key) != g_strongest_keys.end() ||
+           std::find(g_repeat_keys.begin(), g_repeat_keys.end(), key) != g_repeat_keys.end();
+}
 static pal_keyboard::PressLatch g_pc_press;
 static bool pc_keyboard() { return g_settings.get("controls", "keyboard_profile") == "pc98"; }
 static bool semantic_key(SDL_Scancode key) {
-    return std::find(g_confirm_keys.begin(), g_confirm_keys.end(), key) != g_confirm_keys.end() ||
+    return battle_key(key) || std::find(g_confirm_keys.begin(), g_confirm_keys.end(), key) != g_confirm_keys.end() ||
            std::find(g_cancel_keys.begin(), g_cancel_keys.end(), key) != g_cancel_keys.end();
 }''')
  s=once(s,'    g_keys.clear();\n    for (auto& b : kSaturn)','''    g_keys.clear();
     g_confirm_keys.clear(); g_cancel_keys.clear(); g_pc_press.block();
+    g_strongest_keys.clear(); g_repeat_keys.clear(); g_battle_press.block();
     const std::string section = pc_keyboard() ? "keyboard pc98" : "keyboard";
     for (auto& b : kSaturn)''')
  s=once(s,'names(g_settings, "keyboard", b.name','names(g_settings, section, b.name')
@@ -76,6 +91,21 @@ static bool semantic_key(SDL_Scancode key) {
         auto scancode = [](const std::string& n) { auto c=SDL_GetScancodeFromName(n.c_str()); return c==SDL_SCANCODE_UNKNOWN ? -1 : (int)c; };
         for (int k : names(g_settings, section, "confirm", scancode)) g_confirm_keys.push_back((SDL_Scancode)k);
         for (int k : names(g_settings, section, "menu_cancel", scancode)) g_cancel_keys.push_back((SDL_Scancode)k);
+        // Preserve all preexisting bindings when adding defaults to an old PC profile.
+        // An explicitly duplicated shortcut is also non-destructive: ordinary keys,
+        // confirm/cancel and host hotkeys win; strongest precedes repeat if those two collide.
+        auto add_battle_keys = [&](const char* name, std::vector<SDL_Scancode>& out) {
+            for (int k : names(g_settings, section, name, scancode)) {
+                const auto key = (SDL_Scancode)k;
+                const bool native_bound = std::any_of(g_keys.begin(), g_keys.end(),
+                    [key](const auto& v) { return v.first == key; });
+                const bool host_key = key == SDL_SCANCODE_F10 || key == SDL_SCANCODE_F11 ||
+                    key == SDL_SCANCODE_F12 || key == SDL_SCANCODE_AC_BACK;
+                if (!host_key && !native_bound && !semantic_key(key)) out.push_back(key);
+            }
+        };
+        add_battle_keys("strongest", g_strongest_keys);
+        add_battle_keys("repeat", g_repeat_keys);
     }
 }''')
  s=once(s,'        if (k[key] && !(alt && key == SDL_SCANCODE_RETURN)) b[0] |= bit;','''        if (!semantic_key(key) && key != SDL_SCANCODE_F10 && k[key] &&
@@ -83,20 +113,29 @@ static bool semantic_key(SDL_Scancode key) {
     if (SDL_GetKeyboardFocus() == g_win) {
         for (auto key : g_confirm_keys) b[0] |= g_pc_press.read(key);
         for (auto key : g_cancel_keys) b[0] |= g_pc_press.read(key);
+        for (auto key : g_strongest_keys) b[0] |= g_battle_press.read(key);
+        for (auto key : g_repeat_keys) b[0] |= g_battle_press.read(key);
     }''')
- s=once(s,'static void menu_close() {','static void menu_close() {\n    g_pc_press.block();')
- s=once(s,'static void menu_open() {','static void menu_open() {\n    g_pc_press.block();')
+ s=once(s,'static void menu_close() {','static void menu_close() {\n    g_pc_press.block(); g_battle_press.block();')
+ s=once(s,'static void menu_open() {','static void menu_open() {\n    g_pc_press.block(); g_battle_press.block();')
  s=once(s,'static bool escape_is_a_button() {','static bool escape_is_a_button() {\n    if (semantic_key(SDL_SCANCODE_ESCAPE)) return true;')
  s=once(s,'static void on_event(const SDL_Event& e) {','''static void on_event(const SDL_Event& e) {
     const auto wid = SDL_GetWindowID(g_win);
     if (e.type == SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) g_pc_press.block();
-    if (e.type == SDL_EVENT_KEY_UP && e.key.windowID == wid) g_pc_press.up(e.key.scancode);
+    if (e.type == SDL_EVENT_KEY_UP && e.key.windowID == wid) { g_pc_press.up(e.key.scancode); g_battle_press.up(e.key.scancode); }
     if (e.type == SDL_EVENT_KEY_DOWN && e.key.windowID == wid && semantic_key(e.key.scancode)) {
         sync_pc_boundary();  // Retire only old presses before accepting a new edge.
-        const bool cancel = std::find(g_cancel_keys.begin(), g_cancel_keys.end(), e.key.scancode) != g_cancel_keys.end();
-        g_pc_press.down(e.key.scancode, cancel ? pal_keyboard::context.cancel : pal_keyboard::context.confirm,
-                        e.key.repeat, SDL_GetKeyboardFocus() == g_win,
-                        g_menu_open || (e.key.mod & SDL_KMOD_ALT));
+        if (battle_key(e.key.scancode)) {
+            const bool repeat_command = std::find(g_repeat_keys.begin(), g_repeat_keys.end(), e.key.scancode) != g_repeat_keys.end();
+            g_battle_press.down(e.key.scancode, repeat_command ? pal_keyboard::Repeat : pal_keyboard::Strongest,
+                               e.key.repeat, SDL_GetKeyboardFocus() == g_win,
+                               g_menu_open || (e.key.mod & SDL_KMOD_ALT));
+        } else {
+            const bool cancel = std::find(g_cancel_keys.begin(), g_cancel_keys.end(), e.key.scancode) != g_cancel_keys.end();
+            g_pc_press.down(e.key.scancode, cancel ? pal_keyboard::context.cancel : pal_keyboard::context.confirm,
+                            e.key.repeat, SDL_GetKeyboardFocus() == g_win,
+                            g_menu_open || (e.key.mod & SDL_KMOD_ALT));
+        }
     }''')
  s=once(s,'        bool back = k == SDL_SCANCODE_AC_BACK || (k == SDL_SCANCODE_ESCAPE && !escape_is_a_button());','''        if (e.key.windowID != wid || SDL_GetKeyboardFocus() != g_win) break;
         bool back = k == SDL_SCANCODE_F10 || k == SDL_SCANCODE_AC_BACK ||
@@ -104,7 +143,7 @@ static bool semantic_key(SDL_Scancode key) {
  s=s.replace('Android\'s Back, Escape, a','Android\'s Back, F10 (or unbound Escape), a')
  s=once(s,'static pal_keyboard::PressLatch g_pc_press;','static pal_keyboard::PressLatch g_pc_press;\nstatic uint64_t g_pc_boundary = 0;\nstatic void sync_pc_boundary() {\n    if (g_pc_boundary != pal_keyboard::boundary) { g_pc_boundary = pal_keyboard::boundary; g_pc_press.block(); }\n}')
  s=once(s,'static void read_pads() {','static void read_pads() {\n    sync_pc_boundary();')
- s=s.replace('e.window.windowID == wid) g_pc_press.block();','e.window.windowID == wid) g_pc_press.reset();')
+ s=s.replace('e.window.windowID == wid) g_pc_press.block();','e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); }')
  s=s.replace('!semantic_key(key) && key != SDL_SCANCODE_F10 && k[key]', '!semantic_key(key) && !(pc_keyboard() && key == SDL_SCANCODE_F10) && k[key]')
  s=once(s,'        bool back = k == SDL_SCANCODE_F10 || k == SDL_SCANCODE_AC_BACK ||', '        const bool f10_bound = std::any_of(g_keys.begin(), g_keys.end(), [](const auto& v) { return v.first == SDL_SCANCODE_F10; });\n        bool back = (k == SDL_SCANCODE_F10 && (pc_keyboard() || !f10_bound || g_menu_open)) || k == SDL_SCANCODE_AC_BACK ||')
  return s
@@ -160,6 +199,7 @@ def plan_keyboard(recomp,runtime,texts,rt,header_bytes):
  changed.add(scope(texts,'06026D84',field))
  changed.add(scope(texts,'0604A5B8',lambda s:instruction(s,'0604A8C0','pal_keyboard::ui(ld16(c.r[14]+30)==13);')))
  entry('060516B4','pal_keyboard::ui((uint16_t)c.r[4] == 1);')
+ entry('0604A0BC','pal_keyboard::BattleCommandsScope pal_battle_commands(ld16(0x060768ECu) == 0xFFFFu);')
  for p in changed:changes[p]=('#include <saturn/pal_keyboard_profile.h>\n'+texts[p]).encode()
  changes[runtime/'include/saturn/pal_keyboard_profile.h']=header_bytes
  return changes
@@ -214,7 +254,7 @@ RUNTIME_HASHES["settings.h"] = ["2f3c544cc54529a9243ac022a79ccb707bd4e86338569fb
 
 
 MANIFEST = 'pal-keyboard-manifest.json'
-HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165d9f5edf185529caaf9461bce175d7784e', 'touch_menu_paging.h': 'a05761a95eebe222e1c51602b44f75ea19c4a68daaa9cbdb047cfc84c78710e7', 'pal_audio_queue_policy.h': 'b873e70bc52a265c7f74626dc771a914774b86b76e36f0379a27f2bb0ae30c67'}
+HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165d9f5edf185529caaf9461bce175d7784e', 'touch_menu_paging.h': 'a05761a95eebe222e1c51602b44f75ea19c4a68daaa9cbdb047cfc84c78710e7', 'pal_audio_queue_policy.h': 'b873e70bc52a265c7f74626dc771a914774b86b76e36f0379a27f2bb0ae30c67', 'pal_audio_jitter_policy.h': '893d30bfdf8b9a3373881b510064e086d516989232a1946f735011fbd46c89d8', 'host_sdl.h': 'a02c549b334ae98c3713adf8480e06183b9cf4b724c2acd3fe8be5ecc11ee954'}
 
 def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  """Verify/inject mapping-only detached sources. No compiler or game execution."""
