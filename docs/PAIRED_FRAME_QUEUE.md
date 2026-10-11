@@ -39,9 +39,13 @@ schedule skipped, so not every new screenshot must exist in the baseline set.
   video dumps and BUP match the log-free queue reference. Combined default,
   precise and quick-spell modes also retain their prior exact replay results.
 
-Physical focus/host-menu behavior and a native walking comparison are being
-verified separately; synthetic lifecycle tests and successful SDL compilation
-alone do not establish those UI results. Arbitrary VDP2-only effects or abnormal
+The real SDL walking comparison subsequently passed507/507 same-VB native
+versus headless frames over three profiles. It includes1VB and6VB taps, holds,
+release and quick turns. The6VB original case turns without taking a step; both
+precise paths take one step. Real60fps capture estimates about265→216ms for
+precise versus paired first-step display (approximately49ms earlier,16.7ms
+capture quantization), not physical-keyboard latency. Physical focus/host-menu
+behavior remains untested; synthetic lifecycle checks are not those UI results. Arbitrary VDP2-only effects or abnormal
 no-further-swap scenarios remain outside the bounded coverage. Windows native
 execution is still untested in the cloud.
 

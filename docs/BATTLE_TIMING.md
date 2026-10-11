@@ -349,3 +349,33 @@ return at5039. Do not report an entire battle shortened by96 fields. The short
 4992 stop was still in the reward UI and is not used as full-battle acceptance.
 No broader spell/bank/cancel/native-SDL/audio or RNG-equivalence claim is made.
 Evidence: `build/quick-yueru-group-spell-001/REPORT.md` and `summary.json`.
+
+## 2026-10-11: original confirmation skip independently reproduced
+
+A [2018 Saturn playthrough author's description](https://www.bilibili.com/video/BV1es411j7Uo/)
+says confirmation can advance the apparent spell pause. That page is a lead,
+not a timing measurement. The current Taiwan image now independently confirms
+an original input-exit path with all enhancement options disabled.
+
+Using the same normal three-party save and Thunder-vs-tiger input prefix:
+
+| Original input during preparation | Preparation start/end | Wait | Effect frames |
+|---|---|---:|---:|
+| No extra confirmation (reference) |5917→6015|98VB|7, original4VB holds|
+| Hold A from5900 to5942 |5917→5918|1VB|7, original4VB holds|
+| Hold A from5900 to6050 |5917→5918|1VB|7, original4VB holds|
+| Tap A5930→5942 after start |5917→5935|18VB|7, original4VB holds|
+
+Static tracing agrees: the original wait at06021FD8 calls06022B8C during battle
+and exits when its returned action flag is1. No forced guest-memory write or
+new runtime skip was used for these cases. `build/original-confirm-skip-001`
+contains the legal input scripts, read-only observation logs and event pairs.
+All three extra-input processes exit0. Held confirmation changes the observed
+random battle trajectory (the sampled tiger HP differs), so this is not a claim
+of state equivalence with idle waiting. Nor does this establish every controller
+mapping or every spell's behavior.
+
+The quick-preparation option automates a bounded early exit after the verified
+resource/palette condition, without requiring repeated confirmation. It remains
+an optional experience change. The presence of the native skip does not justify
+sending confirmation through later menus/dialogue or removing all waits.

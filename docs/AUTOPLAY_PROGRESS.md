@@ -805,3 +805,28 @@ The three-party save independently reloads in the original build, exit0 with
 source/input unchanged; field PNG SHA256
 `c3b92dc9af29913a1b2efc495d2ab2c37b8ce4c9ba3867172f784dfb614f1456`.
 Evidence: `build/linux-baihe-three-party-load-001/summary.json`.
+
+## 2026-10-11: first three-party combat and safe video handoff
+
+Ling's recovery and rejoining were followed by normal northern-bridge travel.
+The first natural three-person fight completed in three rounds against three
+bee-like enemies, awarding6XP/6coins and returning to scene55. Observed actions
+include Wind (5MP, zero damage against the selected enemy, resistance not yet
+independently identified), Cleanse (7MP on Yue, abnormal HUD bar disappears) and
+Yue's whip hitting all three targets. Do not infer every poison type or every
+multi-target weapon from this bounded example.
+
+A following900HP tiger fight completed in three rounds,30XP/0coins. The original
+mainline is safely saved at scene55/world544,624, mainline VB29343 after its
+normal reload from the prior handoff save. Its BUP SHA256 is
+`c705b04ede94081304ee5905a2bbfd1c13577ed34bbb7cfcebc2f94342099e2a`.
+An independent original-timing process loads it normally, exits0 and leaves the
+source/test BUP unchanged; screenshot SHA256
+`09fdd637c3dbc4e10e09ed472b41d7734f3d61bda447b9fd5f1220e469121859`.
+Mainline is paused here while the requested input/spell videos are made.
+
+The separate Thunder video branch starts from the first-three-party-victory
+save, loads normally and navigates to a tiger. Li/Yue defend and Ling uses an
+actually learned7MP Thunder spell. Ordinary preparation yields60 damage;
+quick preparation's three animation-speed reference runs yield59. These are
+separate controlled branches, not silently substituted mainline progress.

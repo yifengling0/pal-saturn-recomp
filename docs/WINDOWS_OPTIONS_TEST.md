@@ -1,5 +1,13 @@
 # Windows 本地验证：输入与施法选项
 
+> **Safety update 2026-10-11:** animation rates above1 are temporarily blocked by
+> the launcher. Direct environment requests also warn and fall back to1 after
+> rebuilding. Real Thunder footage revealed missing character/enemy frames at
+>1.5/2; prior same-mode replay equality did not prove original-picture integrity.
+> Keep animation1. Quick preparation and precise input are separate options.
+> Historical measurements below remain evidence, not current accelerated-mode acceptance.
+
+
 这份步骤面向现有 Windows / MinGW-w64 `g++` 环境。Windows 实机运行、声卡和
 该机器的编译器/SDL3 DLL 尚未在本轮云端验证；Linux 的编译、回放和 mock 测试
 不代替 Windows 通过。请保留旧可用构建和存档，用独立目录测试。

@@ -70,24 +70,18 @@ def test_data_cd_multiplier_requires_compiled_capability(tmp_path):
             assert run.call_args.kwargs['env']['SATURN_DATA_CD_SPEED'] == speed
 
 
-def test_effect_cadence_requires_capability_and_stays_independent(tmp_path):
+def test_unvalidated_cadence_is_rejected_even_with_capability(tmp_path):
     exe = make_exe(tmp_path)
-    proof = {'schema': 1, 'exe_sha256': m.sha256(exe), 'features': ['input_v4', 'effect_wait_v3']}
-    manifest = exe.parent / m.MANIFEST
-    manifest.write_text(json.dumps(proof))
+    proof = {'schema': 1, 'exe_sha256': m.sha256(exe),
+             'features': ['input_v4', 'effect_wait_v3', 'effect_cadence_v1']}
+    (exe.parent / m.MANIFEST).write_text(json.dumps(proof))
     with patch.object(m.subprocess, 'run') as run:
-        assert m.main(['original', '--effect-animation-speed', '1.5', '--exe', str(exe)]) == 3
+        for speed in ('1.25', '1.5', '2'):
+            assert m.main(['original', '--effect-animation-speed', speed, '--exe', str(exe)]) == 3
         run.assert_not_called()
-    proof['features'].append('effect_cadence_v1')
-    manifest.write_text(json.dumps(proof))
-    for speed in ('1', '1.25', '1.5', '2'):
-        with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
-            assert m.main(['original', '--effect-animation-speed', speed, '--exe', str(exe)]) == 0
-            env = run.call_args.kwargs['env']
-            assert env['PAL_EFFECT_ANIMATION_SPEED'] == speed
-            assert env['PAL_SHORT_EFFECT_PREP'] == '0'
-            assert env['PAL_RESPONSIVE_INPUT'] == '0'
-            assert env['SATURN_DATA_CD_SPEED'] == '1'
+    with patch.object(m.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+        assert m.main(['original', '--effect-animation-speed', '1', '--exe', str(exe)]) == 0
+        assert run.call_args.kwargs['env']['PAL_EFFECT_ANIMATION_SPEED'] == '1'
 
 
 def test_paired_queue_requires_precise_and_compiled_capability(tmp_path):

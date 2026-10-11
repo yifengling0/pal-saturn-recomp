@@ -8,7 +8,18 @@ extern uint64_t sat_vblanks();
 extern bool pal_effect_cadence_scope_supported() noexcept;
 extern uint8_t g_vdp2_regs[0x200];
 namespace pal_effect_cadence {
-inline Speed speed() noexcept { static const Speed s=parse_speed(std::getenv("PAL_EFFECT_ANIMATION_SPEED"));return s; }
+// Safety stop: shortened sync can skip the original VDP1 swap/DMA phase.
+// Keep the failed candidates and tests; restore acceleration only after complete
+// relative-to-original sprite/effect visibility regression passes.
+inline Speed speed() noexcept {
+    static const Speed s=[] {
+        const Speed requested=parse_speed(std::getenv("PAL_EFFECT_ANIMATION_SPEED"));
+        if(requested!=Speed::original)
+            std::fprintf(stderr,"PAL_EFFECT_ANIMATION_SPEED: rates above 1 temporarily disabled (missing-sprite regression); using original rate 1.\n");
+        return Speed::original;
+    }();
+    return s;
+}
 inline uint8_t raw8(uint32_t a) noexcept {
     const uint32_t p=a&0x1FFFFFFFu;
     if(p>=0x06000000u && p<0x06100000u)return g_wram_h[p&0xFFFFF];

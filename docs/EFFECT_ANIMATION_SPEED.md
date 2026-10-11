@@ -1,5 +1,13 @@
 # Optional battle-effect animation cadence
 
+> **Safety update 2026-10-11:** animation rates above1 are temporarily blocked by
+> the launcher. Direct environment requests also warn and fall back to1 after
+> rebuilding. Real Thunder footage revealed missing character/enemy frames at
+>1.5/2; prior same-mode replay equality did not prove original-picture integrity.
+> Keep animation1. Quick preparation and precise input are separate options.
+> Historical measurements below remain evidence, not current accelerated-mode acceptance.
+
+
 Use `--effect-animation-speed 1`, `1.25`, `1.5` or `2` with
 `tools/run_pal_profile.py`. Default 1 preserves original behavior. This option
 is independent of `--quick-spell`, which shortens preparation before effects.
