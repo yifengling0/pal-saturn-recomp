@@ -558,6 +558,10 @@ class RequiredUiTests(unittest.TestCase):
 class NativeIdentityContractTests(unittest.TestCase):
     """Real local compiler fixtures, not an OHOS SDK or device acceptance test."""
     def setUp(self):
+        # Directories a previous run could not delete (see _release) are unlocked by now, so reclaim
+        # them here rather than letting tools/ fill up between runs.
+        for stale in AUDIT.glob('native-identity-*'):
+            shutil.rmtree(stale, ignore_errors=True)
         self.tmp = tempfile.TemporaryDirectory(prefix='native-identity-', dir=AUDIT)
         # Windows keeps a freshly linked identity.dll locked for a moment after the loader is done
         # with it, so the assertions pass and only the teardown fails; that left a directory in
@@ -573,10 +577,13 @@ class NativeIdentityContractTests(unittest.TestCase):
 
     def _release(self):
         """Drop the temp dir, tolerating the window where Windows still holds the linked DLL."""
+        name = self.tmp.name
         try:
             self.tmp.cleanup()
-        except PermissionError:
-            shutil.rmtree(self.tmp.name, ignore_errors=True)
+        except OSError:
+            # This process loaded identity.dll with ctypes and ctypes cannot free a library, so the
+            # handle only goes when pytest exits. The next run sweeps what is left; git ignores it.
+            pass
 
     def configure(self, selected_runtime=None, selected_host=None, extra_host=None):
         if not self.cmake:

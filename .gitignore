@@ -28,3 +28,7 @@ harmony/**/oh_modules/
 harmony/**/local.properties
 harmony/**/.idea/
 harmony/pal-saturn-openharmony/build-profile.json5
+
+# 本机测试临时目录：test_ohosbuild 用 ctypes 载入 identity.dll，进程不退出就删不掉，下次运行会自行回收
+tools/native-identity-*/
+tools/ui-identity-*/
