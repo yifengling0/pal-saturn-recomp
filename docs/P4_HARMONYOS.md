@@ -197,3 +197,58 @@ Windows 基准：56 s 无头跑 `times empty` 0–2。
 剩下：#13 没有左右划出手势（只有顶部中间一个 ☰，直径约 86 px ≈ 43 dp，低于 48 dp 建议值）、
 #19 触摸菜单里没有高级设置/launcher 入口、#21 关掉 Menu button 会永久锁死菜单（静态取证，没敢在用户平板上实做）、
 #22 菜单全英文且 Quit 没有二次确认。
+
+## 12. 0010 这轮：图标、手柄桥接与两个构建坑（2026-10-11 傍晚）
+
+### 图标（两端都换，落点在 `src/pal_game/app_icon/`）
+
+同一套"玉剑"图我这边先按 `pal-saturn-platform-icons-v1.zip` 接过一次（四个用到的文件与包内
+`validation.json` 的 SHA256 逐个对上：`pal_saturn.ico 86813d77…`、`harmony_foreground.png f1397687…`、
+`harmony_background.png 415dcfb8…`、`windows_icon_1024.png 452b5351…`），专家那边同一时间也推了同图不同落点的
+`05ce227/37f53d4/4281179/58ed8cd/8fa1b86`。合并时以他的为准，我那份 `assets/icons/` 副本删掉了，出处看 `docs/APP_ICON.md`。
+
+- Windows：`src/pal_game/app_icon/pal_app.rc` + `pal_saturn.ico`，由 `src/pal_game/pal_game.cmake` 的
+  `if(WIN32)` 分支挂进 `saturn` 目标，不碰上游。验证方式是从产物里把图标抠回来：
+  `Add-Type -AssemblyName System.Drawing; [System.Drawing.Icon]::ExtractAssociatedIcon(...saturn.exe)`，
+  取回 32×32 的剑与土星环，换 exe 前后位图哈希一致。
+- 鸿蒙：`AppScope` 与 `entry` 两处 `resources/base/media/{background,foreground}.png` 换成 1024 图层，
+  `startIcon.png` 用整幅合成图。打包后从签名 HAP 里解出来核对过：hvigor 会重压缩 PNG，所以哈希必然不同，
+  只能看图——图是对的。真机桌面图标没截到（`keyEvent Home` 被 SDL 吃掉，应用一直停在前台），这一项留给用户目视确认。
+- 顺手补的：`WIN32_EXECUTABLE TRUE`，双击不再弹控制台（`PAL_CONSOLE=1` 可以把日志要回来，见第 13 节）。
+
+### 实体手柄桥接在真机上起来了
+
+新 HAP 启动日志：`gamepad OHOS: API 21 callbacks registered, SDL native preference=0` →
+`gamepad OHOS: enumerated=0 status=ok` → `gamepad: SDL joystick=0 mapped=0 opened=0`。
+`dlopen` 与符号解析全部通过，只是手边没有蓝牙/USB 手柄可插，所以 `enumerated=0`。
+#15 到"桥接可用"这一步为止，热插拔/按键映射/切后台仍要接了真手柄再测。
+
+### 两个构建坑（都会让人白跑一次）
+
+1. **鸿蒙 native 配置失败**：专家新加的 `target_link_libraries(saturn_host PUBLIC ${CMAKE_DL_LIBS})`
+   写在 `entry/src/main/cpp/CMakeLists.txt`，而 `saturn_host` 是 `build/recomp` 子目录里的 target，
+   `cmake_minimum_required(VERSION 3.5.0)` 下 `CMP0079` 是 OLD，直接报
+   `Attempt to add link library "dl" to target "saturn_host" which is not built in this directory`。
+   修法是在 `project()` 后加 `cmake_policy(SET CMP0079 NEW)`（本地壳工程改动，不进上游补丁）。
+2. **`tools/winbuild.py build` 不带 `--sdl-dir` 会静默产出无窗口 exe**：只链 KERNEL32/msvcrt，
+   双击后立刻退出，而构建本身 exit 0。带图标的正确姿势是
+   `tools/winbuild.py build --sdl-dir third_party/sdl3/SDL3-3.4.18/cmake`，
+   然后用 `objdump -p build/recomp-build/saturn.exe | grep "DLL Name"` 确认出现 `SDL3.dll`。
+   `tools/make_dist.py` 会先 `shutil.rmtree(dist/…)` 再重建，包里的 `saves/`（玩家进度）会被一起删掉，
+   所以**不要**在已有存档的情况下拿它重打发行包；原地换 exe 并同步 `SHA256SUMS.txt` 里的 `saturn.exe` 行就行。
+
+### PC 版实机跑法（带本機進度）
+
+```bash
+dist/pal-saturn-recomp-win-x64/saturn.exe \
+  --cue <repo>/disc/pal_t37401h_13tr.cue \
+  --settings <dist>/settings.ini \
+  --save <dist>/saves/pal-saturn.bup \
+  --cart <dist>/saves/pal-saturn-cart.bup \
+  --clock 1998-11-01T12:00:00
+```
+
+`settings.ini` 里 `keyboard_profile = pc98`，所以专家这轮的 F（最强武功）/ R（重复上次指令）在这条路上生效。
+包内 `saves/pal-saturn.bup` 就是白河村三人队胜利那份（`a4d8f748…`，与 `baihe-first-three-party-victory.bup` 同哈希）；
+启动前先另存了一份 `pal-saturn.before-pc-session-20261011-1812.bak.bup`，并写进了 SHA256SUMS。
+标题选「舊的回憶」读的就是这份本機進度；要四格存档位则用卡匣（第一次往卡匣存盘才会长出 `pal-saturn-cart.bup`）。

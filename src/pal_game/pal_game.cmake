@@ -15,6 +15,9 @@ if(WIN32)
   enable_language(RC)
   target_sources(${PAL_GAME_TARGET} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/app_icon/pal_app.rc)
   target_include_directories(${PAL_GAME_TARGET} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/app_icon)
+  # A player double-clicking the exe gets the window and nothing else; PAL_CONSOLE=1 brings the
+  # log back for whoever starts it from a terminal.
+  set_target_properties(${PAL_GAME_TARGET} PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 if(_pal_default_target)
   unset(PAL_GAME_TARGET)

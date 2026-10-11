@@ -2,6 +2,9 @@
 # hvigor 用 OHOS NDK 配置这里；产物必须是 libmain.so（鸿蒙只加载这个名字）。
 cmake_minimum_required(VERSION 3.5.0)
 project(palsaturn)
+# saturn_host is defined under build/recomp, so linking the gamepad bridge's dl from here
+# needs the cross-directory target_link_libraries policy that 3.5's default leaves off.
+cmake_policy(SET CMP0079 NEW)
 
 if(DEFINED PACKAGE_FIND_FILE)
     include(${PACKAGE_FIND_FILE})

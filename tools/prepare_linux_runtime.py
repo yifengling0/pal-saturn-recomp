@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 
 PIN = '086c372c67d9e0f94fcc64cedd6e6b63cc5542b5'
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,20 @@ def identity(path, pin):
         raise ValueError('Wrong checkout root')
     if git(path, 'rev-parse', 'HEAD').decode().strip() != pin:
         raise ValueError('Unexpected upstream commit')
+
+
+def rename_when_unlocked(scratch: Path, patched: Path, tries: int = 30, pause: float = 2.0):
+    """Windows refuses to rename a directory the instant it stops being written to: Defender and the
+    indexer hold handles on the loose objects the clone and the ten `git apply` runs just created, and
+    the rename lands in that window. Waiting is what clears it, so retry with a backoff."""
+    for attempt in range(tries):
+        try:
+            scratch.rename(patched)
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(pause)
 
 
 def prepare(clean: Path, patched: Path, pin: str, patches: list[Path]):
@@ -49,10 +64,10 @@ def prepare(clean: Path, patched: Path, pin: str, patches: list[Path]):
         data = {'pin': pin, 'patches': inputs,
                 'diff_sha256': hashlib.sha256(git(scratch, 'diff', 'HEAD', '--binary')).hexdigest()}
         (scratch / '.git/pal-setup-manifest.json').write_text(json.dumps(data, indent=2) + '\n')
-        scratch.rename(patched)
+        rename_when_unlocked(scratch, patched)
     finally:
         if scratch.exists():
-            shutil.rmtree(scratch)
+            shutil.rmtree(scratch, ignore_errors=True)
     return True
 
 
