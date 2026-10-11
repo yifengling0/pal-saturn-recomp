@@ -77,6 +77,15 @@ class InjectionTests(unittest.TestCase):
             dest = self.runtime / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / 'third_party/saturn-recomp-pal/runtime' / name, dest)
+        # The runtime reader accepts one coherent variant: 0011's host.cpp is the Chinese-menu
+        # generation, so the fixture carries that generation's Settings and every pinned helper/UI
+        # file. Deriving the list from the pins keeps it honest when a patch adds one.
+        from pal_keyboard_profile import HARMONY_RUNTIME_HELPERS, HARMONY_UI_RUNTIME_FILES
+        for name in ('src/host/settings.cpp', *(f'src/host/{n}' for n in HARMONY_RUNTIME_HELPERS),
+                     *HARMONY_UI_RUNTIME_FILES):
+            dest = self.runtime / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(REPO / 'third_party/saturn-recomp-pal/runtime' / name, dest)
 
 
     def tearDown(self):
@@ -137,7 +146,8 @@ class InjectionTests(unittest.TestCase):
         self.assertEqual(hashes(self.root), before)
 
     def test_changed_host_anchor_has_zero_partial_writes(self):
-        self.host.write_text(self.host.read_text().replace('static bool g_menu_open, g_quitting;', 'changed;'))
+        # 0011 widened that declaration, so break an anchor both generations share.
+        self.host.write_text(self.host.read_text().replace('static void menu_close() {', 'changed;'))
         before = hashes(self.root)
         with self.assertRaisesRegex(ValueError, 'SDL host'):
             self.run_inject()
@@ -223,9 +233,11 @@ class InjectionTests(unittest.TestCase):
         for base in (self.recomp, self.runtime):
             for path in base.rglob('*'):
                 if path.is_file():
-                    path.write_bytes(path.read_bytes().replace(b'\n', b'\r\n'))
+                    # Collapse first: the copied runtime files are already CRLF, and replacing
+                    # their bare \n would leave \r\r\n, which no reader normalises back.
+                    path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))
         manifest = self.run_inject()
-        text = self.source.read_text()
+        text = self.source.read_text(encoding='utf-8')
         self.assertEqual(text.count('pal_input_sync_enter(c);'), 1)
         self.assertEqual(text.count('pal_effect_wait::ready(c)'), 1)
         self.assertEqual(manifest['runtime'], '../runtime')

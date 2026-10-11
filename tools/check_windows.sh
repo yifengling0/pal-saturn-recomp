@@ -8,6 +8,10 @@ RT=third_party/saturn-recomp-pal
 PY=${PY:-build/venv/Scripts/python.exe}
 CXX=${CXX:-g++}
 B=build/check
+# The repository's own sources carry UTF-8 Chinese menu text, while Windows' default codec is the
+# ANSI codepage; tests read those files without naming an encoding, so pin the interpreter to UTF-8
+# instead of letting one machine's locale decide whether the suite can read the sources.
+export PYTHONUTF8=1
 # Git for Windows ships /mingw64/bin/libstdc++-6.dll, which shadows the toolchain that built the
 # exe and fails it at load with 0xC0000139; -static keeps the runtime libraries inside the exe.
 CMAKE=(-G Ninja -DCMAKE_CXX_COMPILER="$CXX" -DSATURN_NO_SDL=ON -DCMAKE_CXX_FLAGS=-static -DCMAKE_EXE_LINKER_FLAGS=-static)

@@ -19,6 +19,11 @@ class MovieLinkage(unittest.TestCase):
   with tempfile.TemporaryDirectory() as td:
    p=Path(td);layer=p/'layer';layer.mkdir()
    (layer/'pal_game.cmake').write_text((PROJECT/'src/pal_game/pal_game.cmake').read_text())
+   # The desktop branch of that file attaches the application icon, so the fixture carries the
+   # resource directory the way a real checkout does; otherwise configure fails on Windows.
+   (layer/'app_icon').mkdir()
+   for resource in (PROJECT/'src/pal_game/app_icon').iterdir():
+    (layer/'app_icon'/resource.name).write_bytes(resource.read_bytes())
    for f in ['pal_diag.cpp','pal_audio_stream_init.cpp']:(layer/f).write_text('')
    (p/'dummy.cpp').write_text('int main(){return 0;}')
    (p/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.20)\nproject(test CXX)\nadd_executable(saturn dummy.cpp)\ninclude(layer/pal_game.cmake)\nadd_library(main SHARED dummy.cpp)\nset(PAL_GAME_TARGET main)\ninclude(layer/pal_game.cmake)\nunset(PAL_GAME_TARGET)\nforeach(t saturn main)\nget_target_property(s ${t} SOURCES)\nfile(WRITE "${CMAKE_BINARY_DIR}/${t}.txt" "${s}")\nendforeach()\n')

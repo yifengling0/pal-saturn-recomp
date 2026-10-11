@@ -1,5 +1,6 @@
 """Host field intent must survive a delayed guest key-release acknowledgement."""
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 import unittest
@@ -67,8 +68,14 @@ class GuestReleaseGateTests(unittest.TestCase):
             source = work / "release_gate.cpp"
             source.write_text(PROGRAM)
             exe = work / "release_gate"
-            subprocess.run(["g++", "-std=c++20", "-Wall", "-Wextra", "-Werror",
-                            "-I" + str(work), "-I" + str(ROOT / "src/pal_game"),
-                            str(source), "-o", str(exe)], check=True, capture_output=True)
+            command = ["g++", "-std=c++20", "-Wall", "-Wextra", "-Werror",
+                       "-I" + str(work), "-I" + str(ROOT / "src/pal_game")]
+            if os.name == "nt":
+                # The probe sets its switches with POSIX setenv, which MinGW has not: the same
+                # shim tools/check_windows.sh force-includes for the runtime tests.
+                command += ["-include", str(ROOT / "tools/wincompat.h")]
+            subprocess.run(command + [str(source), "-o", str(exe)], check=True, capture_output=True)
+            if not exe.is_file():
+                exe = exe.with_suffix(".exe")   # MinGW appends it to an extension-less -o
             for args in ([], ["original"]):
                 subprocess.run([str(exe), *args], check=True, capture_output=True)

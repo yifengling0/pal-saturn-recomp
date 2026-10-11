@@ -41,7 +41,7 @@ class WindowsDraftTests(unittest.TestCase):
         out=self.root/'build/windows-pal-options'
         self.assertEqual(self.game.build,str(out))
         self.assertEqual(json.loads((out/'pal-options-root.json').read_text())['kind'],'pal-windows-options-generated-build')
-        self.assertEqual(self.game.cmake,['OTHER=1','SATURN_EXTRA='+str(self.root/'src/pal_game/pal_game.cmake'),'SATURN_NO_SDL=ON','SATURN_RUNTIME='+str(out/'runtime')])
+        self.assertEqual(self.game.cmake,['OTHER=1','SATURN_EXTRA='+(self.root/'src/pal_game/pal_game.cmake').as_posix(),'SATURN_NO_SDL=ON','SATURN_RUNTIME='+(out/'runtime').as_posix()])
     def test_rejects_existing_unowned_directory(self):
         out=self.root/'build/frozen-experiment';out.mkdir(parents=True);(out/'saturn').write_bytes(b'preserve')
         with self.assertRaises(SystemExit):self.call(['build','--pal-options','--headless','--build-dir',str(out)])

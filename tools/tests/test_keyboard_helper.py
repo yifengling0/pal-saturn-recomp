@@ -16,6 +16,11 @@ from keyboard_test_fixtures import HEADER, digest, load_planner
 
 HERE = Path(__file__).resolve().parent
 
+# Git for Windows puts /mingw64/bin/libstdc++-6.dll on PATH, and a probe built by another MinGW loads
+# that instead of its own runtime and dies inside std::map. -static keeps the runtime inside the exe,
+# which is what tools/check_windows.sh does for the runtime tests for the same reason.
+STATIC = ['-static'] if os.name == 'nt' else []
+
 class HelperTests(unittest.TestCase):
     def compiler(self):
         requested = shlex.split(os.environ.get('CXX', 'c++'))
@@ -31,7 +36,7 @@ class HelperTests(unittest.TestCase):
             for name, data in extra_files:
                 (tmp / name).write_bytes(data)
             exe = tmp / ('test.exe' if os.name == 'nt' else 'test')
-            cmd = [*compiler, '-std=c++17', '-Wall', '-Wextra', '-Werror', '-I' + str(tmp), str(source)]
+            cmd = [*compiler, '-std=c++17', '-Wall', '-Wextra', '-Werror', '-I' + str(tmp), str(source), *STATIC]
             cmd += [str(tmp / name) for name, _ in extra_files if name.endswith('.cpp')]
             result = subprocess.run([*cmd, '-o', str(exe)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

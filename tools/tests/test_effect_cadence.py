@@ -6,13 +6,18 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# Git for Windows puts /mingw64/bin/libstdc++-6.dll on PATH, and a probe built by another MinGW loads
+# that instead of its own runtime and dies at start-up; -static keeps the runtime inside the exe, as
+# tools/check_windows.sh does for the runtime tests.
+STATIC = ['-static'] if os.name == 'nt' else []
+
 def test_cadence_policy_and_runtime_scope():
     with tempfile.TemporaryDirectory(prefix='PAL cadence 空格 ') as folder:
         exe = Path(folder) / ('cadence.exe' if os.name == 'nt' else 'cadence')
         subprocess.run([os.environ.get('CXX', 'g++'), '-std=c++20', '-Wall', '-Wextra', '-Werror',
             '-I'+str(ROOT/'src/pal_game'),
             '-I'+str(ROOT/'third_party/saturn-recomp-pal/runtime/include'),
-            str(ROOT/'tools/tests/effect_cadence_test.cpp'), '-o', str(exe)], check=True, capture_output=True)
+            str(ROOT/'tools/tests/effect_cadence_test.cpp'), *STATIC, '-o', str(exe)], check=True, capture_output=True)
         for speed in ('1', '1.25', '1.5', '2', 'bad'):
             result = subprocess.run([str(exe)], env=dict(os.environ, PAL_EFFECT_ANIMATION_SPEED=speed), check=True, capture_output=True)
             assert b'temporarily disabled' not in result.stderr
@@ -43,5 +48,5 @@ int main() {
         source = Path(folder)/'scope.cpp'
         source.write_text(code)
         exe = Path(folder)/('scope.exe' if os.name == 'nt' else 'scope')
-        subprocess.run([os.environ.get('CXX','g++'),'-std=c++20','-Wall','-Wextra','-Werror',str(source),'-o',str(exe)], check=True,capture_output=True)
+        subprocess.run([os.environ.get('CXX','g++'),'-std=c++20','-Wall','-Wextra','-Werror',str(source),*STATIC,'-o',str(exe)], check=True,capture_output=True)
         subprocess.run([str(exe)],check=True,capture_output=True)
