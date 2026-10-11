@@ -155,3 +155,45 @@ audio stream: 906 times empty, 0 chunks dropped                // 改前（lead 
 4. 44100 → 设备 48000 的重采样在 FAST 模式下的抖动没测过。
 
 同一条补丁里顺带做的（都不是音频）：触摸面板和暂停菜单改成按画面尺寸放大；点面板外面算关闭；`--settings` 在鸿蒙上必须显式给（否则写 `$HOME/.local/share` 被拒）。还没做的：高级菜单（`--launcher`）在设备上没入口（#19）、菜单与按键的显隐规则没理清（#20）、手柄（#15，SDL 鸿蒙没有 joystick 后端）。
+
+## 10. 0009 的复测结果（2026-10-11，同一台 MLR-AL10，release HAP）
+
+设备上报：`audio: device 44100 Hz 2 ch, reported quantum 4096, source lead 4410/44100 (capped=1 valid=1 format=32784)`、
+`audio: driver=OHAudio guest_realtime=0`。一次拉取 4096 帧 = 92.9 ms，lead 被 100 ms 上限截住，
+**只比一个 quantum 多 7%**。第 9 节里第 4 条猜测可以直接划掉：设备就是 44100 Hz，没有重采样。
+
+| 会话 | 模拟时长 | VBlank/s | times empty | 次/秒 | recovery_zeros | dropped_frames | query/put errors |
+|---|---|---|---|---|---|---|---|
+| 0008 前 | 84.8 s | 60.0 | 906 | 10.7 | — | — | — |
+| 1（16:39–16:47） | 389.2 s | 59.94 | 123 | 0.32 | 542430 帧 = 12.3 s | 9358 | 0 / 0 |
+| 2（16:49–16:54，含走路换幕） | 283.4 s | 59.94 | 44 | 0.155 | 194040 帧 = 4.4 s | 11209 | 0 / 0 |
+
+Windows 基准：56 s 无头跑 `times empty` 0–2。
+
+结论：频率掉了两个数量级，但没归零。每次 empty 事件补的正好是一整个 lead（542430/123 = 4410 帧），
+所以残留缺陷是"每 3–6 秒一个 100 ms 的洞 + 100 ms 整体延迟"，不再是每秒十次的爆音。
+`max_push_gap_us` 两次 22.3 s / 9.4 s 都落在菜单暂停期（`sat_resuming()` 不推 PCM），属预期。
+第 9 节第 3 条现在有了数据支撑：`plan_push` 在 `queued==0` 时补 `min(headroom, lead)`，headroom 有 10290 帧，
+所以每次都是硬补满 4410。两个抓手（都还没实机验证）：
+
+- lead 上限 4410 与 quantum 4096 太贴，一次拉取抖动就吃光余量：改成 `max(lead, 2*quantum)`（≈8200 帧 / 186 ms）并同步放宽队列上限，代价是延迟。
+- empty 后改成"补到 lead"（`lead - 已入队`）而不是"补一个 lead"，避免每次事件硬插 100 ms。
+
+原始日志：`build/audio-after-quit-0009.txt`（会话 1）、`build/audio-session2.txt`（会话 2）。
+复测流程与第 9 节末尾一致，只是 `--launch` 之后要跑 3–6 分钟再 Quit，统计只在退出时打印。
+
+## 11. 触摸菜单与虚拟按键的实机验收（同一批构建）
+
+已修好并被截图证实（`build/after0009.png`、`build/menu0009.png`、`build/fill.png`、`build/padoff.png`、`build/size70.png`、`build/walk.png`）：
+
+- 虚拟按键按画面大小自适应：`touch_pad_unit = max(480*density, 0.45*屏高) * size/100`；2560×1600 平板上
+  L/R、十字键、A B C / X Y Z、START 全部清晰可点，Size 每档 10% 且实时重排。
+- 菜单三条关闭路径都有效：Resume、右上角 X、点面板外。Resume 后画面与暂停前逐字节相同（PNG SHA256 一致），
+  暂停/恢复没有推进虚拟时间。
+- Picture 三档 TV / Fit / Fill 都生效（Fit 左右黑边、Fill 拉满 16:10、TV 略宽于 Fit）。
+- Show pad = Off 时按键全消失但 ☰ 保留；Auto/On/Off、Style、Opacity、Menu button 都写回 settings.ini 并在下次启动保留。
+- 触摸确实能驱动土星手柄：点 A 推进对白、划十字键让李逍遥在客栈走动并换幕；平板上没有 Windows 那条走路停滞问题。
+
+剩下：#13 没有左右划出手势（只有顶部中间一个 ☰，直径约 86 px ≈ 43 dp，低于 48 dp 建议值）、
+#19 触摸菜单里没有高级设置/launcher 入口、#21 关掉 Menu button 会永久锁死菜单（静态取证，没敢在用户平板上实做）、
+#22 菜单全英文且 Quit 没有二次确认。
