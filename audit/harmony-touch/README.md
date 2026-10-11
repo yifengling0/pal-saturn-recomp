@@ -50,24 +50,24 @@ Select another compiler with `--cxx clang++` or `CXX`.
   aligned shoulders, minimum supported utility targets and simultaneous keys.
 - `position_tests.cpp`: 27,272 checks for six normalized movable groups, complete
   bounding-box clamping, resizing and position conversion.
-- `actual_host_tests.cpp`: 17,040 OHOS-default checks through the actual host menu/event paths:
+- `actual_host_tests.cpp`: 17,301 OHOS-default checks through the actual host menu/event paths:
   paginated settings reachability, 48-unit targets on the tested supported sizes,
   slider finger ID zero/multitouch, lower-edge minus, cancel/focus/resize cleanup,
   fit/stretch, independent menu recovery, quit confirmation, editing without
   guest input, Cancel/Done/Reset and persisted preferences. The UI draw calls and
   OS/game/audio side effects are stubbed here; actual font metrics are separate.
-- `settings_tests.cpp`: 352 checks each for desktop and OHOS defaults, migration,
+- `settings_tests.cpp`: 371 checks each for desktop and OHOS defaults, migration,
   validation, persistence, explicit old choices, and preservation of independent
   keyboard/gamepad/PC98 settings. Reset touch must not reset those sections or
   the picture mode.
 
 The same actual-host source additionally compiles a desktop discovery-only run
-with 11,519 checks. It covers both explicit layout versions across 36 dimension,
+with 11,555 checks. It covers both explicit layout versions across 36 dimension,
 density and version combinations per build, including confirmation, draft-only
 conversion, Cancel/Back/window-close, write failure rollback, successful Done,
-restart, independent configuration preservation and UI12 identity logging.
+restart, independent configuration preservation and UI13 edge-swipe-v1 identity logging.
 
-Expected core total on the UI12 revision: **71,130 checks**. These are
+Expected core total on this UI13 candidate based on UI12: **71,465 checks**. These are
 software assertions over synthetic dimensions, not a physical device test.
 
 ## Optional Chinese/English font bounds
@@ -83,7 +83,7 @@ python3 audit/harmony-touch/run_tests.py \
   --fonts-dir build/recomp-build/saturn-fonts
 ```
 
-This adds 9,892 Chinese and 10,169 English actual-font bounds checks across 210
+This adds 10,168 Chinese and 10,613 English actual-font bounds checks across 210
 menu geometry combinations and 45 editor dimension/density/size combinations
 per language, including a finite positive-width requirement for every measurement
 so font-initialization failures cannot pass as zero-width text. Without `--fonts-dir`, the runner explicitly reports this suite
@@ -105,7 +105,7 @@ The production pipeline additionally verifies the 15 files changed by the UI
 patch; this audit does not assert that every unrelated runtime file matches an
 upstream checkout. Keep native/device checks separate from this result.
 
-## Finding the editor (UI12)
+## Finding the editor (preserved UI12 behavior)
 
 Open the in-game host menu. “移动按键” / “Move controls” is the second main
 row, immediately after Resume, for both legacy and editable layouts. Normal
@@ -123,9 +123,18 @@ and independent keyboard/gamepad/picture settings are retained. A failed save
 rolls back the settings object and keeps the draft open, with a diagnostic log;
 Done can retry or Cancel can discard it. No dedicated error popup is introduced.
 
-The menu header shows UI12. The actual host defines strong C symbols
+The menu header shows UI13. The actual host defines strong C symbols
 `pal_host_ui_feature_version()` and `pal_host_ui_source_hash()`. The source-hash
 function returns the compile-time `PAL_HOST_UI_SOURCE_SHA256`, or `unavailable`
-when absent. Startup prints features, layout version and locale once. UI12 is a
+when absent. Startup prints edge-swipe-v1, the inherited editor features, layout version and locale once. UI13 is a
 host-feature identifier, not the application's package version. The OHOS build
 and entry must additionally verify and log the linked source hash.
+
+## Supplemental edge-menu candidate
+
+This isolated candidate also adds the `edge_menu` setting and bilingual switch.
+The core and font totals above are 92,246 checks together. The separate
+`audit/edge-menu/run_edge.py` runner exercises the pure gesture and actual-host
+entry, including nonblocking extra fingers: only the original claimed finger
+remains consumed after cancellation; fresh game/menu Downs are ordinary input.
+It retains red controls and does not establish device or system-edge delivery.

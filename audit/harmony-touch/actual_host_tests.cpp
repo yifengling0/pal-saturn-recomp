@@ -124,8 +124,8 @@ int main(int argc,char**argv){
 #else
  CHECK(std::string(pal_host_ui_source_hash())=="unavailable");
 #endif
- CHECK(pal_host_ui_feature_version()==12);note_host_ui_features();note_host_ui_features();CHECK(feature_lines==1);
- CHECK(feature_log.find("UI12 touch-editor-v2")!=std::string::npos);CHECK(feature_log.find(PAL_HOST_MENU_CHINESE?"locale=zh-CN":"locale=en")!=std::string::npos);
+ CHECK(pal_host_ui_feature_version()==13);note_host_ui_features();note_host_ui_features();CHECK(feature_lines==1);
+ CHECK(feature_log.find("UI13 edge-swipe-v1 touch-editor-v2")!=std::string::npos);CHECK(feature_log.find(PAL_HOST_MENU_CHINESE?"locale=zh-CN":"locale=en")!=std::string::npos);
 #ifdef PAL_TEST_DISCOVERY_ONLY
  discovery_tests(std::string(argv[1])+"/discovery");
  std::printf("%d discovery-host checks, %d failures; no GUI/device created\n",checks,failures);return failures?1:0;
@@ -138,7 +138,7 @@ int main(int argc,char**argv){
    for(auto& r:l.rows){CHECK(seen.insert(r.id).second);CHECK(contained(r.r,l.panel));CHECK(r.r.h/scale+0.02>=48);if(r.control!=Control::Action){auto a=control_area(l,r);CHECK(a.h/scale+0.02>=48);if(r.control==Control::Choice)for(int i=0;i<choice_count(r.id);++i)CHECK(segment(l,r,i).w/scale+0.02>=48);}}
    if(l.paged&&l.pages>1){int before=g_menu_page;next_page();CHECK(g_menu_page==(before+1)%l.pages);CHECK(!g_slider_active);}
   }
-  CHECK(seen.size()==(saves?11:10));CHECK(g_menu_page==0);for(auto id:{M_RESUME,M_PRESENT,M_QUIT,M_PAD,M_SIZE,M_OPACITY,M_STYLE,M_SPACING,M_RESET_TOUCH,M_EDIT_LAYOUT})CHECK(seen.count(id)==1);CHECK(seen.count(M_SAVES)==(saves?1:0));
+  CHECK(seen.size()==(saves?12:11));CHECK(g_menu_page==0);for(auto id:{M_RESUME,M_PRESENT,M_QUIT,M_PAD,M_SIZE,M_OPACITY,M_STYLE,M_SPACING,M_RESET_TOUCH,M_EDIT_LAYOUT,M_EDGE_MENU})CHECK(seen.count(id)==1);CHECK(seen.count(M_SAVES)==(saves?1:0));
   auto op=locate(M_OPACITY);auto a=control_area(op.first,op.second);g_settings.set("touch","opacity","55");
   // Red regression: lower-edge minus must subtract, never activate/cycle the row.
   tap(a.x+a.h/2,a.y+a.h-test_scale);CHECK(g_settings.number("touch","opacity")==45);

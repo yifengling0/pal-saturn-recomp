@@ -12,6 +12,24 @@ static bool contains(const std::string& s,const std::string& v){return s.find(v)
 int main(int argc,char**argv) {
   if(argc!=5){std::fprintf(stderr,"usage: settings-test OWNED_AUDIT_DIR DISPLAY_KEY DEFAULT_MODE DEFAULT_OPACITY\n");return 2;}
   const std::string directory=argv[1],key=argv[2],mode=argv[3];const int alpha=std::stoi(argv[4]);
+  // Edge-menu defaults, strict booleans, and exact restart persistence.
+#if defined(PAL_OHOS_DEFAULTS)
+  CHECK(Settings{}.flag("touch","edge_menu"));
+#else
+  CHECK(!Settings{}.flag("touch","edge_menu"));
+#endif
+  for(const auto* value:{"true","false"}) {
+    Settings edge;std::vector<std::string> errors;
+    edge.read(std::string("[touch]\nedge_menu = ")+value+"\n",errors);
+    CHECK(errors.empty());CHECK(edge.get("touch","edge_menu")==value);
+    auto text=edge.write_over("; preserve\n[touch]\n");Settings restart;restart.read(text,errors);
+    CHECK(restart.get("touch","edge_menu")==value);CHECK(restart.write_over(text)==text);
+  }
+  for(const auto* bad:{"True","1","yes","","null"}) {
+    Settings edge;std::vector<std::string> errors;
+    edge.read(std::string("[touch]\nedge_menu = ")+bad+"\n",errors);
+    CHECK(errors.size()==1);CHECK(edge.get("touch","edge_menu")==Settings{}.get("touch","edge_menu"));
+  }
   // Missing version upgrades geometry, while existing explicit preferences survive.
   Settings migrated;std::vector<std::string> migration_problems;
   migrated.read("[touch]\nsize = 140\nopacity = 75\nstyle = japanese\n[display]\npresentation = original\n",migration_problems);
