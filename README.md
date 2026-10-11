@@ -3,18 +3,15 @@
 《仙剑奇侠传1》土星版 SH-2 静态重编译移植。实施蓝图见 `../../PAL_Saturn_Recomp_Windows_HarmonyOS_实施方案.md`；
 上一提交的 Linux 准备包内容保留在 `validation/`（其 `TASK_WORKFLOW.md` 的分阶段规程继续适用）。
 
-**当前不是已经完成的游戏移植。** 现在的真实位置：真盘已在本机重编译码上启动，**并已渲染出可操作的等距地图与洞窟场景**
-（含剧情、VDP1 精灵、SMPC 手柄、CD 装载），但进入旋转背景的一幕起恒定黑屏，Gate P1 仍未通过，走路问题**未测量**。
+**当前仍未完成完整游戏验收。** 2026-10-10 Linux 云端已完成真实 SDL3 窗口、开场视频、键盘接收及真盘重编译验证。早期截图中的户外/洞窟是 `A3.AVI` 开场影片，不能作为可操作地图证据。旧版后续黑背景已定位到 SH-2 DMA 16-byte burst 的短拷贝缺陷，最小补丁及合成红绿回归见 `docs/DMA_BURST_FIX.md`；真实修复后客栈背景、头像、对白已恢复，原生 SDL 键盘成功推进对白；完整移动、切场和存取档继续验证。
 
 ## 一分钟结论
 
-- 输入：本地 `../仙剑奇侠传（中）.mdf/.mds` = 土星真盘 RAW 2352 扇区镜像，
-  `T-37401H V1.000 19981101`，areas `JT`，`LEGEND OF SWORD AND FAIRY`，SOFTSTAR。
-- 已验证：`/0` 装载 0x06004000（入口 0x06004040）；`PROG.BIN` 装载 0x06020000（入口 0x06020040）——两者由**运行时行为**证明。
-- 已验证：上游无游戏数据自检在本机全绿（指令自测 9300 向量 0 失败；运行时单测 44/0，含 GPL VDP1 变体）。
-- 阻塞（2026-10-10 第八次收窄后）：**运行时未实现 VDP2 的 RBG0/RBG1 旋转合成**。黑屏一幕 `NBG0CFG=0x4300`（HLMT+SDTT）、
-  `CHCTL0=0x1212`，背景贴图在 VDP1 VRAM（该帧非零 65,697 字节）；`vdp2.cpp` 的 `note_unsupported` 会打出
-  `VDP2: RBG0/RBG1 (0013) is not done`。游戏侧逻辑与 CD 装载是健康的——证据与已作废口径见 `docs/P1_RECOMP_REPORT.md` §4.14。
+- 输入版本：`T-37401H V1.000 19981101`，areas `JT`，`LEGEND OF SWORD AND FAIRY`，SOFTSTAR；新提供 BIN/CUE 的哈希与历史证据相同。
+- Linux 环境、命令、测试结果：`docs/LINUX_CLOUD_BUILD.md`；真实 SDL3 桌面配置：`docs/SDL_LINUX_PROBE.md`。
+- 最新诊断：DMA burst 重复除以4，使地图和纹理只复制四分之一，却报告完成。`0005` 删除多余循环增量，四项 DMA 数据/地址/结束标志回归通过。
+- 历史 RBG 黑屏结论已撤回：正确 BE 解码的 BGON 是 `0x0043`，旋转层 enable 位未开；旧报告把端序、位掩码及黑色像素的非零量混为证据。保留原历史报告以供对照，但不作为当前根因。
+- 完整自由移动、剧情、场景切换、存取档及 Windows 实机音频尚不能由合成或 Linux headless 成功代替。
 
 ## 目录
 
@@ -22,7 +19,7 @@
 game.toml                 真盘模块与地址（每个地址都注明证据来源）
 disc/                     由 MDF 还原的 RAW BIN + 13 轨 CUE（原盘文件只读；不入库）
 third_party/saturn-recomp 上游固定提交 086c372（core.autocrlf=false，工作树干净；不入库，见下）
-patches/                  对上游的改动，逐个补丁文件（0001-0004 已落地，0005 待做）
+patches/                  对上游的改动，逐个补丁文件（0001-0005 已落地）
 src/pal_game/             游戏层：诊断 hook（不动上游）
 tools/                    winbuild.py / check_windows.sh / vdp2_replay.js / vdp2_inspect.js / wincompat.h
 validation/               上一提交的只读输入校验 + 走路 tick 指标 + 26 项自测
@@ -36,7 +33,12 @@ build/                    全部产物（不提交）
 ```bash
 git clone --revision 086c372 https://github.com/callumjenkins/saturn-recomp third_party/saturn-recomp
 git -C third_party/saturn-recomp config core.autocrlf false
-git -C third_party/saturn-recomp am patches/0001-*.patch patches/0002-*.patch patches/0003-*.patch patches/0004-*.patch
+# These files are raw diffs, not git-am mail patches. Keep a clean parser checkout.
+git clone --no-hardlinks third_party/saturn-recomp third_party/saturn-recomp-pal
+for p in "$PWD"/patches/000{1,2,3,4,5}-*.patch; do
+  git -C third_party/saturn-recomp-pal apply --check "$p" && \
+  git -C third_party/saturn-recomp-pal apply "$p" || exit 1
+done
 # 想要窗口/手柄/声音，再放一份 SDL3（本仓库也不入库）：解压后把 cmake 目录写进 game.toml 的 cmake 数组
 #   SDL3-devel-<ver>-VC.zip → third_party/sdl3/ ，并加
 #   "SDL3_DIR=<仓库绝对路径>/third_party/sdl3/SDL3-<ver>/cmake"；SDL3.dll 复制到 build/recomp-build/
@@ -63,3 +65,7 @@ cd validation && ..\build\venv\Scripts\python.exe -m unittest discover -s tests
 
 不提交、不打包、不上传任何游戏数据与 BIOS。`disc/` 下的 BIN 是本地 MDF 的逐字节副本，仅用于本机分析；
 可提交的是分析代码、游戏层、补丁脚本与不含版权内容的元数据/哈希。个人持有镜像不等于分发移植版的许可。
+
+## Linux cloud validation (2026-10-10)
+
+See `docs/LINUX_CLOUD_BUILD.md`. Linux uses isolated build directories, a clean pinned parser checkout, and a separately patched runtime. `tools/check_linux.sh` fails on every failing stage. Historical Windows results above are not Linux test results.

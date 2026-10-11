@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include "pal_dump_parse.h"
 
 #include <saturn/sh2.h>
 #include "saturn.h"          // sat_note / sat_vblanks，运行时内部头（saturn 目标已带该包含路径）
@@ -51,9 +52,8 @@ void read_env() {
             if (n > 0 && n < static_cast<int>(sizeof head)) {
                 std::memcpy(head, d, n);
                 head[n] = 0;
-                if (head[0] == 'r' && std::strlen(head) == 2) g_dump_reg = head[1] - '0';
-                else g_dump_addr = parse_hex(head);
-                g_dump_bytes = std::atoi(colon + 1);
+                if (pal_parse_dump_target(head, g_dump_reg, g_dump_addr))
+                    g_dump_bytes = std::atoi(colon + 1);
                 if (g_dump_bytes > 256) g_dump_bytes = 256;
             }
         }

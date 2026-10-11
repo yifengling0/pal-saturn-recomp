@@ -1,0 +1,11 @@
+diff --git a/runtime/src/machine/onchip.cpp b/runtime/src/machine/onchip.cpp
+--- a/runtime/src/machine/onchip.cpp
++++ b/runtime/src/machine/onchip.cpp
+@@ -176,7 +176,6 @@ static void dma(OnChip& o, int ch) {
+         if (ts == 3) {
+             for (int k = 0; k < 16; k += 4) st32(dar + (dm ? k : 0), ld32(sar + (sm ? k : 0)));
+             sar += step(sm); dar += step(dm);
+-            i += 3;
+             continue;
+         }
+         uint32_t v = u == 1 ? ld8(sar) : u == 2 ? ld16(sar) : ld32(sar);

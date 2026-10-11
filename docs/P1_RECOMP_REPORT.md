@@ -1258,3 +1258,7 @@ node tools/vdp2_replay.js build/run/ab_none/dump-6100.bin build/run/replay-6100.
 **⑦ 环境新增（本轮）**
 
 - 为出窗口装了 SDL3：`third_party/sdl3/SDL3-3.4.18`（官方 `SDL3-devel-3.4.18-VC.zip`，本机 clang 是 `x86_64-pc-windows-msvc` ABI 所以用 VC 包），`game.toml` 的 `cmake` 加 `SDL3_DIR=…/SDL3-3.4.18/cmake`，`SDL3.dll` 复制到 `build/recomp-build/`。`objdump -p` 已确认 `DLL Name: SDL3.dll`，`saturn_host` 从 `host_null.cpp` 切到 `host.cpp`。SDL3 属本地依赖，不入库。
+
+### Linux 静态复核补记（2026-10-10；待镜像核对）
+
+本次无镜像静态复核发现 §4.14 的 `0x4300 & 0x30 = 0x30` 算术不成立，实际为 `0`；该节的 `0013` 运行日志与所列 dump 值需要按同一帧、寄存器偏移及字节序重新对齐。上游缺少 RBG 实现可由源码确认，但它与特定黑屏的因果关系尚未由本轮复现。保留历史记录，不将旧结论升级为 Linux 已验证。详见 `LINUX_CLOUD_BUILD.md`。

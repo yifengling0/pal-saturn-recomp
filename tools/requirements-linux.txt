@@ -1,0 +1,12 @@
+cmake==4.4.4
+hatchling==1.32.4
+iniconfig==2.3.1
+ninja==1.13.2
+packaging==26.3
+pathspec==1.1.1
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==9.1.1
+tomlkit==0.15.1
+trove-classifiers==2026.9.21.13
+editables==0.6

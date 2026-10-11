@@ -59,3 +59,7 @@ Gate P2 判据未开始评估。
 
 `PAL-P1-001`：主程序未被搬进内存（装载前置检查返回 -8），因此进不到地图，走路测量无从谈起。
 详见 `P1_RECOMP_REPORT.md` §4 与 `evidence/module_evidence.p0_prog.json` 的 `open_blocker`。
+
+## 2026-10-10 Linux 后续实测
+
+上述“未测量”是历史阶段状态。DMA 0005 修复后已采集角色世界坐标、真实方向输入与相机变化，并完成 scene2→4 和游戏存读档验证；详见 `LINUX_GAME_ACCEPTANCE.md`。没有更改移动速度、逻辑 tick 或碰撞规则。另更正：本项目未配置任务切换安全点，不能将通用 `--state-out/--state-in` 选项当作本游戏已验证的快照能力；本轮保存/读取验证使用游戏 BUP 菜单。
