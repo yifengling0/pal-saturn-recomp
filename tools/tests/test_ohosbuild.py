@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import contextlib
+import ctypes
 import importlib.util
 import io
+import hashlib
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import types
@@ -26,6 +29,14 @@ class LauncherTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(prefix='test-', dir=AUDIT)
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        runtime = self.root / 'build/pal-keyboard-runtime/src/host'
+        runtime.mkdir(parents=True)
+        current_host = b'#include "host_menu_text.h"\n// reviewed fixture host v12\n'
+        (runtime / 'host.cpp').write_bytes(current_host)
+        (runtime / 'host_menu_text.h').write_bytes(b'// fixture labels\n')
+        mocker = patch.object(driver, 'OHOS_HOST_UI_SHA256', frozenset({hashlib.sha256(current_host).hexdigest()}))
+        mocker.start()
+        self.addCleanup(mocker.stop)
         generated = self.root / 'build/recomp'
         generated.mkdir(parents=True)
         (generated / 'p_true_000.cpp').write_text('sh2_hook(c, 0x06021C1Eu);')
@@ -175,6 +186,20 @@ class LauncherTests(unittest.TestCase):
                                                           verify_only=True)
         self.assertEqual(manifest.read_bytes(), before)
         self.assertEqual(sys.dont_write_bytecode, previous)
+
+    def test_self_consistent_old_ui_blocks_hvigor_after_general_verification(self):
+        self.put_manifest()
+        host = self.root / 'build/pal-keyboard-runtime/src/host/host.cpp'
+        host.write_bytes(b'#include "host_menu_text.h"\n// old layout with a current manifest\n')
+        self.verify.side_effect = self.real_verify
+        for skip in (False, True):
+            self.calls.clear()
+            profile = self.fake_profile()
+            with patch.dict(sys.modules, {'pal_keyboard_profile': profile}):
+                with self.assertRaisesRegex(SystemExit, '身份不符'):
+                    self.invoke(*(['--skip-learn'] if skip else []))
+            profile.prepare_keyboard.assert_called_once()
+            self.assertFalse(any('assembleHap' in cmd or 'install' in cmd for cmd in self.commands()))
 
     def test_profile_from_another_checkout_is_rejected(self):
         self.put_manifest()
@@ -439,6 +464,204 @@ class LauncherTests(unittest.TestCase):
         path.write_bytes(b'new')
         os.utime(path, ns=(old_stat.st_atime_ns, old_stat.st_mtime_ns))
         self.assertNotEqual(before[path], driver.hap_snapshot()[path])
+
+
+class RequiredUiTests(unittest.TestCase):
+    """Source identity tests; the general planner still owns full helper hashes."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='ui-identity-', dir=AUDIT)
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.runtime = self.root / 'build/pal-keyboard-runtime'
+        self.host = self.runtime / 'src/host/host.cpp'
+        self.labels = self.host.with_name('host_menu_text.h')
+        self.host.parent.mkdir(parents=True)
+        self.current = (b'#include "host_menu_text.h"\n'
+                        b'extern "C" int pal_host_ui_feature_version() { return 12; }\n'
+                        b'// current reviewed layout implementation\n')
+        self.host.write_bytes(self.current)
+        self.labels.write_bytes(b'// reviewed labels; hashes owned by full verifier\n')
+        mocker = patch.object(driver, 'OHOS_HOST_UI_SHA256',
+                              frozenset({hashlib.sha256(self.current).hexdigest()}))
+        mocker.start()
+        self.addCleanup(mocker.stop)
+
+    def verify(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            driver.verify_required_ohos_ui(self.root)
+
+    def test_new_0012_host_is_accepted(self):
+        self.verify()
+
+    def test_crlf_equivalent_approved_source_is_accepted(self):
+        self.host.write_bytes(self.current.replace(b'\n', b'\r\n'))
+        self.verify()
+
+    def test_complete_old_0010_without_labels_is_rejected(self):
+        self.host.write_bytes(b'// complete old host implementation\n')
+        self.labels.unlink()
+        with self.assertRaisesRegex(SystemExit, '重新生成'):
+            self.verify()
+
+    def test_old_0011_host_with_new_label_marker_still_rejected(self):
+        self.host.write_bytes(b'#include "host_menu_text.h"\n// old 0011 layout\n')
+        with self.assertRaisesRegex(SystemExit, '身份不符'):
+            self.verify()
+
+    def test_old_host_with_version_12_pasted_on_is_rejected(self):
+        self.host.write_bytes(self.current.replace(b'current reviewed', b'old 0011'))
+        with self.assertRaisesRegex(SystemExit, '身份不符'):
+            self.verify()
+
+    def test_empty_approved_hash_set_fails_closed(self):
+        with patch.object(driver, 'OHOS_HOST_UI_SHA256', frozenset()):
+            with self.assertRaisesRegex(SystemExit, '身份不符'):
+                self.verify()
+
+    def test_missing_host_or_labels_is_rejected_without_writes(self):
+        for path in (self.host, self.labels):
+            data = path.read_bytes()
+            path.unlink()
+            before = {str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+            with self.assertRaisesRegex(SystemExit, '缺件或路径不安全'):
+                self.verify()
+            self.assertEqual(before, {str(p): p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+            path.write_bytes(data)
+
+    def test_host_symlink_is_rejected(self):
+        other = self.root / 'other.cpp'
+        other.write_bytes(self.current)
+        self.host.unlink()
+        try:
+            self.host.symlink_to(other)
+        except OSError as error:
+            self.skipTest(f'symlinks unavailable: {error}')
+        with self.assertRaisesRegex(SystemExit, '路径不安全'):
+            self.verify()
+
+    def test_runtime_symlink_is_rejected(self):
+        moved = self.root / 'elsewhere'
+        self.runtime.rename(moved)
+        try:
+            self.runtime.symlink_to(moved, target_is_directory=True)
+        except OSError as error:
+            self.skipTest(f'symlinks unavailable: {error}')
+        with self.assertRaisesRegex(SystemExit, '路径不安全'):
+            self.verify()
+
+
+class NativeIdentityContractTests(unittest.TestCase):
+    """Real local compiler fixtures, not an OHOS SDK or device acceptance test."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='native-identity-', dir=AUDIT)
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.cpp = AUDIT.parent / 'harmony/pal-saturn-openharmony/entry/src/main/cpp'
+        self.cmake = os.environ.get('PAL_CMAKE') or shutil.which('cmake')
+        self.cxx = os.environ.get('CXX') or shutil.which('c++')
+        self.host = self.root / 'build/pal-keyboard-runtime/src/host/host.cpp'
+        self.host.parent.mkdir(parents=True)
+        self.host.write_text('int fixture_host() { return 0; }\n')
+
+    def configure(self, selected_runtime=None, selected_host=None, extra_host=None):
+        if not self.cmake:
+            self.skipTest('cmake unavailable; set PAL_CMAKE to the existing executable')
+        source = (self.cpp / 'CMakeLists.txt').read_text()
+        def block(name):
+            return source.split('# PAL_OHOS_' + name + '_BEGIN\n', 1)[1].split(
+                '# PAL_OHOS_' + name + '_END', 1)[0]
+        runtime = selected_runtime or self.root / 'build/pal-keyboard-runtime'
+        host = selected_host or self.host
+        cmake = ('cmake_minimum_required(VERSION 3.16)\nproject(identity_fixture CXX)\n'
+                 f'set(PAL_ROOT "{self.root.as_posix()}")\n'
+                 f'set(SATURN_RUNTIME "{runtime.as_posix()}")\n' + block('RUNTIME_IDENTITY') +
+                 f'add_library(saturn_host OBJECT "{host.as_posix()}")\n')
+        if extra_host:
+            cmake += f'target_sources(saturn_host PRIVATE "{extra_host.as_posix()}")\n'
+        cmake += block('HOST_IDENTITY')
+        (self.root / 'CMakeLists.txt').write_text(cmake)
+        return subprocess.run([self.cmake, '-S', str(self.root), '-B', str(self.root / 'cmake-build')],
+                              capture_output=True, text=True, timeout=60)
+
+    def test_actual_source_path_and_hash_are_reported(self):
+        result = self.configure()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(hashlib.sha256(self.host.read_bytes()).hexdigest(), result.stdout)
+
+    def test_cmake_source_bytes_hash_preserves_crlf(self):
+        self.host.write_bytes(b'int fixture_host() { return 0; }\r\n')
+        result = self.configure()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('source_bytes_sha256=' + hashlib.sha256(self.host.read_bytes()).hexdigest(), result.stdout)
+
+    def test_selected_runtime_from_another_directory_is_rejected(self):
+        other = self.root / 'other-runtime'
+        other.mkdir()
+        result = self.configure(selected_runtime=other)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('OHOS must compile', result.stdout + result.stderr)
+
+    def test_target_using_another_host_is_rejected(self):
+        other = self.root / 'other/host.cpp'
+        other.parent.mkdir()
+        other.write_text('int old_host() { return 0; }\n')
+        result = self.configure(selected_host=other)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('saturn_host must own', result.stdout + result.stderr)
+
+    def test_target_with_two_host_sources_is_rejected(self):
+        other = self.root / 'other/host.cpp'
+        other.parent.mkdir()
+        other.write_text('int second_host() { return 0; }\n')
+        result = self.configure(extra_host=other)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('saturn_host must own', result.stdout + result.stderr)
+
+    def link(self, source):
+        if not self.cxx:
+            self.skipTest('C++ compiler unavailable')
+        entry = (self.cpp / 'pal_ohos_entry.cpp').read_text()
+        cmake = (self.cpp / 'CMakeLists.txt').read_text()
+        self.assertIn('set_property(TARGET main APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-undefined")', cmake)
+        declarations = []
+        for symbol, type_name in [('pal_host_ui_feature_version', 'int'),
+                                  ('pal_host_ui_source_hash', 'const char*')]:
+            declaration = f'extern "C" {type_name} {symbol}();'
+            self.assertIn(declaration, entry)
+            self.assertGreaterEqual(entry.count(symbol + '()'), 2)
+            declarations.append(declaration)
+        client = self.root / 'client.cpp'
+        client.write_text('#include <cstdio>\n' + '\n'.join(declarations) +
+                          '\nint main() { std::printf("%d %s\\n", pal_host_ui_feature_version(), '
+                          'pal_host_ui_source_hash()); return pal_host_ui_feature_version() != 12; }\n')
+        self.host.write_text(source)
+        digest = hashlib.sha256(self.host.read_bytes()).hexdigest()
+        binary = self.root / ('identity.dll' if os.name == 'nt' else 'libidentity.so')
+        result = subprocess.run([self.cxx, '-shared', '-fPIC', '-Wl,--no-undefined', str(client), str(self.host),
+                                 f'-DPAL_HOST_UI_SOURCE_SHA256="{digest}"', '-o', str(binary)],
+                                capture_output=True, text=True, timeout=60)
+        return result, binary, digest
+
+    def test_old_host_object_missing_strong_symbols_fails_link(self):
+        result, _, _ = self.link('int old_host() { return 0; }\n')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('pal_host_ui_feature_version', result.stderr)
+
+    def test_version_only_marker_missing_source_symbol_fails_link(self):
+        result, _, _ = self.link('extern "C" int pal_host_ui_feature_version() { return 12; }\n')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('pal_host_ui_source_hash', result.stderr)
+
+    def test_new_host_object_links_and_reports_actual_source_hash(self):
+        result, binary, digest = self.link(
+            'extern "C" int pal_host_ui_feature_version() { return 12; }\n'
+            'extern "C" const char* pal_host_ui_source_hash() { return PAL_HOST_UI_SOURCE_SHA256; }\n')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        library = ctypes.CDLL(str(binary))
+        library.pal_host_ui_feature_version.restype = ctypes.c_int
+        library.pal_host_ui_source_hash.restype = ctypes.c_char_p
+        self.assertEqual(library.pal_host_ui_feature_version(), 12)
+        self.assertEqual(library.pal_host_ui_source_hash().decode(), digest)
 
 
 if __name__ == '__main__':
