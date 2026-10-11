@@ -1,10 +1,13 @@
 # 构建产物与本地版权输入不入库
 build/
+dist/
 disc/
 *.bin
 *.cue
 *.mdf
 *.mds
+hw-log.txt
+log.txt
 __pycache__/
 *.pyc
 .pytest_cache/
