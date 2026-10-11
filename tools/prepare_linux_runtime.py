@@ -59,7 +59,7 @@ def prepare(clean: Path, patched: Path, pin: str, patches: list[Path]):
 def main():
     clean = ROOT / 'third_party/saturn-recomp'
     # 0006 belongs to the options builder, which applies it to its own runtime copy.
-    patches = [next((ROOT / 'patches').glob(f'{n:04d}-*.patch')) for n in (1, 2, 3, 4, 5, 7, 8)]
+    patches = [next((ROOT / 'patches').glob(f'{n:04d}-*.patch')) for n in (1, 2, 3, 4, 5, 7, 8, 9)]
     made = prepare(clean, ROOT / 'third_party/saturn-recomp-pal', PIN, patches)
     print('Patched runtime prepared' if made else 'Existing runtime identity verified')
 

@@ -71,7 +71,7 @@ def verify_options_runtime():
         raise SystemExit("Wrong imported generator: install with python -m pip install -e third_party/saturn-recomp-pal")
     clean = Path(ROOT) / "third_party/saturn-recomp"
     # 0006 is the options builder's own: it goes on a private runtime copy only.
-    patches = [next((Path(ROOT) / "patches").glob(f"{n:04d}-*.patch")) for n in (1, 2, 3, 4, 5, 7, 8)]
+    patches = [next((Path(ROOT) / "patches").glob(f"{n:04d}-*.patch")) for n in (1, 2, 3, 4, 5, 7, 8, 9)]
     prepare(clean, PATCHED_RUNTIME.parent, PIN, patches)
 
 
