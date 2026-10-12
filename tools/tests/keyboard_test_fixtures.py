@@ -55,6 +55,11 @@ static void bindings() {
 static void read_pads() {
     for (auto [key, bit] : g_keys)
         if (k[key] && !(alt && key == SDL_SCANCODE_RETURN)) b[0] |= bit;
+    synthetic_gamepad_and_touch_publish();
+    for (int s=0;s<12;++s) {
+        if ((pad & (B_LEFT | B_RIGHT)) == (B_LEFT | B_RIGHT)) pad &= (uint16_t)~(B_LEFT | B_RIGHT);
+        g_buttons[s] = pad;
+    }
 }
 static void menu_close() {
     existing_close_hook();
@@ -145,7 +150,8 @@ class Fixture:
             '0604A5B8': function('0604A5B8', '    synthetic_guest_step(c); // 0604A8C0 synthetic instruction\n'),
             '060516B4': function('060516B4'),
             '06020058': function('06020058'),
-            '0604A0BC': function('0604A0BC'),
+            '0604A0BC': function('0604A0BC','    original_read(c);  // 0604A12E synthetic\n    original_return(c);  // 0604A41C synthetic\n'),
+            '0604A444': function('0604A444'),
         }
         self.paths = {pc: self.recomp / f'{"p_true" if pc == "06020058" else "p_prog"}_{i + 90:03}.cpp'
                       for i, pc in enumerate(self.functions)}

@@ -47,6 +47,9 @@ class HelperTests(unittest.TestCase):
     def test_pure_context_and_latch_no_sdl(self):
         self.build_run(HERE / 'keyboard_context_test.cpp')
 
+    def test_battle_menu_intent_no_sdl(self):
+        self.build_run(HERE / "keyboard_battle_intent_test.cpp")
+
     def test_menu_walk_all_sample_phases_no_sdl(self):
         self.build_run(HERE / "keyboard_menu_walk_phase_test.cpp")
 

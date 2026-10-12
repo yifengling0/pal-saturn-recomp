@@ -61,7 +61,7 @@ class PlannerTests(unittest.TestCase):
 
     def test_battle_scope_is_only_in_main_command_menu(self):
         out = self.plan()
-        hook = b'pal_keyboard::BattleCommandsScope pal_battle_commands(ld16(0x060768ECu) == 0xFFFFu);'
+        hook = b'pal_keyboard::BattleCommandsScope pal_battle_commands(ld16(0x060768ECu)==0xFFFFu,'
         self.assertEqual(sum(value.count(hook) for value in out.values()), 1)
         self.assertIn(hook, out[self.f.paths['0604A0BC']])
         self.assertNotIn(hook, out[self.f.paths['0604A5B8']])
@@ -73,7 +73,7 @@ class PlannerTests(unittest.TestCase):
         self.assertIn('add_keys("spell", g_spell_keys, field_key);', out)
         self.assertIn('add_keys("strongest", g_strongest_keys, battle_key);', out)
         self.assertIn('add_keys("repeat", g_repeat_keys, battle_key);', out)
-        self.assertIn('repeat_command ? pal_keyboard::Repeat : pal_keyboard::Strongest', out)
+        self.assertIn('repeat_command ? pal_keyboard::Repeat : in_keys(g_defend_keys,e.key.scancode)', out)
         self.assertIn('item ? pal_keyboard::context.item : pal_keyboard::context.spell', out)
         self.assertIn('g_battle_press.up(e.key.scancode)', out)
         self.assertEqual(out.count('g_pc_press.block(); g_battle_press.block();'), 2)
@@ -81,6 +81,25 @@ class PlannerTests(unittest.TestCase):
         self.assertIn('} else if (!battle_key(e.key.scancode)) {', out)
         for key in ('g_item_keys', 'g_spell_keys'):
             self.assertEqual(out.count('for (auto key : %s) b[0] |= g_pc_press.read(key);' % key), 1)
+
+    def test_battle_macro_is_after_real_sources_and_tap_publication(self):
+        host=self.plan()[self.f.runtime / 'src/host/host.cpp'].decode()
+        self.assertLess(host.index('synthetic_gamepad_and_touch_publish();'),host.index('if (pal_real_pad_input) pal_keyboard::all_attack.stop();'))
+        self.assertLess(host.index('if (pal_real_pad_input) pal_keyboard::all_attack.stop();'),host.index('else pad |= pal_keyboard::all_attack.pad(sat_vblanks());'))
+        self.assertLess(host.index('const bool pal_real_pad_input = b[s] || pad;'),host.index('if ((pad & (B_LEFT | B_RIGHT))'))
+        self.assertIn('SDL_EVENT_WILL_ENTER_BACKGROUND || e.type == SDL_EVENT_DID_ENTER_BACKGROUND',host)
+        self.assertIn('g_all_attack_press.block(); pal_keyboard::all_attack.stop();',host)
+
+    def test_other_menu_requires_exact_call_and_real_cursor(self):
+        out=self.plan()
+        wrapper=out[self.f.paths['0604A444']].decode()
+        for guard in ('c.pr==0x06045B5Au','c.r[4]==c.r[14]','c.r[4]>=0x06000000u','c.r[4]<0x06100000u','c.r[5]==4','c.r[6]==16','c.r[7]==56','ld32(c.r[15])==3','ld32(c.r[15]+4)==5'):
+            self.assertIn(guard,wrapper)
+        self.assertIn('st16(c.r[4],0)',wrapper)
+        menu=out[self.f.paths['0604A5B8']].decode()
+        self.assertIn('all_attack.other_wait',menu)
+        self.assertIn('all_attack.other_event',menu)
+        self.assertNotIn('c.r[0] = pal_keyboard::',menu)
 
     def test_real_helper_digest_is_pinned(self):
         self.assertEqual(digest(HEADER.read_bytes().replace(b'\r\n', b'\n')), m.HEADER_SHA256)
@@ -289,7 +308,7 @@ class PlannerTests(unittest.TestCase):
         out = self.plan()[self.f.runtime / 'src/host/settings.cpp'].decode()
         self.assertEqual(out.count('PAL_KEYBOARD_PROFILE_V2'), 1)
         for expected in ('keyboard_profile = pc98', '[keyboard pc98]', 'confirm = Return, Keypad Enter, Space',
-                         'menu_cancel = Escape', 'item = E', 'spell = F', 'status = S', 'equip = W', 'system = Q', 'strongest = F, A', 'repeat = R',
+                         'menu_cancel = Escape', 'item = E', 'spell = F', 'status = S', 'equip = W', 'system = Q', 'strongest = F', 'repeat = R',
                          'start = Tab', 'has_profile ? "pc98" : "saturn"',
                          '{"keyboard_profile", {"pc98", "saturn"}}'):
             self.assertIn(expected, out)
@@ -306,7 +325,7 @@ class PlannerTests(unittest.TestCase):
                          '!semantic_key(key)', '!(pc_keyboard() && key == SDL_SCANCODE_F10)',
                          'pc_keyboard() || !f10_bound || g_menu_open',
                          'g_pc_boundary != pal_keyboard::boundary',
-                         'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); g_pc98_walk.stop(); }',
+                         'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); g_pc98_walk.stop(); g_all_attack_press.block(); pal_keyboard::all_attack.stop(); }',
                          'g_menu_open || (e.key.mod & SDL_KMOD_ALT)',
                          'e.key.windowID != wid || SDL_GetKeyboardFocus() != g_win',
                          'existing_close_hook();', 'existing_open_hook();'):

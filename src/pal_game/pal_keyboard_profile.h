@@ -8,6 +8,7 @@
 namespace pal_keyboard {
 inline constexpr uint16_t Start = 0x0800, Confirm = 0x0400, Cancel = 0x0100, Menu = 0x0040;
 inline constexpr uint16_t Strongest = 0x0008, Repeat = 0x0010; // native Saturn L / Z
+inline constexpr uint16_t Defend = 0x0040, Throw = 0x0020; // native Saturn X / Y, battle only
 inline constexpr uint16_t Items = 0x0080;                      // native Saturn R
 // The PAL98 shortcut letters pick the Saturn button that does the same thing in the
 // context the guest is really in: the field's R/L quick pages, and nothing at all
@@ -17,6 +18,69 @@ inline Context context;
 inline uint64_t boundary = 0;
 inline bool battle_commands = false;
 inline uint64_t battle_boundary = 0;
+
+// A PC surround request navigates the original menus. It never writes action,
+// damage, RNG, inventory or target data. Real guest input always wins.
+struct AllAttackIntent {
+    enum Stage { Idle, SelectOther, WaitCursor, ConfirmMain, AwaitMainReturn, AwaitOther, ConfirmOther };
+    Stage stage = Idle;
+    uint16_t actor = 0, member = 0;
+    uint64_t epoch = 0, started = 0, released = 0, last_vblank = 0;
+    uint32_t cursor_address = 0;
+    bool other_ready = false;
+    void stop() { stage = Idle; cursor_address = 0; other_ready=false; }
+    bool live(uint64_t vb) {
+        if (stage != Idle && (vb < started || vb < last_vblank || vb - started >= 240)) stop();
+        if (stage != Idle) last_vblank=vb;
+        return stage != Idle;
+    }
+    bool same(uint16_t a, uint16_t m) const { return actor == a && member == m; }
+    void request(bool main, uint16_t a, uint16_t m, uint64_t e, uint64_t vb) {
+        if (live(vb) || !main || a > 2 || m > 5) return;
+        actor=a; member=m; epoch=e; started=vb; released=vb; last_vblank=vb; stage=SelectOther;
+    }
+    // Native pad levels wake the guest's blocking reader. Only a matching
+    // actual guest event acknowledges a pulse; no synthetic return or jump.
+    uint16_t pad(uint64_t vb) {
+        if (!live(vb)) return 0;
+        if (stage==SelectOther) return 0x2000; // Saturn Down
+        if (vb-released<7) return 0;
+        return stage==ConfirmMain || (stage==ConfirmOther && other_ready) ? Confirm : uint16_t(0);
+    }
+    void main_ready(uint16_t cursor,uint16_t a,uint16_t m,uint64_t e,uint64_t vb) {
+        if (!live(vb)) return;
+        if (!same(a,m) || epoch!=e) {stop();return;}
+        if (stage==WaitCursor) {if(cursor==3) stage=ConfirmMain; else stop();}
+    }
+    void main_event(uint16_t event,uint16_t a,uint16_t m,uint64_t e,uint64_t vb) {
+        if (!live(vb)) return;
+        if (!same(a,m) || epoch!=e) {stop();return;}
+        if(stage==SelectOther && event==4) {stage=WaitCursor;released=vb;}
+        else if(stage==ConfirmMain && event==1) {stage=AwaitMainReturn;released=vb;}
+        else stop();
+    }
+    void main_return(int result,uint16_t a,uint16_t m,uint64_t e,uint64_t vb) {
+        if (!live(vb)) return;
+        if(stage==AwaitMainReturn && result==3 && same(a,m) && epoch==e) stage=AwaitOther;
+        else stop();
+    }
+    bool other_enter(bool exact_call,uint32_t ptr,uint16_t a,uint16_t m,uint64_t vb) {
+        if (!live(vb)) return false;
+        if(stage!=AwaitOther || !exact_call || !same(a,m) || (ptr&1)) {stop();return false;}
+        cursor_address=ptr;stage=ConfirmOther;other_ready=false;return true;
+    }
+    void other_wait(uint32_t ptr,uint16_t cursor,uint16_t a,uint16_t m,uint64_t vb) {
+        if (!live(vb)) return;
+        if(stage==ConfirmOther && ptr==cursor_address && cursor==0 && same(a,m)) other_ready=true;
+        else stop();
+    }
+    void other_event(uint16_t /*original*/,uint32_t ptr,uint64_t vb) {
+        if(live(vb) && stage==ConfirmOther && ptr==cursor_address) stop();
+    }
+};
+inline AllAttackIntent all_attack;
+inline uint16_t battle_actor=0xFFFF, battle_member=0xFFFF;
+
 inline void close_battle_commands() { battle_commands = false; ++battle_boundary; }
 
 // The Saturn field command menu is a four-entry ring (狀態 / 仙術 / 物品 / 系統) whose cursor
@@ -34,9 +98,9 @@ inline FieldMenu field_menu;
 inline void field_menu_at(uint16_t cursor) { ++field_menu.epoch; field_menu.cursor = cursor; }
 inline uint16_t menu_intent = 0;   // host to guest: put this entry (1-based) in the menu's own cursor
 
-inline void clear() { ++boundary; close_battle_commands(); menu_intent = 0; }
-inline void field() { if (battle_commands) close_battle_commands(); context = {Confirm, Menu, Items, Strongest}; }
-inline void ui(bool start = false) { if (battle_commands) close_battle_commands(); context = {start ? Start : Confirm, Cancel, 0, 0}; }
+inline void clear() { all_attack.stop(); ++boundary; close_battle_commands(); menu_intent = 0; }
+inline void field() { all_attack.stop(); if (battle_commands) close_battle_commands(); context = {Confirm, Menu, Items, Strongest}; }
+inline void ui(bool start = false) { if (all_attack.stage != AllAttackIntent::ConfirmOther) all_attack.stop(); if (battle_commands) close_battle_commands(); context = {start ? Start : Confirm, Cancel, 0, 0}; }
 inline void boot() { clear(); context = {Start, Cancel, 0, 0}; }
 
 // One walk at a time, pure so it is testable without SDL, the guest or a window.
@@ -97,11 +161,12 @@ struct MenuWalk {
 // function, poll, guest register, RNG, action queue or MP is changed by it.
 // A separate boundary keeps the established Enter/Escape behavior unchanged.
 struct BattleCommandsScope {
-    explicit BattleCommandsScope(bool in_battle) {
+    explicit BattleCommandsScope(bool in_battle, uint16_t actor=0xFFFF, uint16_t member=0xFFFF) {
+        all_attack.stop(); battle_actor=actor; battle_member=member;
         close_battle_commands();
         battle_commands = in_battle;
     }
-    ~BattleCommandsScope() { close_battle_commands(); }
+    ~BattleCommandsScope() { if (all_attack.stage != AllAttackIntent::AwaitOther) all_attack.stop(); close_battle_commands(); }
     BattleCommandsScope(const BattleCommandsScope&) = delete;
     BattleCommandsScope& operator=(const BattleCommandsScope&) = delete;
 };

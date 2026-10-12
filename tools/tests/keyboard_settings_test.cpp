@@ -53,7 +53,10 @@ int main() {
     check(errors.size() == 1, "invalid profile reports one error");
     check(invalid.get("controls", "keyboard_profile") == "pc98", "invalid explicit profile falls back to fresh default");
     errors.clear();
-    check(fresh.get("keyboard pc98", "strongest") == "F, A", "fresh strongest is F and A");
+    check(fresh.get("keyboard pc98", "strongest") == "F", "fresh strongest is F only");
+    check(fresh.get("keyboard pc98", "all_attack") == "A", "A ordinary all attack");
+    check(fresh.get("keyboard pc98", "defend") == "D", "D defend");
+    check(fresh.get("keyboard pc98", "throw") == "W", "W battle throw");
     check(fresh.get("keyboard pc98", "repeat") == "R", "fresh repeat is R");
     check(fresh.get("keyboard pc98", "item") == "E", "fresh item page is E");
     check(fresh.get("keyboard pc98", "spell") == "F", "fresh spell page is F");
@@ -67,7 +70,7 @@ int main() {
     Settings old_pc;
     old_pc.read("[controls]\nkeyboard_profile = pc98\n[keyboard pc98]\na = F\nb = R\nconfirm = J\n", errors);
     check(errors.empty(), "old PC settings parse without new shortcut fields");
-    check(old_pc.get("keyboard pc98", "strongest") == "F, A" && old_pc.get("keyboard pc98", "repeat") == "R", "missing shortcuts retain fresh defaults");
+    check(old_pc.get("keyboard pc98", "strongest") == "F" && old_pc.get("keyboard pc98", "repeat") == "R", "missing shortcuts retain fresh defaults");
     check(old_pc.get("keyboard pc98", "a") == "F" && old_pc.get("keyboard pc98", "b") == "R", "old ordinary F/R preserved for host collision priority");
     Settings custom_pc;
     custom_pc.read("[controls]\nkeyboard_profile = pc98\n[keyboard pc98]\nstrongest = G\nrepeat = T\n", errors);

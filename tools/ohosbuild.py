@@ -41,9 +41,9 @@ OHOS_HOST_UI_VERSION = 13
 # accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
     # mapping generation: tools/winbuild.py build --recompile
-    'c2c8bf2c6312d20fed47b255cb25d583b95e873e25b945d6e85379e187f6abbd',
+    'fc6905e7db4acdd74372706a83461e0cf463c91d27835428eee947262e0c0398',
     # accelerated generation: winbuild.py learn --pal-options
-    '5dcbe3cc3dea0ac1b25870106a60992fcb276c028aa762e942513d48f837dadf',
+    '808098fd058a034da91e63cda91745dfd9e58716ff537fbdc6409c79fa12a3af',
 })
 
 # The accelerated generation is the one the Windows package ships, so the tablet gets the same

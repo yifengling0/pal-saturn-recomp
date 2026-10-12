@@ -47,8 +47,14 @@ folder. Do not overwrite a personal settings file or save file for a test.
   - `E` 物品/包袱 - the field's item page (the Saturn pad's R quick page)
   - `F` 仙術 - the field's spell page (the Saturn pad's L quick page); in the
     battle main command menu the same key is the original strongest fill
-  - `A` 圍攻 - the battle main command menu's strongest fill for the remaining
-    party; a no-op on the field map, as it is on PC
+  - `A` 圍攻 - navigate the original battle Other → first entry, which selects
+    ordinary physical attacks for the remaining party and enables the Saturn
+    continuous surround mode. Esc/B cancels that native mode. It does not select
+    strongest magic; F retains that separate action. A is inert on the field map.
+  - `D` 防御 - native Saturn X in the battle main command menu
+  - `W` 投擲 - native Saturn Y in the battle main command menu, then the original
+    throwable-item list and target selection. Outside battle W still opens the
+    equipment/item page. These two meanings latch only in their own contexts.
   - `R` 重複 - repeat the previous commands (the Saturn pad's Z)
   A letter listed for both a field page and the battle menu is resolved by the
   context: each latch zeroes the press outside its own screen, so a held key
@@ -65,10 +71,15 @@ folder. Do not overwrite a personal settings file or save file for a test.
   - `W` 装备 -> 物品, because the Saturn release equips from the item page and
     has no separate equip screen
   - `Q` 系統 -> 系統, which is 儲存進度 / 讀取進度 on Saturn, not the PC 退出 screen
-  `D` 防御 and the battle-only `E` 物品 / `W` 投擲 / `Q` 逃跑 stay unbound: the
-  battle command menu has not been reproduced in this build, so its cursor
-  variable has not been measured. Guessing a button script there would be worse
-  than no key at all.
+  Battle-only `E` 物品 / `Q` 逃跑 are still unbound. W/D operate only at the
+  original four-icon battle command menu; they do not interrupt an animation or
+  replace a target choice. A has a 240-VBlank timeout and waits for guest menu
+  acknowledgements. Any real competing input, focus loss or background entry
+  cancels its pending navigation.
+  The exact previously shipped `strongest = F, A` plus default `all_attack = A`
+  preset is interpreted as F strongest / A surround in memory. Existing files
+  are not rewritten on read. Other custom bindings and explicit empty bindings
+  retain precedence; disable `all_attack` to retain a custom F,A strongest pair.
 - F10: host pause menu in PC98. Saturn profile keeps a custom F10 game binding;
   otherwise F10 is an additional host-menu key.
 
@@ -120,3 +131,64 @@ excluded from the acceptance record.
 Windows compilation/runtime acceptance of this new profile still requires a
 local test; Linux validation and the user's confirmation of the previous
 Windows build do not substitute for that test.
+
+### W/D/A battle acceptance (2026-10-12)
+
+This update completes PC98 battle W (throw), D (defend), and A (surround).
+A now follows the game's Other → surround command instead of aliasing F. The
+original game fills ordinary attacks for the remaining actors; commands already
+chosen for earlier actors are preserved. The Saturn continuous-surround mode
+can be stopped with Esc/B. F still uses the game's strongest-magic selection,
+which is not a promise of maximum damage per MP. R repeats the previous party
+commands. The physical Saturn gamepad map is unchanged.
+
+If an existing PC98 configuration has exactly the former default strongest
+binding `F,A`, with A otherwise at its default, it is migrated in memory to F
+plus the separate A command. Explicit custom bindings keep priority. Existing
+settings files are not rewritten by this migration.
+
+Rebuild the generated game sources as well as the runtime; replacing only the
+host executable's old runtime sources is insufficient. Use the normal current
+`tools/winbuild.py --pal-options` generation/build workflow on PC, or the normal
+`tools/ohosbuild.py` workflow on OHOS. Do not reuse an old generated tree with
+`--skip-learn` for this first update. Existing legal disc and save paths remain
+valid. In PC98, test W then Esc, D on one turn, and A then Esc on another; test F
+and R separately. The old Saturn keyboard profile deliberately retains its own
+bindings.
+
+Actual Linux SDL keyboard events, on a private copy of legitimate saves:
+
+- Single-actor battle: W opened the original throw list; Esc returned without
+  changing inventory. D committed original action 5. A committed action 6 and
+  enabled native continuous surround; Esc cleared that mode.
+- Two-actor battle: W selected a bee hive (item 115) through the original list.
+  A on the second actor preserved the first actor's throw and selected the
+  second actor's ordinary attack. The throw executed, inventory changed 4 → 3,
+  and the battle returned normally to the field after victory.
+- Next battle: F selected original magic actions for both actors (IDs 346 and
+  340). R on the following turn repeated both magic actions. Neither became A's
+  ordinary-attack command.
+- Field Q → normal save and a fresh load of the starting save were exercised;
+  the load picture matched the previous stable executable byte for byte.
+
+Final Linux executable SHA256:
+`25aa20fa364f81896b1ee997055eb69223a060201af67d48036544a40199e325`.
+Tests: 44 keyboard tests (including actual upstream Settings integration),
+39 preparation tests, 20 field-input tests, one default-map regression, and
+77 OHOS launcher tests pass. The C++ intent fixture includes 170 checks covering
+context/actor changes, timeout and VB rollback, real-input preemption, release,
+custom mappings and incomplete/cancelled navigation. Exact source guards were
+independently replayed from the prepared runtime; observed hashes were not
+blindly allowed.
+
+The independent OHOS build compiled and linked both ARM64 and x86_64, with all
+11 AllAttackIntent functions visible in ARM64 debug symbols. Its unsigned HAP
+SHA256 is `cc3ac72b8ac69b272b730cf5964eda36210031c74be6618c6430d88bd6965b10`.
+This verifies compilation and linkage, not physical OHOS keyboard/gamepad
+behavior. Windows native and OHOS device acceptance remain local tests.
+
+One single-actor test deliberately continued at low HP and lost before a queued
+throw executed. That run only proves command selection; the two-actor run above
+provides the actual inventory-consumption and victory evidence. No original save
+was overwritten. Native semantic-key event logs are retained separately because
+the old pad-only recording cannot reproduce every PC shortcut intent.
