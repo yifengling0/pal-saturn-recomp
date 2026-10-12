@@ -51,30 +51,44 @@ struct MenuWalk {
     uint8_t hold = 0, gap = 0, phase = Closing;
     uint64_t seen = 0;                      // the guest's menu epoch when this walk started
     uint16_t waits = 0;
+    uint64_t started = 0, last_vblank = 0;
+    bool clocked = false;
+    WalkStep cached{};
 
     void ask(uint16_t entry) {
-        target = entry; phase = Closing; bit = 0; hold = gap = waits = 0; menu_intent = 0;
+        target = entry; phase = Closing; bit = 0; hold = gap = waits = 0; menu_intent = 0; clocked = false; cached = {};
     }
     void stop() {
-        target = Idle; phase = Closing; bit = 0; hold = gap = waits = 0; menu_intent = 0;
+        target = Idle; phase = Closing; bit = 0; hold = gap = waits = 0; menu_intent = 0; clocked = false; cached = {};
     }
 
     // epoch is the guest's own menu counter, so the confirm waits for a menu that really opened.
-    WalkStep tick(uint64_t epoch) {
+    // Every pulse covers the measured six-VBlank INTBACK cadence. Extra reads
+    // within one VBlank cannot shorten it or consume the timeout budget.
+    WalkStep tick(uint64_t epoch, uint64_t vblank) {
+        if (clocked && vblank < last_vblank) { stop(); return {}; }
+        if (clocked && vblank == last_vblank) return {cached.bits, false};
         if (target == Idle && !hold) return {0, false};
-        if (++waits > 240) { stop(); return {0, false}; }   // four seconds, then give up
+        if (!clocked) { started = vblank; clocked = true; }
+        last_vblank = vblank;
+        if (vblank - started >= 240) { stop(); return {}; }
+        ++waits;
+        cached = advance(epoch);
+        return cached;
+    }
+    WalkStep advance(uint64_t epoch) {
         if (hold) { --hold; return {bit, false}; }
         if (gap) { --gap; return {0, false}; }
         if (target == Idle) return {0, false};
         if (phase == Closing) {
-            phase = Opening; bit = Cancel; hold = 4; gap = 6; return {bit, true};
+            phase = Opening; bit = Cancel; hold = 6; gap = 7; return {bit, true};
         }
         if (phase == Opening) {
             // Only a pass after this press proves the menu we are about to confirm is our own.
-            seen = epoch; phase = Confirming; bit = Menu; hold = 4; gap = 2; return {bit, true};
+            seen = epoch; phase = Confirming; bit = Menu; hold = 6; gap = 7; return {bit, true};
         }
         if (epoch == seen) return {0, true};                // the guest has not entered the menu yet
-        bit = Confirm; hold = 4; target = Idle; phase = Closing;
+        bit = Confirm; hold = 6; target = Idle; phase = Closing;
         return {bit, false};
     }
 };
