@@ -101,13 +101,17 @@ class MedicineChestIdentity(unittest.TestCase):
     def configure(self, root):
         return subprocess.run(
             [self.cmake, "-S", str(root), "-B", str(root / "out")],
-            capture_output=True, text=True, timeout=60,
+            # A Chinese Windows console hands cmake/ninja diagnostics back in cp936; a strict
+            # UTF-8 reader thread then dies and the whole stream arrives as None.
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60,
         )
 
     def build(self, root):
         return subprocess.run(
             [self.cmake, "--build", str(root / "out")],
-            capture_output=True, text=True, timeout=60,
+            # A Chinese Windows console hands cmake/ninja diagnostics back in cp936; a strict
+            # UTF-8 reader thread then dies and the whole stream arrives as None.
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60,
         )
 
     def assert_initial_build_succeeds(self, root):
