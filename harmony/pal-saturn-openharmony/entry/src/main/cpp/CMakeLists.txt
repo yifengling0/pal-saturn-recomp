@@ -19,6 +19,9 @@ get_filename_component(PAL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../"
 set(_PAL_OHOS_GENERATION "${PAL_ROOT}/build/pal-ohos-generation.cmake")
 if(EXISTS "${_PAL_OHOS_GENERATION}")
     include("${_PAL_OHOS_GENERATION}")
+else()
+    set(PAL_OHOS_RECOMP "${PAL_ROOT}/build/recomp")
+    set(PAL_OHOS_RUNTIME "${PAL_ROOT}/build/pal-keyboard-runtime")
 endif()
 
 set(SATURN_RUNTIME "${PAL_OHOS_RUNTIME}" CACHE PATH "patched runtime copy")
