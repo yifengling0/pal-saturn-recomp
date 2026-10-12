@@ -57,6 +57,9 @@ int main() {
     check(fresh.get("keyboard pc98", "repeat") == "R", "fresh repeat is R");
     check(fresh.get("keyboard pc98", "item") == "E", "fresh item page is E");
     check(fresh.get("keyboard pc98", "spell") == "F", "fresh spell page is F");
+    check(fresh.get("keyboard pc98", "status") == "S", "fresh status walk is S");
+    check(fresh.get("keyboard pc98", "equip") == "W", "fresh equipment walk is W");
+    check(fresh.get("keyboard pc98", "system") == "Q", "fresh save/load walk is Q");
     // The PAL98 letters own the Saturn buttons they replace, so those rows ship unbound.
     for (const char* key : {"y", "z", "l", "r"})
         check(fresh.get("keyboard pc98", key).empty(), "replaced Saturn binding starts unbound");

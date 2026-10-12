@@ -53,12 +53,22 @@ folder. Do not overwrite a personal settings file or save file for a test.
   A letter listed for both a field page and the battle menu is resolved by the
   context: each latch zeroes the press outside its own screen, so a held key
   cannot carry a field spell page into a battle turn or the other way round.
-- `S` 狀態, `W` 装备, `Q` 系統/退出 and `D` 防御 are **not bound**: the Saturn
-  release has no single button for them. They are one menu away - X (or Esc)
-  opens 狀態 / 仙術 / 物品 / 系統, and the 狀態 page is also where equipment
-  lives, with START stepping through the party. See
-  `docs/PAL98_HOTKEY_PARITY.md` for the measured Saturn-side facts needed to
-  turn those four into real shortcuts.
+- `S` 狀態, `W` 装备 and `Q` 系統/退出 have no Saturn button to borrow, so the
+  host drives the game's own command menu instead of replaying arrow presses:
+  it cancels whatever is on screen, writes the wanted entry into the menu's own
+  cursor word (`0x060768DA`) through a hook in the field loop, and presses X then
+  A once the guest reports it actually entered the menu. Arrows the player presses
+  in between cannot change where the letter lands, and a menu that never opens is
+  given up on after four seconds rather than fought.
+  - `S` 狀態 -> 狀態, which is also the Saturn equipment page (stats, portrait
+    and the seven equipment slots in one screen; measured, `build/run/fm7`)
+  - `W` 装备 -> 物品, because the Saturn release equips from the item page and
+    has no separate equip screen
+  - `Q` 系統 -> 系統, which is 儲存進度 / 讀取進度 on Saturn, not the PC 退出 screen
+  `D` 防御 and the battle-only `E` 物品 / `W` 投擲 / `Q` 逃跑 stay unbound: the
+  battle command menu has not been reproduced in this build, so its cursor
+  variable has not been measured. Guessing a button script there would be worse
+  than no key at all.
 - F10: host pause menu in PC98. Saturn profile keeps a custom F10 game binding;
   otherwise F10 is an additional host-menu key.
 

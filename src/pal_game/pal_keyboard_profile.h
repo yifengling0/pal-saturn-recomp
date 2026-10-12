@@ -18,10 +18,66 @@ inline uint64_t boundary = 0;
 inline bool battle_commands = false;
 inline uint64_t battle_boundary = 0;
 inline void close_battle_commands() { battle_commands = false; ++battle_boundary; }
-inline void clear() { ++boundary; close_battle_commands(); }
+
+// The Saturn field command menu is a four-entry ring (狀態 / 仙術 / 物品 / 系統) whose cursor
+// survives closing it, so a PAL98 letter cannot be a fixed button script. The index lives at
+// 0x060768DA: the menu reads it when it opens and writes it on every step, and nothing refreshes
+// a menu that is already open, so a letter closes whatever is up, forces the wanted entry into
+// that same word, and only then opens and confirms what the menu itself now shows.
+inline constexpr uint32_t MenuCursor = 0x060768DA;
+inline constexpr uint16_t StatusEntry = 0, SpellEntry = 1, ItemEntry = 2, SystemEntry = 3;
+struct FieldMenu {
+    uint16_t cursor = 0;
+    uint64_t epoch = 0;                     // counts passes through the menu, so a host can see one
+};
+inline FieldMenu field_menu;
+inline void field_menu_at(uint16_t cursor) { ++field_menu.epoch; field_menu.cursor = cursor; }
+inline uint16_t menu_intent = 0;   // host to guest: put this entry (1-based) in the menu's own cursor
+
+inline void clear() { ++boundary; close_battle_commands(); menu_intent = 0; }
 inline void field() { if (battle_commands) close_battle_commands(); context = {Confirm, Menu, Items, Strongest}; }
 inline void ui(bool start = false) { if (battle_commands) close_battle_commands(); context = {start ? Start : Confirm, Cancel, 0, 0}; }
 inline void boot() { clear(); context = {Start, Cancel, 0, 0}; }
+
+// One walk at a time, pure so it is testable without SDL, the guest or a window.
+// The wanted entry is never chased with fake arrow presses: the injected hook writes it
+// straight into the menu's own cursor word, and the walk only paces what a player would
+// have pressed anyway - close, open, then confirm once the guest reports it is in the menu.
+struct WalkStep { uint16_t bits = 0; bool ask = false; };
+struct MenuWalk {
+    static constexpr uint16_t Idle = 0xFFFF;
+    static constexpr uint8_t Closing = 0, Opening = 1, Confirming = 2;
+    uint16_t target = Idle, bit = 0;
+    uint8_t hold = 0, gap = 0, phase = Closing;
+    uint64_t seen = 0;                      // the guest's menu epoch when this walk started
+    uint16_t waits = 0;
+
+    void ask(uint16_t entry) {
+        target = entry; phase = Closing; bit = 0; hold = gap = waits = 0; menu_intent = 0;
+    }
+    void stop() {
+        target = Idle; phase = Closing; bit = 0; hold = gap = waits = 0; menu_intent = 0;
+    }
+
+    // epoch is the guest's own menu counter, so the confirm waits for a menu that really opened.
+    WalkStep tick(uint64_t epoch) {
+        if (target == Idle && !hold) return {0, false};
+        if (++waits > 240) { stop(); return {0, false}; }   // four seconds, then give up
+        if (hold) { --hold; return {bit, false}; }
+        if (gap) { --gap; return {0, false}; }
+        if (target == Idle) return {0, false};
+        if (phase == Closing) {
+            phase = Opening; bit = Cancel; hold = 4; gap = 6; return {bit, true};
+        }
+        if (phase == Opening) {
+            // Only a pass after this press proves the menu we are about to confirm is our own.
+            seen = epoch; phase = Confirming; bit = Menu; hold = 4; gap = 2; return {bit, true};
+        }
+        if (epoch == seen) return {0, true};                // the guest has not entered the menu yet
+        bit = Confirm; hold = 4; target = Idle; phase = Closing;
+        return {bit, false};
+    }
+};
 
 // Only the original battle four-icon command menu owns this scope. No input
 // function, poll, guest register, RNG, action queue or MP is changed by it.

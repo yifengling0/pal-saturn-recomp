@@ -2,6 +2,7 @@
 #include "pal_keyboard_profile.h"
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 namespace {
 int checks = 0;
@@ -194,6 +195,61 @@ int main() {
         check(battle.read(f) == 0, "battle helper is mapping only, no short-tap queue");
         ui();
         check(!battle_commands, "explicit UI boundary fails closed");
+    }
+    // A PAL98 letter with no Saturn button behind it. The entry itself is written into the
+    // menu by the injected hook; the walk only paces the close, the open and the confirm.
+    {
+        MenuWalk walk;
+        check(walk.tick(field_menu.epoch).bits == 0, "an idle walk presses nothing");
+        walk.ask(SystemEntry);
+        std::vector<int> closes;
+        for (int i = 0; i < 11; ++i) closes.push_back(walk.tick(field_menu.epoch).bits == Cancel);
+        check(closes == std::vector<int>({1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0}),
+              "a held cancel clears whatever the player left open, then the field settles");
+        std::vector<int> opens;
+        for (int i = 0; i < 5; ++i) opens.push_back(walk.tick(field_menu.epoch).bits == Menu);
+        check(opens == std::vector<int>({1, 1, 1, 1, 1}), "then one held menu press, no arrows");
+        for (int i = 0; i < 2; ++i)
+            check(walk.tick(field_menu.epoch).bits == 0, "the field gets two frames to act on it");
+        const auto waiting = walk.tick(field_menu.epoch);
+        check(waiting.ask && waiting.bits == 0, "the confirm waits for the guest to report the menu");
+        ++field_menu.epoch;                       // the hook ran: the menu is up on our entry
+        const auto right = walk.tick(field_menu.epoch);
+        check(!right.ask && right.bits == Confirm, "a menu that really opened gets the confirm");
+        for (int i = 0; i < 4; ++i)
+            check(walk.tick(field_menu.epoch).bits == Confirm, "the confirm is held out");
+        check(walk.tick(field_menu.epoch).bits == 0, "and then let go");
+        check(!walk.tick(field_menu.epoch).ask, "the walk is over");
+
+        walk.ask(SystemEntry);
+        for (int i = 0; i < 11; ++i) walk.tick(field_menu.epoch);
+        ++field_menu.epoch;                   // a menu event the player caused before our press
+        for (int i = 0; i < 7; ++i) walk.tick(field_menu.epoch);
+        check(walk.tick(field_menu.epoch).ask, "an event from before our own press is not credited");
+        ++field_menu.epoch;
+        check(walk.tick(field_menu.epoch).bits == Confirm, "the first event after it is");
+
+        walk.ask(StatusEntry);
+        menu_intent = 0;
+        for (int i = 0; i < 20; ++i) {
+            const auto step = walk.tick(field_menu.epoch);
+            if (step.ask) menu_intent = uint16_t(walk.target + 1);   // what read_pads() does
+        }
+        check(menu_intent == StatusEntry + 1, "the entry stays armed until the guest takes it");
+        walk.stop();
+        check(menu_intent == 0, "a stopped walk leaves nothing armed in the guest");
+
+        walk.ask(ItemEntry);
+        const auto frozen = field_menu.epoch;
+        int waited = 0;
+        while (walk.target != MenuWalk::Idle && ++waited < 400) walk.tick(frozen);
+        check(waited > 240 && walk.target == MenuWalk::Idle, "a menu that never opens is abandoned, not fought");
+        bool silent = true;
+        for (int i = 0; i < 30; ++i) { const auto s = walk.tick(field_menu.epoch); if (s.bits || s.ask) silent = false; }
+        check(silent, "nothing leaks after giving up");
+        walk.ask(StatusEntry);
+        walk.stop();
+        check(walk.tick(field_menu.epoch).bits == 0, "a stopped walk is silent");
     }
     std::cout << "PASS: " << checks << " context/latch checks; no game or SDL execution\n";
 }

@@ -157,6 +157,28 @@ class PlannerTests(unittest.TestCase):
         self.assertNotIn(path, out)
         self.assertEqual(sum(data.count(b'pal_keyboard::ui(ld16(c.r[14]+30)==13);') for data in out.values()), 1)
 
+    def test_field_menu_cursor_is_published_and_walked(self):
+        out = self.plan()
+        hooked = (b'pal_keyboard::ui(ld16(c.r[14]+30)==13);\n'
+                  b'    if (pal_keyboard::menu_intent) { st16(pal_keyboard::MenuCursor, pal_keyboard::menu_intent - 1);'
+                  b' pal_keyboard::menu_intent = 0; }\n'
+                  b'    pal_keyboard::field_menu_at(ld16(pal_keyboard::MenuCursor));')
+        self.assertEqual(sum(data.count(hooked) for data in out.values()), 1)
+        self.assertIn(hooked, out[self.f.paths['0604A5B8']])
+        host = out[self.f.runtime / 'src/host/host.cpp'].decode()
+        for expected in ('add_keys("status", g_status_keys, walk_key);',
+                         'add_keys("equip", g_equip_keys, walk_key);',
+                         'add_keys("system", g_system_keys, walk_key);',
+                         'return in_keys(g_equip_keys, key) ? pal_keyboard::ItemEntry : pal_keyboard::StatusEntry;',
+                         'g_pc98_walk.tick(pal_keyboard::field_menu.epoch);',
+                         'if (walk.ask) pal_keyboard::menu_intent = uint16_t(g_pc98_walk.target + 1);',
+                         'g_pc98_walk.ask(wanted_entry(e.key.scancode));',
+                         '!pal_keyboard::battle_commands && !g_menu_open',
+                         'g_pc_boundary = pal_keyboard::boundary; g_pc_press.block(); g_pc98_walk.stop();'):
+            self.assertIn(expected, host)
+        # No walk survives a host menu, a focus loss or a scene boundary.
+        self.assertEqual(host.count('g_pc98_walk.stop();'), 5)
+
     def test_duplicate_function_in_target_module_rejected(self):
         self.f.texts[self.f.recomp / 'p_prog_999.cpp'] = wrap('p_prog', self.f.functions['06026D84'])
         self.unchanged_on_error('06026D84')
@@ -265,7 +287,7 @@ class PlannerTests(unittest.TestCase):
         out = self.plan()[self.f.runtime / 'src/host/settings.cpp'].decode()
         self.assertEqual(out.count('PAL_KEYBOARD_PROFILE_V2'), 1)
         for expected in ('keyboard_profile = pc98', '[keyboard pc98]', 'confirm = Return, Keypad Enter, Space',
-                         'menu_cancel = Escape', 'item = E', 'spell = F', 'strongest = F, A', 'repeat = R',
+                         'menu_cancel = Escape', 'item = E', 'spell = F', 'status = S', 'equip = W', 'system = Q', 'strongest = F, A', 'repeat = R',
                          'start = Tab', 'has_profile ? "pc98" : "saturn"',
                          '{"keyboard_profile", {"pc98", "saturn"}}'):
             self.assertIn(expected, out)
@@ -282,7 +304,7 @@ class PlannerTests(unittest.TestCase):
                          '!semantic_key(key)', '!(pc_keyboard() && key == SDL_SCANCODE_F10)',
                          'pc_keyboard() || !f10_bound || g_menu_open',
                          'g_pc_boundary != pal_keyboard::boundary',
-                         'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); }',
+                         'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); g_pc98_walk.stop(); }',
                          'g_menu_open || (e.key.mod & SDL_KMOD_ALT)',
                          'e.key.windowID != wid || SDL_GetKeyboardFocus() != g_win',
                          'existing_close_hook();', 'existing_open_hook();'):

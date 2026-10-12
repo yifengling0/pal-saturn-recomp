@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import shutil
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / 'build' / 'recomp-build'
+BUILD = ROOT / 'build' / 'windows-pal-options' / 'recomp-build'
 OUT = ROOT / 'dist' / 'pal-saturn-recomp-win-x64'
 
 UPSTREAM_PIN = '086c372c67d9e0f94fcc64cedd6e6b63cc5542b5'
@@ -91,14 +92,21 @@ README = '''仙剑奇侠传 土星版 · 静态重编译 Windows 包
   F           仙术——土星原生的 L 快捷页；在战斗主菜单里是"最强"
   A           战斗主菜单里围攻（替剩下的队友填最强一击）
   R           战斗里重复上一次指令——土星原生的 Z
+  S           状态页——土星版能换装备的那一页（属性、立绘、七个装备格）
+  W           物品页——土星没有独立的装备画面，穿卸装备都在物品里做
+  Q           系统页——土星版是「储存进度 / 读取进度」，不是 98 的退出画面
   F10         暂停菜单（截图、音量、退出）
   Alt+Enter   全屏切换
   F12         存一张截图
 
 E/F/A/R 就是仙剑98 的那几个快捷键；同一个键在场景和在战斗主菜单里各管各的，
 按下时按当前画面决定，不会把法术页带进回合、也不会把"最强"漏到地图里。
-98 的 S 状态 / W 装备 / Q 系统（退出）在土星版没有对应的单个按键，所以这四个字母空着：
-土星版要先按 Esc 打开「狀態 / 仙術 / 物品 / 系統」菜单再选，而且菜单光标会记住上次的位置。
+
+98 的 S / W / Q 在土星版没有能借用的按键，所以这三个字母由程序替你走菜单：先按 B 收掉
+当前画面，把要的那一项直接写进菜单自己的光标变量 0x060768DA，再按 X 打开，等游戏自己
+报告菜单确实进去了才按 A 选定。中途你手动按方向键不会把它带偏——目标是被写进去的，不是
+追出来的；菜单四秒内不响应就放弃，不会跟游戏抢。战斗里的 D 防御 / E 物品 / W 投掷 /
+Q 逃跑仍然空着：这个构建还复现不出一场战斗，量不到战斗菜单的光标变量。
 
 每个语义键按下后锁定到一个土星键，直到松开，所以按住 Esc 不会把"开菜单"变成"取消"。
 想要原来的土星键位，把 settings.ini 里 [controls] 的 keyboard_profile 改成 saturn。
@@ -179,7 +187,18 @@ def main(argv=None):
     exe, dll = BUILD / 'saturn.exe', BUILD / 'SDL3.dll'
     for p in (exe, dll):
         if not p.is_file():
-            raise SystemExit(f'缺少 {p}；先跑 python tools/winbuild.py build --sdl-dir ...')
+            raise SystemExit(f'缺少 {p}；先跑 python tools/winbuild.py build --pal-options --sdl-dir ...')
+
+    # Only the --pal-options tree carries this manifest, and it is the build with the disc-read
+    # speed-ups and the PC98 keyboard profile in it. The hash catches the one mistake a stale
+    # build directory makes silently: shipping yesterday's exe next to today's documents.
+    proof = BUILD / 'pal-options-build.json'
+    if not proof.is_file():
+        raise SystemExit(f'缺 {proof}；{exe} 不是 tools/winbuild.py build --pal-options 的产物')
+    want = json.loads(proof.read_text(encoding='utf-8')).get('exe_sha256')
+    got = hashlib.sha256(exe.read_bytes()).hexdigest()
+    if want and want != got:
+        raise SystemExit(f'{exe} 与 {proof} 对不上：exe {got[:12]}… 清单 {want[:12]}…，先重新构建')
 
     imports = subprocess.run(['objdump', '-p', str(exe)], capture_output=True, text=True).stdout
     if not re.search(r'DLL Name: SDL3\.dll', imports):
