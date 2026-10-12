@@ -34,7 +34,7 @@ class InjectionTests(unittest.TestCase):
         self.runtime = self.root / 'build/test options/runtime'
         for p in (self.recomp, self.runtime / 'src/host', self.runtime / 'src/machine', self.root / 'src/pal_game'):
             p.mkdir(parents=True, exist_ok=True)
-        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h'):
+        for name in (*m.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp', 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h', 'pal_release_gate.h', 'pal_release_runtime.h'):
             shutil.copy2(REPO / 'src/pal_game' / name, self.root / 'src/pal_game' / name)
         self.source = self.recomp / 'p_prog_099.cpp'  # No dependence on generator chunk number.
         points = [('06026E1C', 'f_06035410(c)'), ('06026E58', 'exts.w r0,r1'),
@@ -74,9 +74,13 @@ class InjectionTests(unittest.TestCase):
         self.keyboard = patch('pal_keyboard_profile.plan_keyboard', side_effect=lambda recomp,runtime,texts,rt,header: {runtime/'include/saturn/pal_keyboard_profile.h':header})
         self.keyboard.start()
         # Field hooks have their own exact-function planner tests. Keep this
-        # hand-written source fixture focused on the options transaction.
+        # hand-written source fixture focused on the options transaction. The
+        # release planner also has separate exact-function tests; only copy
+        # its real helpers here, without inventing extracted guest functions.
         self.field = patch('pal_field_input.plan_field_input',
-                           side_effect=lambda recomp, texts, header: {recomp/'pal_field_input.h': header})
+                           side_effect=lambda recomp, texts, header, release_helpers: {
+                               recomp/'pal_field_input.h': header,
+                               **{recomp/name: raw for name, raw in release_helpers.items()}})
         self.field.start()
         self.addCleanup(self.field.stop)
         for name in (*RUNTIME_FILES, 'src/machine/machine.cpp'):
@@ -125,8 +129,9 @@ class InjectionTests(unittest.TestCase):
         sync_body=text.split('void f_0605D68A(SH2Context& c) {',1)[1].split('\nvoid ',1)[0]
         self.assertLess(sync_body.index('pal_input_sync_enter(c);'), sync_body.index('pal_effect_cadence::prepare_sync(c);'))
         self.assertLess(sync_body.index('pal_effect_cadence::prepare_sync(c);'), sync_body.index('c.r[0] = ld32(c.gbr + 972)'))
-        for name in m.HEADERS:
+        for name in (*m.HEADERS, 'pal_release_gate.h', 'pal_release_runtime.h'):
             self.assertEqual((self.recomp / name).read_bytes(), (REPO / 'src/pal_game' / name).read_bytes())
+            self.assertIn(name, manifest['outputs_sha256']['recomp'])
         self.assertNotIn('pal_battle_probe', text)
         self.assertNotIn('completed_frame', text)
 
@@ -137,6 +142,22 @@ class InjectionTests(unittest.TestCase):
         self.run_inject()
         self.assertEqual(hashes(self.root), before)
         self.assertEqual(times, {p: p.stat().st_mtime_ns for p in times})
+
+    def test_incomplete_release_helper_output_manifest_is_rejected(self):
+        manifest = self.run_inject()
+        path = self.recomp / m.MANIFEST
+        for name in ('pal_release_gate.h', 'pal_release_runtime.h'):
+            with self.subTest(helper=name):
+                original = manifest['outputs_sha256']['recomp'].pop(name)
+                path.write_text(json.dumps(manifest), encoding='utf-8')
+                before = hashes(self.root)
+                try:
+                    with self.assertRaisesRegex(ValueError, 'Incomplete field'):
+                        self.run_inject()
+                    self.assertEqual(hashes(self.root), before)
+                finally:
+                    manifest['outputs_sha256']['recomp'][name] = original
+                    path.write_text(json.dumps(manifest), encoding='utf-8')
 
     def test_missing_instruction_has_zero_partial_writes(self):
         self.source.write_text(self.source.read_text().replace('// 06026E84 ', '// 16026E84 '))

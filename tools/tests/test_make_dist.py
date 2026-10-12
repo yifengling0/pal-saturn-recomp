@@ -68,13 +68,15 @@ class PackagingTests(unittest.TestCase):
         self.cache = self.build / 'CMakeCache.txt'
         self.cache.write_text('SATURN_VDP1_GPL:BOOL=OFF\n', encoding='utf-8')
         header_names = (*pal_options.HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp',
-                        'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h')
+                        'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h',
+                        'pal_release_gate.h', 'pal_release_runtime.h')
         self.headers = {}
         for name in header_names:
             target = self.root / 'src/pal_game' / name
             shutil.copy2(REPO / 'src/pal_game' / name, target)
             self.headers[name] = m.sha256(target)
-        for name in (*pal_options.HEADERS, 'pal_paired_frame_queue.cpp', 'pal_field_input.h'):
+        for name in (*pal_options.HEADERS, 'pal_paired_frame_queue.cpp', 'pal_field_input.h',
+                     'pal_release_gate.h', 'pal_release_runtime.h'):
             shutil.copy2(self.root / 'src/pal_game' / name, self.recomp / name)
         names = {*pal_paired_frame_queue.RUNTIME_FILES, 'src/host/host_null.cpp',
                  'src/machine/smpc.cpp', 'src/machine/machine.cpp', 'src/host/settings.cpp',
@@ -222,6 +224,40 @@ class PackagingTests(unittest.TestCase):
         del self.instrumentation['outputs_sha256']['recomp']['pal_field_input.h']
         self.write_instrumentation()
         self.assert_refuses('不完整')
+
+    def test_missing_release_helper_output_rejected_even_when_rehashed(self):
+        for name in ('pal_release_gate.h', 'pal_release_runtime.h'):
+            with self.subTest(helper=name):
+                original = self.instrumentation['outputs_sha256']['recomp'].pop(name)
+                previous_out = self.out
+                self.out = self.root / 'dist' / ('missing-' + name)
+                self.write_instrumentation()
+                try:
+                    with patch.object(m, 'OUT', self.out):
+                        self.assert_refuses('不完整|Incomplete field')
+                finally:
+                    self.out = previous_out
+                    self.instrumentation['outputs_sha256']['recomp'][name] = original
+                    self.write_instrumentation()
+
+    def test_rehashed_release_helper_cannot_replace_reviewed_source(self):
+        for name in ('pal_release_gate.h', 'pal_release_runtime.h'):
+            with self.subTest(helper=name):
+                target = self.recomp / name
+                original = target.read_bytes()
+                previous_out = self.out
+                self.out = self.root / 'dist' / ('replaced-' + name)
+                target.write_bytes(b'// Unreviewed synthetic replacement\n')
+                self.instrumentation['outputs_sha256']['recomp'][name] = m.sha256(target)
+                self.write_instrumentation()
+                try:
+                    with patch.object(m, 'OUT', self.out):
+                        self.assert_refuses('helper 与来源不符')
+                finally:
+                    self.out = previous_out
+                    target.write_bytes(original)
+                    self.instrumentation['outputs_sha256']['recomp'][name] = m.sha256(target)
+                    self.write_instrumentation()
 
     def test_manifest_traversal_rejected_without_reading_target(self):
         self.instrumentation['outputs_sha256']['runtime']['../../private.bup'] = m.sha256(self.saved)

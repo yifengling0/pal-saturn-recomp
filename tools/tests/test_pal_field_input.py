@@ -146,9 +146,11 @@ class PlannerTests(unittest.TestCase):
     def test_approved_entry_clear_boundaries(self):
         for mode in self.fixtures:
             out=self.plan(mode)
-            for addr in ('06026F90','06020040','06020058','06021F14','0604A0BC','060516B4'):
+            for addr in ('06020040','06020058','06021F14','0604A0BC','060516B4'):
                 path,*_=p._function(self.fixtures[mode][1],addr)
                 self.assertIn(f'void f_{addr}(SH2Context& c) {{\n    pal_field_input::clear();\n',out[path].decode())
+            path,*_=p._function(self.fixtures[mode][1],'06026F90')
+            self.assertIn('void f_06026F90(SH2Context& c) {\n    pal_field_input::scene_clear();\n',out[path].decode())
 
     def test_real_wait_entry_note_preserves_original_body(self):
         for mode in self.fixtures:

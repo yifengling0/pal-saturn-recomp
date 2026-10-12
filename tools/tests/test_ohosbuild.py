@@ -755,8 +755,8 @@ class CurrentGenerationPinsTests(unittest.TestCase):
         # Independently replayed from 5c6d50c's pinned runtime patch chain,
         # precise-input/paired-queue host transforms, then keyboard+guard_host.
         self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
-            'f79709d4756fc6da99a19027cf5fe96c9b342091209f23ab853e6b3f2816ce1f',
-            '7d4eb111fd14956f271610d7a5a5fbdb9c35d4b2c9a375855cf3d292a2b4f677',
+            'c2c8bf2c6312d20fed47b255cb25d583b95e873e25b945d6e85379e187f6abbd',
+            '5dcbe3cc3dea0ac1b25870106a60992fcb276c028aa762e942513d48f837dadf',
         }))
 
     def test_previous_ui13_hosts_are_no_longer_accepted(self):
