@@ -47,7 +47,7 @@ class LauncherFixture:
         (options / 'recomp').mkdir(parents=True)
         (options / 'recomp/p_true_000.cpp').write_text('sh2_hook(c, 0x06021C1Eu);')
         (options / 'recomp-build').mkdir()
-        (options / 'recomp-build/saturn.exe').touch()
+        (options / 'recomp-build' / ('saturn.exe' if os.name == 'nt' else 'saturn')).touch()
         self.recomp = options / 'recomp'
         self.project = self.root / 'harmony/pal-saturn-openharmony'
         self.output = self.project / 'entry/build/default/outputs/default'
@@ -55,7 +55,12 @@ class LauncherFixture:
         (self.project / 'entry/src/main/cpp').mkdir(parents=True)
         self.home = self.root / 'deveco'
         (self.home / 'tools/hvigor/bin').mkdir(parents=True)
-        (self.home / 'tools/hvigor/bin/hvigorw.bat').touch()
+        self.hvigor = self.home / 'tools/hvigor/bin' / ('hvigorw.bat' if os.name == 'nt' else 'hvigorw')
+        self.hvigor.touch()
+        node_dir = self.home / 'tools/node' / ('' if os.name == 'nt' else 'bin')
+        node_dir.mkdir(parents=True)
+        (node_dir / ('node.exe' if os.name == 'nt' else 'node')).touch()
+        (self.home / 'tools/ohpm/bin').mkdir(parents=True)
         (self.home / 'sdk').mkdir()
         self.hdc = '/mock/bin/hdc'
         self.calls = []
@@ -315,14 +320,14 @@ class LauncherTests(LauncherFixture, unittest.TestCase):
         self.assertEqual(self.calls[-1][1]['timeout'], 7)
 
     def test_logs_works_with_path_hdc_without_deveco(self):
-        (self.home / 'tools/hvigor/bin/hvigorw.bat').unlink()
+        self.hvigor.unlink()
         with patch.object(driver, 'deveco_home', side_effect=AssertionError('must not resolve DevEco')):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(driver.main(['--logs']), 0)
 
     def test_logs_uses_explicit_deveco_hdc_without_hvigor(self):
-        (self.home / 'tools/hvigor/bin/hvigorw.bat').unlink()
-        hdc = self.home / 'sdk/default/openharmony/toolchains/hdc.exe'
+        self.hvigor.unlink()
+        hdc = self.home / 'sdk/default/openharmony/toolchains' / ('hdc.exe' if os.name == 'nt' else 'hdc')
         hdc.parent.mkdir(parents=True)
         hdc.touch()
         with patch.object(driver.shutil, 'which', return_value=None):
@@ -744,6 +749,123 @@ class NativeIdentityContractTests(unittest.TestCase):
         library.main.restype = ctypes.c_int
         self.assertEqual(library.main(), 1)
 
+
+class CurrentGenerationPinsTests(unittest.TestCase):
+    def test_current_mapping_and_accelerated_exact_pins(self):
+        # Independently replayed from 5c6d50c's pinned runtime patch chain,
+        # precise-input/paired-queue host transforms, then keyboard+guard_host.
+        self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
+            'f79709d4756fc6da99a19027cf5fe96c9b342091209f23ab853e6b3f2816ce1f',
+            '7d4eb111fd14956f271610d7a5a5fbdb9c35d4b2c9a375855cf3d292a2b4f677',
+        }))
+
+    def test_previous_ui13_hosts_are_no_longer_accepted(self):
+        self.assertFalse(driver.OHOS_HOST_UI_SHA256 & {
+            'c69b7a176ecf926c06ad5351c2d6b7d5edcab507c9a61639e949308190c495c6',
+            'bd2449a58ac52d73d08a304b84efb1781a22d0a7144ef16fe31b487407d09d79',
+        })
+
+    @unittest.skipUnless(shutil.which('cmake'), 'CMake unavailable')
+    def test_cmake_mapping_fallback_and_accelerated_pointer(self):
+        cmake = AUDIT.parent / 'harmony/pal-saturn-openharmony/entry/src/main/cpp/CMakeLists.txt'
+        source = cmake.read_text(encoding='utf-8')
+        selection = source[source.index('set(_PAL_OHOS_GENERATION '):source.index('set(SATURN_RUNTIME ')]
+        for speed, recomp, runtime in [('mapping', 'recomp', 'pal-keyboard-runtime'),
+                                       ('accelerated', 'windows-pal-options/recomp', 'windows-pal-options/runtime')]:
+            with self.subTest(speed=speed), tempfile.TemporaryDirectory(dir=AUDIT) as d:
+                root = Path(d)
+                (root / 'build').mkdir()
+                if speed == 'accelerated':
+                    (root / 'build/pal-ohos-generation.cmake').write_text(
+                        f'set(PAL_OHOS_RECOMP "{root}/build/{recomp}")\n'
+                        f'set(PAL_OHOS_RUNTIME "{root}/build/{runtime}")\n')
+                script = root / 'verify.cmake'
+                script.write_text(f'set(PAL_ROOT "{root}")\n' + selection +
+                    f'if(NOT PAL_OHOS_RECOMP STREQUAL "{root}/build/{recomp}" OR '
+                    f'NOT PAL_OHOS_RUNTIME STREQUAL "{root}/build/{runtime}")\n'
+                    'message(FATAL_ERROR "Wrong generation pair")\nendif()\n')
+                result = subprocess.run(['cmake', '-P', str(script)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class CrossPlatformToolPathsTests(unittest.TestCase):
+    def setUp(self):
+        host = patch.object(driver, 'os', types.SimpleNamespace(name='posix'))
+        host.start()
+        self.addCleanup(host.stop)
+
+
+    def make(self, root, names):
+        for name in names:
+            p = root / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.touch()
+        (root / 'sdk').mkdir()
+
+    def test_official_linux_cli(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            self.make(h, ['bin/hvigorw', 'bin/ohpm', 'tool/node/bin/node'])
+            self.assertEqual(driver.deveco_cli_paths(h), (h / 'bin/hvigorw', h / 'tool/node', h / 'bin'))
+
+    def test_studio_unix_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            self.make(h, ['tools/hvigor/bin/hvigorw', 'tools/node/bin/node', 'tools/ohpm/bin/ohpm'])
+            self.assertEqual(driver.deveco_cli_paths(h)[0], h / 'tools/hvigor/bin/hvigorw')
+
+    def test_windows_studio_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            self.make(h, ['tools/hvigor/bin/hvigorw.bat', 'tools/node/node.exe', 'tools/ohpm/bin/ohpm.bat'])
+            with patch.object(driver, 'os', types.SimpleNamespace(name='nt')):
+                self.assertEqual(driver.deveco_cli_paths(h)[0], h / 'tools/hvigor/bin/hvigorw.bat')
+
+    def test_reject_incomplete_sdk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(SystemExit):
+                driver.deveco_cli_paths(Path(tmp))
+
+    def test_linux_hdc_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            p = h / 'sdk/default/openharmony/toolchains/hdc'
+            p.parent.mkdir(parents=True)
+            p.touch()
+            with patch.object(driver.shutil, 'which', return_value=None):
+                self.assertEqual(driver.find_hdc(h), str(p))
+
+    def test_linux_native_learner_has_no_exe_suffix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            self.assertEqual(driver.native_learner(h, driver.ACCELERATED), h / 'build/windows-pal-options/recomp-build/saturn')
+
+    def test_windows_native_learner_keeps_exe_suffix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            with patch.object(driver, 'os', types.SimpleNamespace(name='nt')):
+                self.assertEqual(driver.native_learner(h, driver.ACCELERATED), h / 'build/windows-pal-options/recomp-build/saturn.exe')
+
+    def test_linux_project_python(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            p = h / 'build/venv/bin/python'
+            p.parent.mkdir(parents=True)
+            p.touch()
+            self.assertEqual(driver.project_python(h), p)
+
+    def test_windows_project_python(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            h = Path(tmp)
+            p = h / 'build/venv/Scripts/python.exe'
+            p.parent.mkdir(parents=True)
+            p.touch()
+            with patch.object(driver, 'os', types.SimpleNamespace(name='nt')):
+                self.assertEqual(driver.project_python(h), p)
+
+    def test_project_python_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(driver.project_python(Path(tmp)), Path(driver.sys.executable))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

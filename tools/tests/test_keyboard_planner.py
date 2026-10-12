@@ -160,17 +160,19 @@ class PlannerTests(unittest.TestCase):
     def test_field_menu_cursor_is_published_and_walked(self):
         out = self.plan()
         hooked = (b'pal_keyboard::ui(ld16(c.r[14]+30)==13);\n'
-                  b'    if (pal_keyboard::menu_intent) { st16(pal_keyboard::MenuCursor, pal_keyboard::menu_intent - 1);'
-                  b' pal_keyboard::menu_intent = 0; }\n'
-                  b'    pal_keyboard::field_menu_at(ld16(pal_keyboard::MenuCursor));')
+                  b'    if (ld32(c.r[14]) == pal_keyboard::MenuCursor) pal_keyboard::field_menu_at(ld16(pal_keyboard::MenuCursor));')
         self.assertEqual(sum(data.count(hooked) for data in out.values()), 1)
-        self.assertIn(hooked, out[self.f.paths['0604A5B8']])
+        body = out[self.f.paths['0604A5B8']]
+        self.assertIn(hooked, body)
+        arm = b'if (c.r[4] == pal_keyboard::MenuCursor && pal_keyboard::menu_intent)'
+        self.assertIn(arm, body)
+        self.assertLess(body.index(arm), body.index(hooked))
         host = out[self.f.runtime / 'src/host/host.cpp'].decode()
         for expected in ('add_keys("status", g_status_keys, walk_key);',
                          'add_keys("equip", g_equip_keys, walk_key);',
                          'add_keys("system", g_system_keys, walk_key);',
                          'return in_keys(g_equip_keys, key) ? pal_keyboard::ItemEntry : pal_keyboard::StatusEntry;',
-                         'g_pc98_walk.tick(pal_keyboard::field_menu.epoch);',
+                         'g_pc98_walk.tick(pal_keyboard::field_menu.epoch, sat_vblanks());',
                          'if (walk.ask) pal_keyboard::menu_intent = uint16_t(g_pc98_walk.target + 1);',
                          'g_pc98_walk.ask(wanted_entry(e.key.scancode));',
                          '!pal_keyboard::battle_commands && !g_menu_open',

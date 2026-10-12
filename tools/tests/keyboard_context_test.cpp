@@ -196,60 +196,88 @@ int main() {
         ui();
         check(!battle_commands, "explicit UI boundary fails closed");
     }
-    // A PAL98 letter with no Saturn button behind it. The entry itself is written into the
-    // menu by the injected hook; the walk only paces the close, the open and the confirm.
+    // A PAL98 letter with no Saturn button behind it. Pacing is measured in
+    // emulated VBlanks, not the number of host reads in one VBlank.
     {
         MenuWalk walk;
-        check(walk.tick(field_menu.epoch).bits == 0, "an idle walk presses nothing");
+        auto poll = [&](uint64_t epoch, uint64_t vb) {
+            const auto first = walk.tick(epoch, vb);
+            for (int extra = 0; extra < 17; ++extra) {
+                const auto again = walk.tick(epoch, vb);
+                check(again.bits == first.bits, "extra same-VBlank polls retain the published pulse");
+                check(!again.ask, "extra same-VBlank polls do not re-arm a consumed menu intent");
+            }
+            return first;
+        };
+        check(poll(field_menu.epoch, 0).bits == 0, "an idle walk presses nothing");
         walk.ask(SystemEntry);
-        std::vector<int> closes;
-        for (int i = 0; i < 11; ++i) closes.push_back(walk.tick(field_menu.epoch).bits == Cancel);
-        check(closes == std::vector<int>({1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0}),
-              "a held cancel clears whatever the player left open, then the field settles");
-        std::vector<int> opens;
-        for (int i = 0; i < 5; ++i) opens.push_back(walk.tick(field_menu.epoch).bits == Menu);
-        check(opens == std::vector<int>({1, 1, 1, 1, 1}), "then one held menu press, no arrows");
-        for (int i = 0; i < 2; ++i)
-            check(walk.tick(field_menu.epoch).bits == 0, "the field gets two frames to act on it");
-        const auto waiting = walk.tick(field_menu.epoch);
-        check(waiting.ask && waiting.bits == 0, "the confirm waits for the guest to report the menu");
-        ++field_menu.epoch;                       // the hook ran: the menu is up on our entry
-        const auto right = walk.tick(field_menu.epoch);
-        check(!right.ask && right.bits == Confirm, "a menu that really opened gets the confirm");
-        for (int i = 0; i < 4; ++i)
-            check(walk.tick(field_menu.epoch).bits == Confirm, "the confirm is held out");
-        check(walk.tick(field_menu.epoch).bits == 0, "and then let go");
-        check(!walk.tick(field_menu.epoch).ask, "the walk is over");
+        const auto epoch = field_menu.epoch;
+        for (uint64_t vb = 100; vb < 114; ++vb)
+            check(poll(epoch, vb).bits == (vb < 107 ? Cancel : 0),
+                  "cancel is held seven VBlanks followed by seven released VBlanks");
+        for (uint64_t vb = 114; vb < 128; ++vb)
+            check(poll(epoch, vb).bits == (vb < 121 ? Menu : 0),
+                  "menu is held seven VBlanks followed by seven released VBlanks");
+        const auto waiting = poll(epoch, 128);
+        check(waiting.ask && waiting.bits == 0, "no confirm before the guest reports the menu");
+        for (uint64_t vb = 129; vb < 136; ++vb)
+            check(poll(epoch + 1, vb).bits == Confirm, "confirm stays high through every poll of seven VBlanks");
+        check(poll(epoch + 1, 136).bits == 0, "confirm releases after seven VBlanks");
+        check(!poll(epoch + 1, 137).ask, "the completed walk leaves no request behind");
 
         walk.ask(SystemEntry);
-        for (int i = 0; i < 11; ++i) walk.tick(field_menu.epoch);
-        ++field_menu.epoch;                   // a menu event the player caused before our press
-        for (int i = 0; i < 7; ++i) walk.tick(field_menu.epoch);
-        check(walk.tick(field_menu.epoch).ask, "an event from before our own press is not credited");
-        ++field_menu.epoch;
-        check(walk.tick(field_menu.epoch).bits == Confirm, "the first event after it is");
+        for (uint64_t vb = 200; vb < 214; ++vb) poll(epoch, vb);
+        // A menu the player entered before our X press is not our acknowledgement.
+        for (uint64_t vb = 214; vb < 228; ++vb) poll(epoch + 1, vb);
+        check(poll(epoch + 1, 228).bits == 0, "a menu epoch predating our open press cannot trigger confirm");
+        check(poll(epoch + 2, 229).bits == Confirm, "a newer menu epoch can trigger one confirm");
+        walk.stop();
 
         walk.ask(StatusEntry);
-        menu_intent = 0;
-        for (int i = 0; i < 20; ++i) {
-            const auto step = walk.tick(field_menu.epoch);
-            if (step.ask) menu_intent = uint16_t(walk.target + 1);   // what read_pads() does
+        for (uint64_t vb = 300; vb < 335; ++vb) {
+            const auto step = poll(epoch, vb);
+            if (step.ask) menu_intent = uint16_t(walk.target + 1);
         }
-        check(menu_intent == StatusEntry + 1, "the entry stays armed until the guest takes it");
+        check(menu_intent == StatusEntry + 1, "the intended entry remains armed while waiting for the guest");
         walk.stop();
-        check(menu_intent == 0, "a stopped walk leaves nothing armed in the guest");
+        check(menu_intent == 0 && poll(epoch + 1, 334).bits == 0,
+              "stop clears intent and invalidates even the current-VBlank cache");
 
         walk.ask(ItemEntry);
-        const auto frozen = field_menu.epoch;
-        int waited = 0;
-        while (walk.target != MenuWalk::Idle && ++waited < 400) walk.tick(frozen);
-        check(waited > 240 && walk.target == MenuWalk::Idle, "a menu that never opens is abandoned, not fought");
-        bool silent = true;
-        for (int i = 0; i < 30; ++i) { const auto s = walk.tick(field_menu.epoch); if (s.bits || s.ask) silent = false; }
-        check(silent, "nothing leaks after giving up");
+        const auto first = walk.tick(epoch, 1000);
+        for (int i = 0; i < 400; ++i)
+            check(walk.tick(epoch, 1000).bits == first.bits,
+                  "hundreds of same-VBlank reads cannot consume the walk or its timeout");
+        check(walk.target == ItemEntry, "same-VBlank polling does not time out");
+        check(walk.tick(epoch, 1239).bits != Confirm && walk.target != MenuWalk::Idle,
+              "request remains live before the actual 240-VBlank deadline");
+        check(walk.tick(epoch, 1240).bits == 0 && walk.target == MenuWalk::Idle,
+              "timeout expires at 240 elapsed VBlanks even when intervening reads were skipped");
+        check(menu_intent == 0, "timeout disarms the guest intent");
+        for (uint64_t vb = 1240; vb < 1270; ++vb) {
+            const auto step = poll(epoch + 1, vb);
+            check(!step.bits && !step.ask, "no late menu acknowledgement revives a timed-out walk");
+        }
+
+        // A host menu, focus loss or scene clear calls stop(). Exercise every
+        // pulse and neutral phase, including the final held-confirm VBlank.
+        for (const uint64_t interrupted : {0, 7, 14, 21, 28, 34}) {
+            walk.ask(StatusEntry);
+            for (uint64_t vb = 0; vb <= interrupted; ++vb) {
+                const auto step = poll(vb >= 28 ? epoch + 1 : epoch, 2000 + vb);
+                if (step.ask) menu_intent = StatusEntry + 1;
+            }
+            walk.stop();
+            check(menu_intent == 0 && poll(epoch + 2, 2000 + interrupted).bits == 0,
+                  "lifecycle stop is immediate in every walk phase");
+            check(poll(epoch + 3, 2100).bits == 0, "lifecycle stop never resumes on a newer menu epoch");
+        }
         walk.ask(StatusEntry);
+        poll(epoch, 3000);
+        walk.ask(SystemEntry);
+        check(poll(epoch, 3000).bits == Cancel && walk.target == SystemEntry,
+              "replacement starts a new request even within the same VBlank");
         walk.stop();
-        check(walk.tick(field_menu.epoch).bits == 0, "a stopped walk is silent");
     }
     std::cout << "PASS: " << checks << " context/latch checks; no game or SDL execution\n";
 }
