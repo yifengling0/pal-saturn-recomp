@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "pal_field_input_api.h"
+#include "pal_release_runtime.h"
 #include <saturn/sh2.h>
 
 uint64_t sat_vblanks();
@@ -50,42 +51,95 @@ inline void invalidate_read() {
     state.read_state = ReadState::Empty;
     state.outcome = {};
 }
+// Scope bookkeeping runs for FIELD0 and FIELD1. Only host capture and field
+// replacement are conditional on owns_input(). No scope hook changes guest RAM.
 inline void clear() {
-    if (!owns_input()) return;
+    pal_release_runtime::hard_boundary();
     invalidate_read();
     state.field = false;
     state.scene = ld16(Scene);
     state.scene_known = true;
-    pal_field_host::context(false, true);
+    if (owns_input()) pal_field_host::context(false, true);
+}
+struct FadeScope {
+    explicit FadeScope(uint32_t caller) {
+        if (pal_release_runtime::fade_before(caller)) {
+            invalidate_read();
+            state.field = false;
+            if (owns_input()) pal_field_host::scene_suspend();
+        }
+    }
+    ~FadeScope() { pal_release_runtime::fade_after(); }
+    FadeScope(const FadeScope&) = delete;
+    FadeScope& operator=(const FadeScope&) = delete;
+};
+struct RevealScope {
+    explicit RevealScope(uint32_t caller) {
+        if (pal_release_runtime::reveal_before(caller)) {
+            invalidate_read();
+            state.field = false;
+            if (owns_input()) pal_field_host::scene_suspend(
+                pal_release_runtime::reveal_requires_scene_held());
+        }
+    }
+    ~RevealScope() { pal_release_runtime::reveal_after(); }
+    RevealScope(const RevealScope&) = delete;
+    RevealScope& operator=(const RevealScope&) = delete;
+};
+inline void scene_clear() {
+    if (!pal_release_runtime::scene_transition_start()) { clear(); return; }
+    invalidate_read();
+    state.field = false;
+    state.scene = ld16(Scene);
+    state.scene_known = true;
+    if (owns_input()) pal_field_host::scene_suspend();
 }
 inline void resume_field() {
-    if (!owns_input() || state.script_depth || state.ui_depth) return;
+    if (state.script_depth || state.ui_depth) return;
     const uint16_t scene = ld16(Scene);
-    if (!state.scene_known || scene != state.scene) clear();
+    if (!state.scene_known || scene != state.scene) {
+        if (pal_release_runtime::scene_soft()) scene_clear();
+        else clear();
+    }
     state.scene = scene;
     state.scene_known = true;
     state.field = ld16(SceneChange) == 0;
-    pal_field_host::context(state.field, false);
+    if (owns_input()) pal_field_host::context(state.field, false);
+    // The host drains loading-time events while still suspended. Only after
+    // that reconciliation may the guest transition token be retired.
+    if (state.field) pal_release_runtime::scene_transition_end();
 }
 inline void enter() {
-    if (!owns_input()) return;
+    pal_release_runtime::field_enter();
     state.script_depth = state.ui_depth = 0;
+    state.script_waited = false;
     clear();
-    resume_field();
+    // Initial field entry always loads a scene first. Do not arm capture or
+    // infer scene continuity before the first natural field decision. The
+    // disabled comparison retains the original immediate activation.
+    if (!pal_release_runtime::enabled()) resume_field();
 }
 
 // Hook immediately BEFORE the original 06026E54 converter call. Only the host
 // implementation may service SDL, using its input-only safe-thread entry.
 inline void begin() {
-    if (!owns_input()) return;
     invalidate_read();
-    if (state.script_depth || state.ui_depth || ld16(SceneChange)) {
-        clear();
-        return;
-    }
+    if (state.script_depth || state.ui_depth) { clear(); return; }
+    if (ld16(SceneChange)) { scene_clear(); return; }
     resume_field();
+    if (!owns_input()) return;
     state.read = pal_field_host::begin();
     state.read_state = ReadState::Ready;
+}
+
+// After the original field interval branch, before its unchanged mover call.
+// Deny only this displacement attempt; do not synthesize a pad release or
+// change the action, chosen interval, timer, acknowledgement or guest registers.
+inline void filter_scene_debt(const SH2Context& c) {
+    if (pal_release_runtime::should_defer_displacement(c, sat_vblanks())) {
+        st16(DeltaX, 0);
+        st16(DeltaY, 0);
+    }
 }
 
 inline void suppress(SH2Context& c, bool clear_action) {
@@ -99,7 +153,10 @@ inline void suppress(SH2Context& c, bool clear_action) {
 // retains nonmovement priority. The host-blocked exception discards the entire
 // current input action so host-menu/focus events cannot leak into guest UI.
 inline void apply(SH2Context& c) {
-    if (!owns_input()) return;
+    if (!owns_input()) {
+        if (!movement_action(ld16(c.r[14]))) clear();
+        return;
+    }
     if (state.read_state == ReadState::Applied) return;
     const bool has_read = state.read_state == ReadState::Ready;
     state.read_state = ReadState::Applied;
@@ -137,10 +194,18 @@ inline void apply(SH2Context& c) {
         return;
     }
     if (ld8(ReleaseGate) == 0xFF) {
-        // A pending tap is retained by the host, but no movement is accepted
-        // and the guest-owned release acknowledgement byte remains untouched.
-        suppress(c, true);
-        return;
+        // Only a proven scene/resource FF origin may admit a CURRENT held
+        // direction. A released pending tap alone never qualifies. Preserve
+        // all real non-direction buttons when consulting the source gate.
+        const uint16_t buttons = uint16_t(read.held |
+            (uint16_t(~ld16(pal_release_runtime::Pad)) & 0x0FF8u));
+        const bool held_current = pal_field_host::current(read) &&
+            read.direction && (read.held & read.direction);
+        if (!pal_release_runtime::permits_field(c, read.direction, buttons,
+                held_current, read.scene_held && !read.pending)) {
+            suppress(c, true);
+            return;
+        }
     }
     const uint16_t direction = read.direction;
     if (direction && (!single_direction(direction) ||
@@ -198,7 +263,7 @@ inline void outcome() {
 }
 
 inline void script_before() {
-    if (!owns_input()) return;
+    pal_release_runtime::script_before();
     if (!state.script_depth++) {
         invalidate_read();
         state.script_waited = false;
@@ -208,27 +273,34 @@ inline void script_before() {
     }
 }
 // Hook at the original f0605D68A frame-sync entry. Its seal/RNG/wait runs
-// unchanged. A regular field-render sync outside a script is not a boundary.
+// unchanged. Resource/render sync is not a genuine script-wait boundary.
 inline void note_wait() {
-    if (!owns_input() || !state.script_depth || state.script_waited) return;
+    const bool hard_wait = pal_release_runtime::note_wait();
+    if (pal_release_runtime::enabled()) {
+        if (!hard_wait) return;
+    } else if (!owns_input() || !state.script_depth || state.script_waited) return;
     state.script_waited = true;
     clear();
 }
 inline void script_after() {
-    if (!owns_input() || !state.script_depth) return;
+    // A tentative fade without a confirmed scene, or a revoked nested scope,
+    // must flush the host even when this helper has no outer script depth.
+    if (pal_release_runtime::script_after()) { state.script_waited = true; clear(); }
+    if (!state.script_depth) return;
     if (--state.script_depth) return;
-    if (state.script_waited || ld16(Scene) != state.script_scene ||
-        ld16(SceneChange)) clear();
+    if (state.script_waited) clear();
+    else if (ld16(Scene) != state.script_scene || ld16(SceneChange)) scene_clear();
     state.script_waited = false;
     resume_field();
 }
 inline void ui_before() {
-    if (!owns_input()) return;
+    pal_release_runtime::ui_before();
     ++state.ui_depth;
     clear();
 }
 inline void ui_after() {
-    if (!owns_input() || !state.ui_depth) return;
+    pal_release_runtime::ui_after();
+    if (!state.ui_depth) return;
     if (--state.ui_depth) return;
     // Also discard contacts that were first pressed inside the UI. A clear
     // only on entry would let a new UI-held direction escape on return.
