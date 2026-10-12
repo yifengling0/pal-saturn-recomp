@@ -41,9 +41,9 @@ OHOS_HOST_UI_VERSION = 13
 # accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
     # mapping generation: tools/winbuild.py build --recompile
-    'c69b7a176ecf926c06ad5351c2d6b7d5edcab507c9a61639e949308190c495c6',
+    'f79709d4756fc6da99a19027cf5fe96c9b342091209f23ab853e6b3f2816ce1f',
     # accelerated generation: winbuild.py learn --pal-options
-    'bd2449a58ac52d73d08a304b84efb1781a22d0a7144ef16fe31b487407d09d79',
+    '7d4eb111fd14956f271610d7a5a5fbdb9c35d4b2c9a375855cf3d292a2b4f677',
 })
 
 # The accelerated generation is the one the Windows package ships, so the tablet gets the same
@@ -64,6 +64,39 @@ def deveco_home(cli: Path | None) -> Path:
     if DEFAULT_DEVECO.is_dir():
         return DEFAULT_DEVECO
     raise SystemExit('找不到 DevEco Studio：给 --deveco 或设 DEVECO_HOME')
+
+
+def deveco_cli_paths(home: Path) -> tuple[Path, Path, Path]:
+    """Resolve DevEco Studio or official command-line layouts without copying SDKs."""
+    home = Path(home)
+    suffix = '.bat' if os.name == 'nt' else ''
+    layouts = (
+        (home / 'tools' / 'hvigor' / 'bin' / ('hvigorw' + suffix),
+         home / 'tools' / 'node', home / 'tools' / 'ohpm' / 'bin'),
+        (home / 'bin' / ('hvigorw' + suffix),
+         home / 'tool' / 'node', home / 'bin'),
+        (home / 'hvigor' / 'bin' / ('hvigorw' + suffix),
+         home / 'node', home / 'ohpm' / 'bin'),
+    )
+    for hvigor, node_home, ohpm_bin in layouts:
+        node_bin = node_home / 'bin' if (node_home / 'bin').is_dir() else node_home
+        node = node_bin / ('node.exe' if os.name == 'nt' else 'node')
+        if hvigor.is_file() and node.is_file() and ohpm_bin.is_dir() and (home / 'sdk').is_dir():
+            return hvigor, node_home, ohpm_bin
+    raise SystemExit(f'找不到完整 DevEco/Command Line Tools 工具布局：{home}')
+
+
+def project_python(root: Path) -> Path:
+    """Use the project's host virtualenv when present on either desktop OS."""
+    relative = ('Scripts', 'python.exe') if os.name == 'nt' else ('bin', 'python')
+    candidate = root / 'build' / 'venv' / relative[0] / relative[1]
+    return candidate if candidate.is_file() else Path(sys.executable)
+
+
+def native_learner(root: Path, generation: dict) -> Path:
+    """A host learner is native Linux ELF or Windows EXE, never an OHOS binary."""
+    name = 'saturn.exe' if os.name == 'nt' else 'saturn'
+    return root / 'build' / generation['recomp'].split('/')[0] / 'recomp-build' / name
 
 
 def run(cmd: list[str], cwd: Path, env: dict[str, str]) -> None:
@@ -112,7 +145,7 @@ def find_hdc(home: Path | None = None) -> str:
         return found
     if home is None:
         home = deveco_home(None)
-    hdc = home / 'sdk' / 'default' / 'openharmony' / 'toolchains' / 'hdc.exe'
+    hdc = home / 'sdk' / 'default' / 'openharmony' / 'toolchains' / ('hdc.exe' if os.name == 'nt' else 'hdc')
     if not hdc.is_file():
         raise SystemExit('找不到 hdc：加入 PATH，或用 --deveco 指定 DevEco Studio')
     return str(hdc)
@@ -323,26 +356,22 @@ def main(argv=None):
 
     set_selftest(args.selftest)
     home = deveco_home(args.deveco)
-    tools = home / 'tools'
-    for p in (tools / 'hvigor' / 'bin' / 'hvigorw.bat', home / 'sdk'):
-        if not p.exists():
-            raise SystemExit(f'缺少 {p}')
-
+    hvigor, node_home, ohpm_bin = deveco_cli_paths(home)
+    node_bin = node_home / 'bin' if (node_home / 'bin').is_dir() else node_home
     env = dict(os.environ)
     env['DEVECO_SDK_HOME'] = str(home / 'sdk')
-    env['NODE_HOME'] = str(tools / 'node')
-    env['PATH'] = os.pathsep.join([str(tools / 'node'), str(tools / 'ohpm' / 'bin'),
-                                   str(tools / 'hvigor' / 'bin'), env.get('PATH', '')])
+    env['NODE_HOME'] = str(node_home)
+    env['DEVECO_NODE_HOME'] = str(node_home)
+    env['PATH'] = os.pathsep.join([str(node_bin), str(ohpm_bin),
+                                   str(hvigor.parent), env.get('PATH', '')])
 
-    python = ROOT / 'build' / 'venv' / 'Scripts' / 'python.exe'
-    if not python.is_file():
-        python = Path(sys.executable)
+    python = project_python(ROOT)
     generation = ACCELERATED if args.speed == 'accelerated' else MAPPING
     if not args.skip_learn:
         command = [python, ROOT / 'tools' / 'winbuild.py', 'learn']
         if generation is ACCELERATED:
             command.append('--pal-options')
-            learner = ROOT / 'build' / ACCELERATED['recomp'].split('/')[0] / 'recomp-build' / 'saturn.exe'
+            learner = native_learner(ROOT, ACCELERATED)
             if not learner.is_file():
                 raise SystemExit('加速生成还没有可运行的学习器；先跑 '
                                  'tools/winbuild.py build --recompile --pal-options --sdl-dir <SDL3 cmake 目录>。')
@@ -353,7 +382,7 @@ def main(argv=None):
     print_sdl_revision()
     print(f'hvigor mode: {args.build_mode}; 请核查实际 native 编译旗标，模式名不是优化证明。')
     before = hap_snapshot()
-    run([tools / 'hvigor' / 'bin' / 'hvigorw.bat', 'assembleHap', '--mode', 'module',
+    run([hvigor, 'assembleHap', '--mode', 'module',
          '-p', 'product=default', '-p', f'buildMode={args.build_mode}', '--no-daemon'], PROJECT, env)
 
     after = hap_snapshot()

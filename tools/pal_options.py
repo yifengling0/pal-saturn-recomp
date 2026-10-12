@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import re
 
-VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-9-field-consume'
+VERSION = 'pal-options-input-v4-release-gate-v1-effect-v3-cadence-v4-manual-pair-queue-v3-keyboard-v1-10-menu-vblank'
 MANIFEST = 'pal-options-manifest.json'
 CADENCE_RUNTIME_SUPPORT = '// PAL effect cadence uses ordinary C++/TLS scopes, unsupported on fibers whose\n// stacks can be discarded without C++ unwinding. This is read-only and is never\n// called in the default speed=1 path.\nbool pal_effect_cadence_scope_supported() noexcept {\n    return !g_cfg.task_setjmp && !g_sh2_tasks[0] && g_cfg.state_in.empty();\n}\n'
 
