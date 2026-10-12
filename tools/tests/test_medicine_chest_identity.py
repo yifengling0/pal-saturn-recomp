@@ -69,10 +69,12 @@ class MedicineChestIdentity(unittest.TestCase):
             (selected / name).as_posix() if absolute_sources else name
             for name in sources
         ]
+        # CMake reads its own files as UTF-8; with absolute sources the fixture path lands inside
+        # this file, and a cp936 write turns the 空格 directory name into a path that cannot open.
         (selected / "CMakeLists.txt").write_text(
             "add_library(recomp STATIC "
             + " ".join('"' + name + '"' for name in selected_names)
-            + ")\n"
+            + ")\n", encoding="utf-8"
         )
         # A matching generated source elsewhere must not validate the actual
         # linked generation, whether or not an unrelated target compiles it.
@@ -95,7 +97,7 @@ class MedicineChestIdentity(unittest.TestCase):
             + f"get_target_property(definitions {target} COMPILE_DEFINITIONS)\n"
             + 'file(WRITE "${CMAKE_BINARY_DIR}/definitions.txt" "${definitions}")\n'
         )
-        (root / "CMakeLists.txt").write_text(cmake)
+        (root / "CMakeLists.txt").write_text(cmake, encoding="utf-8")
         return root
 
     def configure(self, root):

@@ -175,7 +175,9 @@ class InjectionTests(unittest.TestCase):
 
     def test_changed_host_anchor_has_zero_partial_writes(self):
         # 0011 widened that declaration, so break an anchor both generations share.
-        self.host.write_text(self.host.read_text().replace('static void menu_close() {', 'changed;'))
+        # The runtime host.cpp is UTF-8 prose, so the round trip must not fall back to cp936.
+        self.host.write_text(self.host.read_text(encoding='utf-8').replace('static void menu_close() {', 'changed;'),
+                             encoding='utf-8')
         before = hashes(self.root)
         with self.assertRaisesRegex(ValueError, 'SDL host'):
             self.run_inject()
@@ -183,7 +185,7 @@ class InjectionTests(unittest.TestCase):
 
     def test_changed_injected_output_rejected(self):
         self.run_inject()
-        self.host.write_text(self.host.read_text() + '// changed\n')
+        self.host.write_text(self.host.read_text(encoding='utf-8') + '// changed\n', encoding='utf-8')
         before = hashes(self.root)
         with self.assertRaisesRegex(ValueError, 'Previously injected runtime'):
             self.run_inject()
@@ -237,7 +239,7 @@ class InjectionTests(unittest.TestCase):
 
     def test_queue_runtime_drift_fails_before_any_writes(self):
         path = self.runtime / 'src/video/vdp1.cpp'
-        path.write_text(path.read_text() + '// changed runtime version\n')
+        path.write_text(path.read_text(encoding='utf-8') + '// changed runtime version\n', encoding='utf-8')
         before = hashes(self.root)
         with self.assertRaisesRegex(ValueError, 'Runtime source/version changed'):
             self.run_inject()

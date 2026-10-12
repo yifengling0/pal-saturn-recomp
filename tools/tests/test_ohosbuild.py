@@ -639,7 +639,7 @@ class NativeIdentityContractTests(unittest.TestCase):
     def configure(self, selected_runtime=None, selected_host=None, extra_host=None):
         if not self.cmake:
             self.skipTest('cmake unavailable; set PAL_CMAKE to the existing executable')
-        source = (self.cpp / 'CMakeLists.txt').read_text()
+        source = (self.cpp / 'CMakeLists.txt').read_text(encoding='utf-8')
         def block(name):
             return source.split('# PAL_OHOS_' + name + '_BEGIN\n', 1)[1].split(
                 '# PAL_OHOS_' + name + '_END', 1)[0]
@@ -693,10 +693,10 @@ class NativeIdentityContractTests(unittest.TestCase):
     def link(self, source):
         if not self.cxx:
             self.skipTest('C++ compiler unavailable')
-        entry = (self.cpp / 'pal_ohos_entry.cpp').read_text()
+        entry = (self.cpp / 'pal_ohos_entry.cpp').read_text(encoding='utf-8')
         required = driver.OHOS_HOST_UI_VERSION
         self.assertIn(f'if (host_ui_version != {required})', entry)
-        cmake = (self.cpp / 'CMakeLists.txt').read_text()
+        cmake = (self.cpp / 'CMakeLists.txt').read_text(encoding='utf-8')
         self.assertIn('set_property(TARGET main APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-undefined")', cmake)
         declarations = []
         for symbol, type_name in [('pal_host_ui_feature_version', 'int'),
