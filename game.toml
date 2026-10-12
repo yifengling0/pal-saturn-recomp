@@ -520,3 +520,9 @@ at = 0x060662D8
 [[hook]]
 module = "TRUE"
 at = 0x06021C1E
+
+# Proven original-disc data error, limited to Yangzhou event1661/script36788.
+# Before the original add-item call, correct only this guarded object argument.
+[[hook]]
+module = "PROG"
+at = 0x06028700
