@@ -76,6 +76,8 @@ def prepare_options(recomp: Path, runtime: Path, root: Path, *, verify_only: boo
     field_enabled = b'pal_field_input_ledger.h' in (runtime/'src/host/host.cpp').read_bytes()
     if field_enabled:
         source_headers['pal_field_input.h'] = (root/'src/pal_game/pal_field_input.h').read_bytes()
+        for name in ('pal_release_gate.h', 'pal_release_runtime.h'):
+            source_headers[name] = (root/'src/pal_game'/name).read_bytes()
     header_hashes = {name: digest(data) for name, data in source_headers.items()}
     from pal_keyboard_profile import runtime_support_inputs, verify_runtime_support_manifest
     support_inputs = runtime_support_inputs(runtime)
@@ -87,7 +89,7 @@ def prepare_options(recomp: Path, runtime: Path, root: Path, *, verify_only: boo
             raise ValueError('Option/header version changed; regenerate a fresh detached build')
         if previous.get('runtime') != os.path.relpath(runtime, recomp).replace('\\', '/'):
             raise ValueError('Detached runtime changed; regenerate a fresh detached build')
-        if field_enabled and 'pal_field_input.h' not in previous.get('outputs_sha256', {}).get('recomp', {}):
+        if field_enabled and not {'pal_field_input.h','pal_release_gate.h','pal_release_runtime.h'}.issubset(previous.get('outputs_sha256', {}).get('recomp', {})):
             raise ValueError('Incomplete field input output manifest')
         for group, base in [('recomp', recomp), ('runtime', runtime)]:
             verified = {**previous.get('inputs_sha256', {}).get(group, {}),
@@ -272,8 +274,10 @@ def prepare_options(recomp: Path, runtime: Path, root: Path, *, verify_only: boo
             raise ValueError('Unexpected preexisting field helper; regenerate')
         from pal_field_input import plan_field_input
         field_texts = {p: changes.get(p, originals[p]).decode('utf-8').replace('\r\n','\n') for p in keyboard_texts}
-        changes.update(plan_field_input(recomp, field_texts, source_headers['pal_field_input.h']))
-        if (root/'src/pal_game/pal_field_input.h').read_bytes() != source_headers['pal_field_input.h']:
+        changes.update(plan_field_input(recomp, field_texts, source_headers['pal_field_input.h'],
+            {name: source_headers[name] for name in ('pal_release_gate.h','pal_release_runtime.h')}))
+        if any((root/'src/pal_game'/name).read_bytes() != source_headers[name]
+               for name in ('pal_field_input.h','pal_release_gate.h','pal_release_runtime.h')):
             raise ValueError('Field helper changed while preparing injection')
     all_original = {**originals, **runtime_original, cmake: cmake_original}
     for p, data in all_original.items():

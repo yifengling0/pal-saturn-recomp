@@ -26,6 +26,8 @@ HOST_INPUT_SHA256.add('811c1789dae3b183c059922cd3f977ef0d43dae3db727fb7d1ce990c3
 
 # Frozen field-host r2 after the unchanged precise-input transform, full-chain replay.
 HOST_INPUT_SHA256.add('7441a6f17a9b448fd8b383f6baf760eed517297b37bac6dc61daee09c9847771')
+# 0018, independently replayed unchanged precise-host transform.
+HOST_INPUT_SHA256.add('810165bb7e2cee839b3147708e7788f8587be49878fc9524da30c3612f61dec3')
 
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))

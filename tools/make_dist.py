@@ -281,7 +281,7 @@ def verify_build() -> dict[Path, str]:
                 regular_file(base / name)
                 digest_field(value, f'{kind}/{group}/{name}')
             inventories[kind, group] = entries
-    needed_recomp = {'CMakeLists.txt', *HEADERS, 'pal_paired_frame_queue.cpp', 'pal_field_input.h'}
+    needed_recomp = {'CMakeLists.txt', *HEADERS, 'pal_paired_frame_queue.cpp', 'pal_field_input.h', 'pal_release_gate.h', 'pal_release_runtime.h'}
     needed_runtime = {*RUNTIME_FILES, 'src/host/host_null.cpp', 'src/machine/smpc.cpp',
         'src/machine/machine.cpp', 'src/host/settings.cpp', 'src/host/settings.h',
         'src/host/launcher.cpp', 'src/host/pal_host_edge.h',
@@ -294,13 +294,13 @@ def verify_build() -> dict[Path, str]:
     if not generated or any(path.name not in owned for path in generated):
         raise ValueError('重编译源码不在 instrumentation 清单中')
     for name in (*HEADERS, 'pal_host_edge.h', 'pal_paired_frame_queue.cpp',
-                 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h'):
+                 'pal_paired_frame_queue.h', 'pal_keyboard_profile.h', 'pal_field_input.h', 'pal_release_gate.h', 'pal_release_runtime.h'):
         regular_file(ROOT / 'src/pal_game' / name)
     prepare_options(recomp, runtime, ROOT, verify_only=True)
     # A rehashed output must not silently substitute a different helper while
     # retaining the manifest's current source-header identity.
     copied_helpers = {recomp / name: name for name in (*HEADERS,
-        'pal_paired_frame_queue.cpp', 'pal_field_input.h')}
+        'pal_paired_frame_queue.cpp', 'pal_field_input.h', 'pal_release_gate.h', 'pal_release_runtime.h')}
     copied_helpers.update({runtime / 'src/host/pal_host_edge.h': 'pal_host_edge.h',
         runtime / 'include/pal_paired_frame_queue.h': 'pal_paired_frame_queue.h',
         runtime / 'include/saturn/pal_keyboard_profile.h': 'pal_keyboard_profile.h'})

@@ -32,6 +32,10 @@ RUNTIME_HASHES['host.cpp'].append('17236f5e8e8d8316482040b00ba72dbdda7d19daadaf9
 RUNTIME_HASHES['host.cpp'].append('1486417a81f3546751aa1d7b0293b2f4c98e8316034576f3bac14c838bbf2fa0')
 # Verified complete patch 0016 host; see field input source manifest.
 RUNTIME_HASHES['host.cpp'].append('a381f4bd6d80f1b0cf19eaecd37fc0875f82747dc91f37382f59f8ad07703f5d')
+# Exact reviewed runtime after 0018 scene-held continuity.
+RUNTIME_HASHES['host.cpp'].append('109c29033e8159c462a9516e85fbaceb57611112269bbc8f838a92383dd6233a')
+RUNTIME_HASHES['host.cpp'].append('6f0c959abaa3d6f4f8324182d65c56af2f79acd374f65ba2e7f5765527c78ef5')
+
 # Frozen field-host r2 after unchanged precise-input and paired-queue stages.
 RUNTIME_HASHES['host.cpp'].append('8ec6ce8cad954a98be6a64b086d6b150644bafa7e7bdb0cf851664fe3a0d9bbf')
 FUNCTION_HASHES = {'06020040': ['49fc15d214cc14ad85134d3301ce577f699d38aec8301287d632dd5b545bad7c'], '06026D84': ['9e83b5975b9f141c3d0e22f15907be2ada11b74aab7237444cde410ae4fefaaa', 'f04a09eb1154c18fcdb61a95fd4f3f945106da5daccf7eec6131edf88800e8a8'], '06021F14': ['1a72d209543cdd95d863b4e62b28c7639a24c2098c855279d2a97075203722e0'], '06026F90': ['33b311616b04e42b7e6cb85366ff11f58e1ecc4a1573fd5b9d7b8527cb2fcb75', '677f5eb849f6f0f3731cf35a0292d91dacef58e127de7d427fb659101b56e056'], '0604A5B8': ['38a41b3879208ad03418cbe48ed1efeb1888129062f385fc362955afd8e0ce50'], '060516B4': ['8d243239da6d34c6b188603ca3108a13b9984f855348edf66a04759c5a93b60d'], '06020058': ['9548908855627449ef75ff2a63a87d8083fc953294231d447073e05bec6beca7']}
@@ -402,17 +406,16 @@ def runtime_support_inputs(runtime):
  elif tap.exists() or tap.is_symlink():
   raise ValueError('Mixed tap-hold runtime variant; regenerate')
  if b'pal_field_input_ledger.h' in host.read_bytes():
-  expected.update({'src/host/pal_field_input_ledger.h': 'e2b40ff10eff7cccce8ed76e15f306c2fb7e0a356d03f1104539c826f27b0b15', 'include/pal_field_input_api.h': 'e13140fcc9e52c5458efa71d7ee38a0a3c7ad036537829353663eab042314f57',
-   # 0016 alone, and 0016 with 0017's stub VBlank clock: selftest links core+stub+recomp only.
-   'src/stub/services_stub.cpp': {'5befce87f8f13273d9dc5cb47b13176e4832a1125d632a41d5729c11193a4e63',
-                                  'a32e9c6bbcbd6c6062220828c974d260d491d5ea78cfe4c94310fcf7a7da27ba'}})
+  expected.update({'src/host/pal_field_input_ledger.h': 'c910dc4141b58069899e6423d4cb08c2b120b7e7f26bbe237efaf1e17ed49609', 'include/pal_field_input_api.h': 'b6a368e24a637e40af2f3ab65ef9cc7dd9138d3cb3f287da27ea5382a47f205b',
+   # 0018 requires both scene API and 0017's stub VBlank clock.
+   'src/stub/services_stub.cpp': '9e19eaec08d8b24b1838351d458f17db25f0ad145a210b9bcb3ea61a52218263'})
   null=runtime/'src/host/host_null.cpp'
   if null.resolve()!=null or null.is_symlink() or not null.is_file():raise ValueError('Field no-host helper changed or missing; regenerate')
   null_edge=b'uint16_t pal_host_direction_edge() { return 0; }' in null.read_bytes()
   host_edge=b'#include "pal_host_edge.h"' in host.read_bytes()
   if null_edge!=host_edge:raise ValueError('Mixed field/precise no-host variant; regenerate')
-  expected['src/host/host_null.cpp']=('15a2a185b044d946a4c1d9c99fa625f9ecf5c3c67684a1d12ec3edb0b1760708' if null_edge else
-                                     '383d5c1283685ab7a3ad1d5fc926a48bf5545db99bcb0a651dcb97824d1e0d65')
+  expected['src/host/host_null.cpp']=('c32122f6bc455c9bb19521838713cf9f8a9a44257d43963e2bd4ae9634427655' if null_edge else
+                                     '05d40afa8bca0cf129173063661f357674375012733e545663bed5a911b0dace')
  elif any((runtime/name).exists() or (runtime/name).is_symlink() for name in ('src/host/pal_field_input_ledger.h','include/pal_field_input_api.h')):
   raise ValueError('Mixed field-input runtime variant; regenerate')
  inputs={}
@@ -449,16 +452,19 @@ def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  field_enabled=b'pal_field_input_ledger.h' in (runtime/'src/host/host.cpp').read_bytes()
  field_header=(root/'src/pal_game/pal_field_input.h').read_bytes() if field_enabled else None
  field_hash=sha(field_header) if field_header is not None else None
+ release_helpers={name:(root/'src/pal_game'/name).read_bytes() for name in ('pal_release_gate.h','pal_release_runtime.h')} if field_enabled else {}
+ release_hashes={name:sha(data) for name,data in release_helpers.items()}
  if manifest.exists():
   old=json.loads(manifest.read_text())
   verify_runtime_support_manifest(old,runtime,support_inputs)
   if old.get('field_header_sha256')!=field_hash:raise ValueError('Field helper changed; regenerate')
+  if old.get('release_helpers_sha256',{})!=release_hashes:raise ValueError('Scene continuity helpers changed; regenerate')
   if old.get('version')!=VERSION or old.get('header_sha256')!=header_hash or old.get('runtime')!=relative:raise ValueError('Keyboard source/version changed; regenerate')
   inventory=sorted(p.name for pattern in ('p_prog_*.cpp','p_true_*.cpp') for p in recomp.glob(pattern))
   if inventory!=old.get('generated_files'):raise ValueError('Generated source inventory changed; regenerate')
   outputs=old.get('outputs_sha256',{})
   required={'src/host/host.cpp','src/host/settings.cpp','src/host/launcher.cpp','src/host/settings.h','include/saturn/pal_keyboard_profile.h'}
-  if field_enabled and 'pal_field_input.h' not in outputs.get('recomp',{}):raise ValueError('Incomplete field input output manifest')
+  if field_enabled and not {'pal_field_input.h','pal_release_gate.h','pal_release_runtime.h'}.issubset(outputs.get('recomp',{})):raise ValueError('Incomplete field input output manifest')
   if not required.issubset(outputs.get('runtime',{})) or 'CMakeLists.txt' not in outputs.get('recomp',{}) or not all(any(n.startswith(prefix) and n.endswith('.cpp') for n in outputs.get('recomp',{})) for prefix in ('p_prog_','p_true_')):raise ValueError('Incomplete keyboard manifest')
   for group,base in [('recomp',recomp),('runtime',runtime)]:
    verified={**old.get('inputs_sha256',{}).get(group,{}),**outputs[group]}
@@ -483,7 +489,7 @@ def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
   if field_output.exists() or field_output.is_symlink():raise ValueError('Unexpected preexisting field helper; regenerate')
   from pal_field_input import plan_field_input
   staged={p:changes.get(p,originals[p]).decode().replace('\r\n','\n') for p in files}
-  changes.update(plan_field_input(recomp,staged,field_header))
+  changes.update(plan_field_input(recomp,staged,field_header,release_helpers))
  helper=runtime/'include/saturn/pal_keyboard_profile.h'
  if helper.exists() or helper.is_symlink() or helper.parent.resolve()!=helper.parent or not helper.parent.resolve().is_relative_to(runtime):raise ValueError('Unexpected keyboard helper/path')
  cmake=recomp/'CMakeLists.txt';s=originals[cmake].decode().replace('\r\n','\n')
@@ -498,9 +504,10 @@ def prepare_keyboard(recomp, runtime, root, *, verify_only=False):
  if sorted(p.name for pattern in ('p_prog_*.cpp','p_true_*.cpp') for p in recomp.glob(pattern))!=sorted(p.name for p in files):raise ValueError('Generated source inventory changed while preparing injection')
  if (root/'src/pal_game/pal_keyboard_profile.h').read_bytes()!=header:raise ValueError('Keyboard helper changed while preparing injection')
  if field_enabled and (root/'src/pal_game/pal_field_input.h').read_bytes()!=field_header:raise ValueError('Field helper changed while preparing injection')
+ if any((root/'src/pal_game'/name).read_bytes()!=data for name,data in release_helpers.items()):raise ValueError('Scene continuity helper changed while preparing injection')
  for p,data in originals.items():
   if p.resolve()!=p or p.stat().st_nlink!=1 or p.read_bytes()!=data:raise ValueError('Source changed while preparing keyboard injection')
- data={'version':VERSION,'runtime':relative,'header_sha256':header_hash,'field_header_sha256':field_hash,'generated_files':sorted(p.name for p in files),'inputs_sha256':{},'outputs_sha256':{}}
+ data={'version':VERSION,'runtime':relative,'header_sha256':header_hash,'field_header_sha256':field_hash,'release_helpers_sha256':release_hashes,'generated_files':sorted(p.name for p in files),'inputs_sha256':{},'outputs_sha256':{}}
  for group,base in [('recomp',recomp),('runtime',runtime)]:
   data['inputs_sha256'][group]={p.relative_to(base).as_posix():sha(v) for p,v in originals.items() if p.is_relative_to(base)}
   data['outputs_sha256'][group]={p.relative_to(base).as_posix():sha(v) for p,v in changes.items() if p.is_relative_to(base)}

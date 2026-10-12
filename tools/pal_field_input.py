@@ -12,7 +12,7 @@ import re
 
 VERSION = 'pal-field-input-planner-v1'
 HELPER_FILE = 'pal_field_input.h'
-HELPER_SHA256 = '89ed409e56ebf17855677366dd347267bce4395bca3629d84e3aa5e77ee43a12'
+HELPER_SHA256 = 'bec7e3713f164dcac5a64c0bc76884ed9d269f685fbb32d23ec8b6bdd37d43df'
 REQUIRED_FUNCTIONS = ('06026D84', '06026F90', '06020040', '06020058',
                       '0606016E', '06021F14', '0604A0BC', '060516B4', '0605D68A')
 # Exact complete functions after reviewed ordinary PC98 / all-options injection.
@@ -69,11 +69,11 @@ def _without_field_changes(text):
     for call in LEGACY_CALLS:
         text = text.replace(guard + call, call)
     return ''.join(line for line in text.splitlines(keepends=True)
-                   if 'pal_field_input::' not in line and
+                   if 'pal_field_input::' not in line and 'pal_release_runtime::' not in line and
                    line != '#include "pal_field_input.h"\n')
 
 
-def plan_field_input(recomp, texts, helper_bytes):
+def plan_field_input(recomp, texts, helper_bytes, release_helpers=None):
     """Return Path -> bytes over an already staged PC98 generation, without I/O.
 
     recomp: absolute detached generated-source directory, validated by caller.
@@ -125,7 +125,8 @@ def plan_field_input(recomp, texts, helper_bytes):
 
     entry('06026D84', 'pal_field_input::enter();')
     entry('0605D68A', 'pal_field_input::note_wait();')
-    for address in ('06026F90', '06020040', '06020058',
+    entry('06026F90', 'pal_field_input::scene_clear();')
+    for address in ('06020040', '06020058',
                     '06021F14', '0604A0BC', '060516B4'):
         entry(address, 'pal_field_input::clear();')
 
@@ -156,6 +157,12 @@ def plan_field_input(recomp, texts, helper_bytes):
              '    if (!pal_field_input::owns_input()) pal_input_tick();\n', 'pal_input_tick'))
 
     outputs = {}
+    if release_helpers is not None:
+        from pal_scene_continuity import plan_scene_continuity
+        staged, release_outputs = plan_scene_continuity(recomp, original, staged, release_helpers)
+        outputs.update(release_outputs)
+    elif b'pal_release_runtime.h' in helper_bytes:
+        raise ValueError('Missing required scene continuity helpers')
     for path, text in staged.items():
         if text == original[path]:
             continue
