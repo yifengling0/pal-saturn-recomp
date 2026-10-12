@@ -119,3 +119,7 @@ lands on 狀態, and the whole macro takes about 55 frames.
 4. The Windows keyboard path still needs the user's own playtest: the headless
    harness can only inject a virtual gamepad, so the letters above are verified
    as *mechanism* (unit tests plus `--write` replays), not as SDL key events.
+   Faking the key from outside is not available here either - `SendInput` from
+   an agent shell returns `ERROR_ACCESS_DENIED` for every key, including
+   harmless ones, so `build/run/kbtest/drive.py` only works from an interactive
+   console.
