@@ -73,7 +73,7 @@ The same instrumented run shows the field task ends every frame with
 `pal_keyboard::field()` and stops running while a menu owns the screen, so
 "context is field" is a reliable gate for a shortcut that ends in an `A` press.
 
-## Mapping shipped now
+## Historical mapping (2026-10-11; superseded below)
 
 | PC key | what it does | Verified |
 |---|---|---|
@@ -101,7 +101,7 @@ replayed against the real guest with `--write` standing in for the hook
 (`build/run/fm13`): a player who opened the menu and stepped to 仙術 first still
 lands on 狀態, and the whole macro takes about 55 frames.
 
-## Still open, and what it needs
+## Historical open items (2026-10-11)
 
 1. The battle command menu was **not** reproduced in this build: replaying
    `tools/acceptance_inputs/first-battle.txt` from the same checkpoint never
@@ -123,3 +123,21 @@ lands on 狀態, and the whole macro takes about 55 frames.
    an agent shell returns `ERROR_ACCESS_DENIED` for every key, including
    harmless ones, so `build/run/kbtest/drive.py` only works from an interactive
    console.
+
+
+## Current release mapping (2026-10-12)
+
+The historical A/D/W and missing-battle limitations above no longer describe
+the current release. In the battle command menu, W opens the original throw
+list, D selects defend, and A navigates Other → surround. A selects ordinary
+attacks for the remaining actors while preserving earlier actors' commands,
+and starts the game's continuous surround mode; Esc/B cancels it. F keeps the
+separate strongest-magic selection and R repeats the previous commands. Battle
+E (items) and Q (flee) remain unbound.
+
+On the field S/W/Q open status, equipment/items and save/load respectively.
+The repaired VBlank-paced menu navigation has actual Linux SDL key-event
+coverage. Current battle acceptance, the matching executable identity, and the
+separate Windows/OHOS verification boundaries are in `PC_KEYBOARD.md`, section
+“W/D/A battle acceptance (2026-10-12)”. Do not use the earlier headless-only
+limitations as the current Linux test result.

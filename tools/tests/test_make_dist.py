@@ -534,6 +534,22 @@ class PackagingTests(unittest.TestCase):
         self.saved.write_bytes(b'')
         self.assert_refuses('BUP 进度为空', ['--with-save', str(self.saved)])
 
+    def test_readme_matches_current_battle_shortcuts(self):
+        self.assertIn('剩余队友普通攻击', m.README)
+        self.assertIn('战斗主菜单里防御', m.README)
+        self.assertIn('战斗主菜单里投掷', m.README)
+        self.assertIn('战斗里的 E 物品 / Q 逃跑尚未绑定', m.README)
+        self.assertNotIn('替剩下的队友填最强一击', m.README)
+        self.assertNotIn('这个构建还复现不出一场战斗', m.README)
+        self.assertIn('本发行包不附带存档', m.README)
+
+    def test_disc_readme_describes_multitrack_single_file(self):
+        self.assertIn('单个 BIN 文件', m.DISC_README)
+        self.assertIn('第 2–13 轨是 CD-DA', m.DISC_README)
+        self.assertIn('CUE 内 FILE 引用与实际 BIN 文件名一致', m.DISC_README)
+        self.assertNotIn('单轨 BIN', m.DISC_README)
+        self.assertNotIn('CUE 与 BIN 必须同名', m.DISC_README)
+
     def test_notice_distinguishes_original_logic_rights(self):
         self.assertIn('静态重编译生成的游戏逻辑', m.NOTICE)
         self.assertIn('不声称已获大宇（Softstar）', m.NOTICE)

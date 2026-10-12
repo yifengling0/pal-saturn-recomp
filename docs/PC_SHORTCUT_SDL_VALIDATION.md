@@ -59,7 +59,7 @@ build/venv/bin/python tools/ohosbuild.py --deveco /path/to/official-command-line
 
 Windows 把 Python 换成项目 `Scripts/python.exe`，DevEco 路径换成自己的即可。`--skip-learn` 只表示沿用已经重新生成并通过身份校验的输入，不会允许旧 host 混入。
 
-普通 PC98 设置保留，已有自定义配置不会被覆盖；S/W/Q 只在地图操作上下文生效。W 复用土星物品装备入口，Q 是存读档，不是 PC 退出屏幕。战斗 A 当前仍是土星「最强」填充而非 PC 全员普通攻击，原有边界见 `PAL98_HOTKEY_PARITY.md`。
+普通 PC98 设置保留，已有自定义配置不会被覆盖；S/W/Q 的地图含义只在地图操作上下文生效。W 在地图复用土星物品装备入口，Q 是存读档，不是 PC 退出屏幕。本节是较早的 S/W/Q 验证记录；后续已完成战斗 W 投掷、D 防御和 A 原生普通攻击围攻，A 不再混用 F「最强」。当前实际战斗证据与边界见 `PC_KEYBOARD.md` 的 2026-10-12 W/D/A 验证。
 
 ## OHOS 构建与限制
 
