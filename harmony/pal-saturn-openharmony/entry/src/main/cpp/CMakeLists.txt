@@ -2,6 +2,12 @@
 # hvigor 用 OHOS NDK 配置这里；产物必须是 libmain.so（鸿蒙只加载这个名字）。
 cmake_minimum_required(VERSION 3.5.0)
 project(palsaturn)
+# Hvigor invokes Ninja directly, so its compiler jobs otherwise ignore CMake's
+# standard build-parallel environment. Bound each ABI when explicitly requested.
+if(DEFINED ENV{CMAKE_BUILD_PARALLEL_LEVEL})
+    set(CMAKE_JOB_POOLS "pal_compile=$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
+    set(CMAKE_JOB_POOL_COMPILE pal_compile)
+endif()
 # saturn_host is defined under build/recomp, so linking the gamepad bridge's dl from here
 # needs the cross-directory target_link_libraries policy that 3.5's default leaves off.
 cmake_policy(SET CMP0079 NEW)
@@ -131,7 +137,7 @@ unset(PAL_GAME_TARGET)
 set_source_files_properties("${SATURN_RUNTIME}/src/app/main.cpp" PROPERTIES COMPILE_DEFINITIONS main=saturn_main)
 target_include_directories(main PRIVATE ${SATURN_RUNTIME}/include)
 target_link_libraries(main PUBLIC saturn_core saturn_machine saturn_host recomp Threads::Threads SDL3::SDL3)
-target_link_libraries(main PRIVATE libohenvironment.so libhilog_ndk.z.so libability_runtime.so)
+target_link_libraries(main PRIVATE libhilog_ndk.z.so libability_runtime.so)
 
 # 真机自测开关：cpp/selftest.txt 写 on 就打一张合成盘（不含任何原版数据），只为在设备上看见 SDL 窗口。
 set(PAL_SELFTEST_SWITCH "${CMAKE_CURRENT_SOURCE_DIR}/selftest.txt")

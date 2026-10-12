@@ -5,6 +5,10 @@
 
 **当前仍未完成完整游戏验收。** 2026-10-10 Linux 云端已完成真实 SDL3 窗口、开场视频、键盘接收及真盘重编译验证。早期截图中的户外/洞窟是 `A3.AVI` 开场影片，不能作为可操作地图证据。旧版后续黑背景已定位到 SH-2 DMA 16-byte burst 的短拷贝缺陷，最小补丁及合成红绿回归见 `docs/DMA_BURST_FIX.md`；真实修复后客栈背景、头像、对白已恢复，原生 SDL 键盘成功推进对白；完整移动、切场和存取档继续验证。
 
+## 鸿蒙手机启动与镜像目录
+
+当前源码修复了手机横屏与 Download 首次创建：启动前使用系统应用专用下载目录，缺盘或无访问权限时保留准备界面，也可通过系统文件选择器导入完整 CUE + BIN。原存档目录保留，不自动覆盖。操作步骤、支持边界和真机检查清单见 [docs/OHOS_PHONE_STORAGE.md](docs/OHOS_PHONE_STORAGE.md)。此修复晚于 `v0.1.0-preview.2`，旧发行 HAP 不包含它。
+
 ## Windows 选项验证入口
 
 本轮跨平台接入与本地测试步骤见 [docs/WINDOWS_OPTIONS_TEST.md](docs/WINDOWS_OPTIONS_TEST.md)。`winbuild.py --pal-options` 编入精准输入v4及快速施法v3，两者运行时默认关闭；用新的Python profile启动器分别对照，不再依赖Linux实验目录。Windows实际声卡仍待本地验证。数据扇区提速的默认1、可选2/4档见 [docs/DATA_CD_SPEED.md](docs/DATA_CD_SPEED.md)，不改变CDDA或全局时钟。当前玩法覆盖见 [docs/COVERAGE_STATUS.md](docs/COVERAGE_STATUS.md)，不要把下文早期阶段描述当成最新验收范围。

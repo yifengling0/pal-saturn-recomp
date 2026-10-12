@@ -79,7 +79,9 @@ HarmonyOS App (HAP)
 - 运行时的 `main.cpp` 只在 `#if defined(__ANDROID__)` 里 `#include <SDL3/SDL_main.h>`，所以鸿蒙上导出的仍是 `main`，第一次真机启动就死在 `Couldn't find SDL_AppInit in libmain.so`（hilog 里 SDL/STARTUP 打的）。
 - 修法不动上游：HAP 的 cpp 里把 `main.cpp` 单独加 `-Dmain=saturn_main`，再由 `pal_ohos_entry.cpp` 导出 `extern "C" int SDL_main()`，自己拼 argv 再调 `saturn_main`。鸿蒙本来就要求 `libmain.so` 这个名字，壳层跟运行时同在一个 so 里，没有额外产物。
 
-目录在 native 侧就能算出来，NDK API 实测可用：
+以下是 2026-10-11 平板的历史路径/权限记录，已被后续手机兼容启动页替代。当前实现及验证边界见 [OHOS_PHONE_STORAGE.md](OHOS_PHONE_STORAGE.md)。旧记录不能作为手机 API 支持或本次真机通过的依据。
+
+当时目录在 native 侧计算，NDK API 平板记录如下：
 
 | 用途 | 原生 API | 平板上实测值 |
 | --- | --- | --- |
@@ -117,7 +119,7 @@ PAL/OHOS:   boot: P0 at 06004000 / PROG activated by a call to 06020040
 
 `build-profile.json5` 的坑：DevEco 26.0.0（API 26）会拒绝 `compileSdkVersion: "6.1.0(23)"`（00303313），删掉这一行由 DevEco 内置 SDK 决定；只留 `targetSdkVersion` 与 `compatibleSdkVersion`，并满足 compatible <= target <= compile。
 
-自测开关：`cpp/selftest.txt` 写 `on` 时，设备上没有盘就在沙盒里生成一张全零合成盘（`<files>/selftest/disc/`）走到 `video_init()`，用来在没盘的情况下验窗口；`tools/ohosbuild.py --selftest on|off` 改它。
+自测开关：`cpp/selftest.txt` 写 `on` 时，设备上没有盘就在沙盒里生成一张全零合成盘（`<files>/selftest/disc/`）走到 `video_init()`，用来在没盘的情况下验窗口；`tools/ohosbuild.py --selftest on|off` 同时更新它和页面的 rawfile 开关；不要只手改其中一个。
 
 剩下的：划出的"扩展设定"面板（#13）、土星造型虚拟按键并在无键盘/手柄时自动开（#14）、手柄（SDL 鸿蒙没有 joystick 后端，#15）。另外 `libmain.so` 里带着 2,270 个从原版 PROG 重编译出来的函数，等于游戏程序随包分发——**这个 HAP 只能自用，不能公开**；要出可分发的包，得把 learn 挪到玩家自己那一步。
 

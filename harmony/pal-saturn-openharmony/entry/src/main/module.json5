@@ -20,7 +20,8 @@
     // Lists of specific permissions: https://developer.huawei.com/consumer/en/doc/harmonyos-guides/app-permissions
     // Note that READ_PASTEBOARD is a restricted permission, you need to take serious extra steps to use it. https://developer.huawei.com/consumer/en/doc/harmonyos-guides/restricted-permissions#ohospermissionread_pasteboard
     "requestPermissions": [
-      { "name": "ohos.permission.READ_WRITE_DOWNLOAD_DIRECTORY", "reason": "$string:perm_reason_DOWNLOAD", "usedScene": { "abilities": [ "EntryAbility" ], "when": "inuse" } },
+      // DocumentViewPicker DOWNLOAD grants only this application's directory.
+      // Do not request READ_WRITE_DOWNLOAD_DIRECTORY: it excludes phones.
       //{ "name": "ohos.permission.MICROPHONE", "reason": "$string:perm_reason_MICROPHONE", "usedScene": { "abilities": [ "EntryAbility" ], "when": "inuse" } },
       //{ "name": "ohos.permission.CAMERA", "reason": "$string:perm_reason_CAMERA", "usedScene": { "abilities": [ "EntryAbility" ], "when": "inuse" } },
       //{ "name": "ohos.permission.INTERNET", "reason": "$string:perm_reason_INTERNET", "usedScene": { "abilities": [ "EntryAbility" ], "when": "inuse" } },

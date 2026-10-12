@@ -1,22 +1,18 @@
 // OpenHarmony entry: SDL's OHOS bootstrap dlopen()s libmain.so for SDL_main() and runs it on its own
 // thread. There is no command line on this platform, so the disc, settings and save paths come from
-// the game folder: <Download>/<bundleName>/ first, then the app's own files dir.
+// the preflight page, which provisions Download or imports files before creating the SDL surface.
 #include <hilog/log.h>
 
 #include <SDL3/SDL.h>
 
 #include <AbilityKit/ability_runtime/application_context.h>
-#include <filemanagement/environment/oh_environment.h>
+#include "pal_ohos_launch.h"
 
-#include <algorithm>
-#include <atomic>
-#include <cctype>
 #include <cerrno>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <dirent.h>
 #include <string>
 #include <sys/stat.h>
 #include <thread>
@@ -31,10 +27,6 @@ extern "C" const char* pal_movie_cache_feature();
 // implemented by the actual host.cpp, not stamped onto this entry wrapper.
 extern "C" int pal_host_ui_feature_version();
 extern "C" const char* pal_host_ui_source_hash();
-
-#ifndef PAL_BUNDLE_NAME
-#define PAL_BUNDLE_NAME "com.palhero.palsaturn"
-#endif
 
 namespace {
 
@@ -62,43 +54,6 @@ bool is_file(const std::string& p)
 
 std::string join(const std::string& a, const std::string& b) { return b.empty() ? a : a + "/" + b; }
 
-std::vector<std::string> list_dir(const std::string& dir)
-{
-    std::vector<std::string> out;
-    DIR* d = ::opendir(dir.c_str());
-    if (!d) return out;
-    while (const dirent* e = ::readdir(d))
-        if (std::strcmp(e->d_name, ".") && std::strcmp(e->d_name, "..")) out.push_back(e->d_name);
-    ::closedir(d);
-    std::sort(out.begin(), out.end());
-    return out;
-}
-
-bool ends_with(const std::string& s, const char* ext)
-{
-    const std::size_t n = std::strlen(ext);
-    if (s.size() < n) return false;
-    for (std::size_t i = 0; i < n; ++i)
-        if (std::tolower((unsigned char)s[s.size() - n + i]) != std::tolower((unsigned char)ext[i])) return false;
-    return true;
-}
-
-// The disc to mount: <root>/disc/ first, then <root>. CUE beats BIN; the drive needs the track table.
-std::string find_disc(const std::string& root)
-{
-    for (const std::string& where : { join(root, "disc"), root }) {
-        std::string bin;
-        for (const std::string& name : list_dir(where)) {
-            const std::string p = join(where, name);
-            if (!is_file(p)) continue;
-            if (ends_with(name, ".cue")) return p;
-            if (bin.empty() && ends_with(name, ".bin")) bin = p;
-        }
-        if (!bin.empty()) return bin;
-    }
-    return "";
-}
-
 // A path out of an OH_AbilityRuntime getter, which writes into a buffer we size.
 std::string oh_path(AbilityRuntime_ErrorCode (*get)(char*, const int32_t, int32_t*))
 {
@@ -106,66 +61,6 @@ std::string oh_path(AbilityRuntime_ErrorCode (*get)(char*, const int32_t, int32_
     int32_t written = 0;
     if (get(buf.data(), (int32_t)buf.size() - 1, &written) != ABILITY_RUNTIME_ERROR_CODE_NO_ERROR) return "";
     return std::string(buf.data(), ::strnlen(buf.data(), buf.size()));
-}
-
-std::string download_dir()
-{
-    char* raw = nullptr;
-    const FileManagement_ErrCode rc = OH_Environment_GetUserDownloadDir(&raw);
-    std::string out = (rc == 0 && raw) ? raw : "";
-    if (rc != 0) note("OH_Environment_GetUserDownloadDir error %d", (int)rc);
-    std::free(raw);
-    if (!out.empty()) while (out.size() > 1 && out.back() == '/') out.pop_back();
-    return out;
-}
-
-// The folder the player drops the disc into; creating it is the only way to learn whether the public
-// Download directory is reachable at all, and it leaves somewhere to put files when it is.
-bool ensure_dir(const std::string& p)
-{
-    if (is_dir(p)) return true;
-    if (::mkdir(p.c_str(), 0775) == 0) { note("created %s", p.c_str()); return true; }
-    note("cannot make %s: %s", p.c_str(), std::strerror(errno));
-    return false;
-}
-
-// The Download folder is where the player puts their own disc, but writing there needs a user-grant
-// permission, so ask for it and wait for the answer: the run needs its paths before it starts.
-std::atomic<int> download_granted(-1);
-
-void SDLCALL download_permission_result(void*, const char*, bool granted)
-{
-    download_granted = granted ? 1 : 0;
-}
-
-// The first folder that holds a disc, in the order the player is most likely to have used.
-bool scan(const std::vector<std::string>& roots, std::string& root, std::string& cue)
-{
-    for (const std::string& r : roots) {
-        note("look in %s [%s]", r.c_str(), is_dir(r) ? "dir" : "no dir");
-        if (!is_dir(r)) continue;
-        const std::string found = find_disc(r);
-        if (found.empty()) continue;
-        root = r;
-        cue = found;
-        return true;
-    }
-    return false;
-}
-
-// What the public Download folder actually allows once the permission is granted: reading the game
-// needs a listing, saves need a write, and the folder layout needs mkdir (which is refused).
-void probe_download(const std::string& dl)
-{
-    note("download listing: %d entries", (int)list_dir(dl).size());
-    const std::string probe = join(dl, ".pal-probe");
-    if (FILE* f = std::fopen(probe.c_str(), "wb")) {
-        std::fclose(f);
-        ::remove(probe.c_str());
-        note("download accepts new files");
-    } else {
-        note("cannot make %s: %s", probe.c_str(), std::strerror(errno));
-    }
 }
 
 // A disc with no game data on it, for the selftest build: the runtime opens the window in video_init(),
@@ -231,50 +126,35 @@ extern "C" int SDL_main(int argc, char** argv)
     (void)argc;
     (void)argv;
     capture_output();
-    const std::string bundle = oh_path(OH_AbilityRuntime_ApplicationContextGetBundleName);
-    const std::string name = bundle.empty() ? PAL_BUNDLE_NAME : bundle;
     const std::string files = oh_path(OH_AbilityRuntime_ApplicationContextGetFilesDir);
-    const std::string dl = download_dir();
-
-    std::vector<std::string> roots;
-    if (!dl.empty()) roots.push_back(join(dl, name));
-    if (!files.empty()) roots.push_back(join(files, name));
-    if (!files.empty()) roots.push_back(files);
-    if (roots.empty()) { note("no game folder: neither the download nor the files dir resolved"); return 2; }
-
-    std::string root, cue;
-    if (!scan(roots, root, cue) && !dl.empty() && !is_dir(join(dl, name))) {
-        // Nothing under Download and we can't even see whether it is there: ask before giving up.
-        if (SDL_RequestOpenHarmonyPermission("ohos.permission.READ_WRITE_DOWNLOAD_DIRECTORY",
-                                             download_permission_result, nullptr)) {
-            note("asking for the Download permission");
-            for (int i = 0; i < 300 && download_granted < 0; ++i) SDL_Delay(100);
-            note("Download permission %s", download_granted > 0 ? "granted" : "not granted");
-            scan(roots, root, cue);
-        }
-    }
+    pal_ohos::LaunchPaths selected;
+    const bool prepared = !files.empty() &&
+        pal_ohos::read_launch_paths(join(files, "pal-launch-paths.txt"), selected);
+    std::string root = prepared ? selected.root : "";
+    std::string cue = prepared ? selected.cue : "";
+    std::string home = prepared ? selected.home : "";
 #ifdef PAL_OHOS_SELFTEST
-    if (cue.empty() && !files.empty() && write_selftest_disc(join(files, "selftest"))) {
+    if ((!prepared || !is_file(cue)) && !files.empty() && write_selftest_disc(join(files, "selftest"))) {
         root = join(files, "selftest");
+        home = root;
+        const std::string selftest_saves = join(root, "saves");
+        if (!is_dir(selftest_saves) && ::mkdir(selftest_saves.c_str(), 0775) != 0) return 2;
         cue = join(join(root, "disc"), "synthetic.cue");
         note("selftest: booting a synthetic disc, the device has no image yet");
     }
 #endif
-    if (cue.empty()) {
-        if (!dl.empty()) probe_download(dl);
-        if (!dl.empty() && ensure_dir(join(dl, name))) ensure_dir(join(dl, name) + "/disc");
-        note("no .cue or .bin in any game folder; copy your own Saturn disc image into one of them");
+    if (cue.empty() || !is_file(cue) || !is_dir(home)) {
+        note("launch selection unavailable; use the setup page to rescan or import CUE + BIN");
         return 2;
     }
-
-    // Saves belong next to the disc, unless that folder is read-only, in which case the sandbox keeps them.
-    std::string home = root;
-    if (::access(root.c_str(), W_OK) != 0 && !files.empty()) {
-        note("%s is read-only, saves go to %s", root.c_str(), files.c_str());
-        home = files;
-    }
+    // The preflight verified this exact home, preserving the existing save.
+    // Do not probe public Download, ask a PC-only permission, or silently fall
+    // back to a new save directory after SDL has started.
     const std::string saves = join(home, "saves");
-    if (!is_dir(saves)) ::mkdir(saves.c_str(), 0775);
+    if (!is_dir(saves) || ::access(saves.c_str(), W_OK) != 0) {
+        note("prepared save directory is no longer writable; restart and retry setup");
+        return 2;
+    }
 
     std::vector<std::string> args{ "saturn", "--cue", cue, "--save", join(saves, "pal-saturn.bup"),
                                    "--clock", "1998-11-01T12:00:00", "--fullscreen",
@@ -284,9 +164,7 @@ extern "C" int SDL_main(int argc, char** argv)
     // 当前没有游戏内编辑这个标记的入口，也不会因此保存当前进度或自动重启。
     if (is_file(join(home, "advanced.txt"))) args.push_back("--launcher");
 
-    std::string line;
-    for (const std::string& a : args) { line += ' '; line += a; }
-    note("argv:%s", line.c_str());
+    note("launching the prepared disc and save directory");
 
     std::vector<char*> argv_out;
     for (std::string& a : args) argv_out.push_back(a.data());

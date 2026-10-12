@@ -112,6 +112,9 @@ def set_selftest(on: str | None) -> None:
         return
     switch = PROJECT / 'entry' / 'src' / 'main' / 'cpp' / 'selftest.txt'
     switch.write_text(on + '\n', encoding='utf-8', newline='\n')
+    page_switch = PROJECT / 'entry' / 'src' / 'main' / 'resources' / 'rawfile' / 'pal-selftest.txt'
+    page_switch.parent.mkdir(parents=True, exist_ok=True)
+    page_switch.write_text(on + '\n', encoding='utf-8', newline='\n')
     print(f'selftest.txt -> {on}')
 
 
