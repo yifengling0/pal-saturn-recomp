@@ -5,6 +5,7 @@ Input files must already be validated/extracted; this driver never obtains game 
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -68,7 +69,9 @@ def main():
         raise SystemExit('blocked-input: verified/extracted game modules required: ' + ', '.join(missing))
     out = Path(game.build) / 'recomp'
     binary = Path(game.build) / 'recomp-build'
-    changed = a.recompile or build.stale(game)
+    render_stamp = out / "pal-render-returns.sha256"
+    render_hash = hashlib.sha256((ROOT / "tools/pal_render_returns.py").read_bytes()).hexdigest()
+    changed = a.recompile or build.stale(game) or not render_stamp.is_file() or render_stamp.read_text().strip() != render_hash
     if changed:
         learned = game.learned_seeds()
         points = resume.for_game(game, print)
@@ -80,6 +83,8 @@ def main():
             specs.append((m.name, m.file, m.base, sorted(seeds)))
         tasks = (game.tasks.setjmp, game.tasks.longjmp) if game.tasks else None
         generate(specs, str(out), hooks=game.hooks, tasks=tasks)
+        from pal_render_returns import prepare as prepare_render_returns
+        prepare_render_returns(out, game.modules)
         if a.probe_literals:
             literal_probe.add_headers(out, ROOT)
         if a.probe_resources:
@@ -90,6 +95,7 @@ def main():
         f'-DCMAKE_CXX_COMPILER={cxx}', *('-D' + opt for opt in game.cmake))
     run('cmake', '--build', binary, '--parallel', a.jobs)
     if changed:
+        render_stamp.write_text(render_hash + '\n')
         Path(build._stamp(game)).write_text(json.dumps(build.inputs(game), indent=2) + '\n')
     print('Built:', binary / 'saturn')
     print('Use --save - and a fresh --out directory for every game run.')

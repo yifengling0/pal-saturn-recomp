@@ -170,6 +170,8 @@ def win_recompile(game, log=log):
         if manifest.exists():
             manifest.unlink()
     generate(specs, out, log=log, hooks=game.hooks, tasks=tasks)
+    from pal_render_returns import prepare as prepare_render_returns
+    prepare_render_returns(Path(out), game.modules)
     if OPTIONS:
         from pal_options import prepare_options
         prepare_options(Path(out), Path(game.build) / "runtime", Path(ROOT))
@@ -316,7 +318,7 @@ def main(argv=None):
         original_inputs = build.inputs
         def option_inputs(game):
             data = original_inputs(game)
-            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", Path(ROOT) / "tools/pal_keyboard_profile.py", Path(ROOT) / "tools/pal_field_input.py", Path(ROOT) / "tools/pal_scene_continuity.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
+            for path in [Path(ROOT) / "tools/winbuild.py", Path(ROOT) / "tools/pal_render_returns.py", Path(ROOT) / "tools/pal_options.py", Path(ROOT) / "tools/pal_data_cd_speed.py", Path(ROOT) / "tools/pal_paired_frame_queue.py", Path(ROOT) / "tools/pal_keyboard_profile.py", Path(ROOT) / "tools/pal_field_input.py", Path(ROOT) / "tools/pal_scene_continuity.py", *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT) / "src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT) / "patches").glob("*.patch"))]:
                 data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
             return data
         build.inputs = option_inputs
@@ -332,7 +334,7 @@ def main(argv=None):
         original_inputs = build.inputs
         def keyboard_inputs(game):
             data = original_inputs(game)
-            for path in [Path(ROOT)/"tools/winbuild.py", Path(ROOT)/"tools/pal_keyboard_profile.py", Path(ROOT)/"tools/pal_field_input.py", Path(ROOT)/"tools/pal_scene_continuity.py", *sorted((Path(ROOT)/"src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT)/"src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT)/"patches").glob("*.patch"))]:
+            for path in [Path(ROOT)/"tools/winbuild.py", Path(ROOT)/"tools/pal_render_returns.py", Path(ROOT)/"tools/pal_keyboard_profile.py", Path(ROOT)/"tools/pal_field_input.py", Path(ROOT)/"tools/pal_scene_continuity.py", *sorted((Path(ROOT)/"src/pal_game").glob("pal_*.cpp")), *sorted((Path(ROOT)/"src/pal_game").glob("pal_*.h")), *sorted((Path(ROOT)/"patches").glob("*.patch"))]:
                 data["PAL " + path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
             return data
         build.inputs = keyboard_inputs

@@ -210,3 +210,19 @@ P0 下一轮才会去装载 TRUE.BIN —— TRUE 才是画 VDP2 背景的模块*
 5. 继续在地图/战斗里推进并跑 `learn`，把新暴露的入口学进 `tools/seeds.json`；
    同址换入的新模块按 PAL-P1-006 的办法从镜像头部取入口，不猜。
 6. Gate P1 未正式判过之前，不启动 HarmonyOS 移植，不产出可分发构建包。
+
+## 2026-10-13 — 彩依战暴露的绘图跨层返回
+
+已从 CPU fatal 与原 ROM 指令确认：06060870 的拒绝路径主动弹出上一层 PR，
+静态生成代码却仍要求返回局部 continuation。新增五条精确调用边 lowering，
+覆盖 PROG 三边和 TRUE 两边；保留原指令、delay slot、poll 和全局严格返回检查。
+ROM 与八个完整函数均有身份断言，普通及 literal-probe 生成均独立校验。
+CMake 对实际链接的生成代码拒绝旧、篡改或重复函数，包含 OHOS skip-learn。
+
+合成边界、完整生成函数红绿、正常路径寄存器/内存一致性和 CMake 拒绝测试已通过；
+独立审查与 ASan/UBSan 通过；376 tests / 201 subtests 通过，额外启用的可选
+键盘整合测试也通过。正式 driver 从空目录生成后，二进制 SHA 与候选完全相同。
+正常存档实玩 session042 已过退场门：第六回合 VB48041 后无键推进至48641，
+battle 65535→0，回到场景109(704,1456)，李/月如的生命灵力恢复，彩依/晋元离场
+无 fatal。该结论仅是此处 Linux 实玩修复验收，不是全游戏或其它设备通关。
+完整根因、可复现命令和当前验证范围见 `docs/RENDER_NONLOCAL_RETURN_FIX.md`。

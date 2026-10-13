@@ -8,6 +8,7 @@ if(NOT TARGET ${PAL_GAME_TARGET})
   message(FATAL_ERROR "PAL game layer target does not exist: ${PAL_GAME_TARGET}")
 endif()
 include(${CMAKE_CURRENT_LIST_DIR}/pal_disc_identity.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/pal_render_returns.cmake)
 target_sources(${PAL_GAME_TARGET} PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/pal_diag.cpp
   ${CMAKE_CURRENT_LIST_DIR}/pal_audio_stream_init.cpp

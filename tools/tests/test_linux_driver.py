@@ -18,6 +18,12 @@ class DriverTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='pal driver ')
         self.root = Path(self.temp.name)
+        (self.root/'tools').mkdir()
+        (self.root/'tools/pal_render_returns.py').write_text('# render return fixture')
+        import hashlib
+        generation=self.root/'build/linux-game/recomp'
+        generation.mkdir(parents=True)
+        (generation/'pal-render-returns.sha256').write_text(hashlib.sha256(b'# render return fixture').hexdigest())
         self.old_cwd = Path.cwd()
         self.game = SimpleNamespace(build='original', cmake=['WINDOWS=path'],
             modules=[], tasks=None, hooks={}, learned_seeds=lambda: {})
