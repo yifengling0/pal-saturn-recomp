@@ -65,5 +65,18 @@ int main(int argc, char** argv) {
         self.assertIn('getApplicationContext().filesDir', (MAIN / 'ets/services/PalStorage.ets').read_text(encoding='utf-8'))
         self.assertIn('OH_AbilityRuntime_ApplicationContextGetFilesDir', (MAIN / 'cpp/pal_ohos_entry.cpp').read_text(encoding='utf-8'))
 
+    def test_surface_holds_focus_so_hardware_keys_arrive(self):
+        # SDL's OpenHarmony backend only hears a key press through the XComponent's own
+        # key-event callback, which ArkUI fires for the focused component. A page that
+        # mounts the surface without focus looks like a dead keyboard on a real device.
+        page = (MAIN / 'ets/pages/Index.ets').read_text(encoding='utf-8')
+        lines = page.splitlines()
+        mounted = [i for i, line in enumerate(lines) if 'XComponent(' in line and 'SDL_XComponent' in line]
+        self.assertEqual(len(mounted), 1, 'the page must mount exactly one SDL surface')
+        chain = ' '.join(lines[mounted[0]:mounted[0] + 3])
+        self.assertIn('focusable(true)', chain, 'the SDL surface must be able to take focus')
+        self.assertIn('defaultFocus(true)', chain, 'the SDL surface must take focus when it appears')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -104,7 +104,11 @@ struct Index {
   build() {
     Stack() {
       if (this.ready) {
+        // SDL only ever sees a key press if the surface itself holds focus: the native
+        // side registers OH_NativeXComponent_RegisterKeyEventCallback, and ArkUI routes
+        // hardware-key events to the focused component, not to the page.
         XComponent({ id: 'SDL_XComponent', type: XComponentType.SURFACE, libraryname: 'SDL3' }).id('SDL_XComponent')
+          .focusable(true).defaultFocus(true)
       } else {
         Scroll() {
           Column({ space: 16 }) {
