@@ -17,7 +17,8 @@ class PhonePreflightTests(unittest.TestCase):
         supported = subprocess.run([node, '-e', 'process.exit(typeof require("node:module").stripTypeScriptTypes === "function" ? 0 : 1)'])
         if supported.returncode:
             self.skipTest('Node with stripTypeScriptTypes required; real ArkTS compilation is separate')
-        result = subprocess.run([node, str(Path(__file__).with_name(script)), str(MAIN / 'ets/services' / service)], capture_output=True, text=True)
+        result = subprocess.run([node, str(Path(__file__).with_name(script)), str(MAIN / 'ets/services' / service)],
+                                capture_output=True, text=True, encoding='utf-8', errors='replace')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_storage_service(self):
@@ -59,10 +60,10 @@ int main(int argc, char** argv) {
                     subprocess.run([str(binary), str(state), 'yes' if valid else 'no'], check=True)
 
     def test_selftest_page_and_native_switch_agree(self):
-        self.assertEqual((MAIN / 'resources/rawfile/pal-selftest.txt').read_text().strip(),
-                         (MAIN / 'cpp/selftest.txt').read_text().strip())
-        self.assertIn('getApplicationContext().filesDir', (MAIN / 'ets/services/PalStorage.ets').read_text())
-        self.assertIn('OH_AbilityRuntime_ApplicationContextGetFilesDir', (MAIN / 'cpp/pal_ohos_entry.cpp').read_text())
+        self.assertEqual((MAIN / 'resources/rawfile/pal-selftest.txt').read_text(encoding='utf-8').strip(),
+                         (MAIN / 'cpp/selftest.txt').read_text(encoding='utf-8').strip())
+        self.assertIn('getApplicationContext().filesDir', (MAIN / 'ets/services/PalStorage.ets').read_text(encoding='utf-8'))
+        self.assertIn('OH_AbilityRuntime_ApplicationContextGetFilesDir', (MAIN / 'cpp/pal_ohos_entry.cpp').read_text(encoding='utf-8'))
 
 if __name__ == '__main__':
     unittest.main()

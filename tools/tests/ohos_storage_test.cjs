@@ -10,9 +10,12 @@ const source = nodefs.readFileSync(process.argv[2], 'utf8').replace(/^import .*;
 const code = stripTypeScriptTypes(source, { mode: 'transform' }).replace('export class', 'class');
 let passed = 0;
 const fixture = () => {
-  const tmp = nodefs.mkdtempSync(path.join(os.tmpdir(), 'pal-storage-'));
-  const files = path.join(tmp, 'files');
-  const dl = path.join(tmp, 'Download', 'com.palhero.palsaturn');
+  // A device only ever hands out POSIX paths and the service refuses to publish a launch
+  // selection for anything else, so keep the temp root in that shape. Node maps a leading
+  // '/Users/...' back onto the current drive, so the same files are still real.
+  const tmp = nodefs.mkdtempSync(path.join(os.tmpdir(), 'pal-storage-')).replace(/^[A-Za-z]:/, '').replace(/\\/g, '/');
+  const files = tmp + '/files';
+  const dl = tmp + '/Download/com.palhero.palsaturn';
   nodefs.mkdirSync(files);
   nodefs.mkdirSync(path.dirname(dl));
   let saved = [], selected = [], saveError, copyFailure = false, blockedPrefix = '', writeBlockedPrefix = '', selectAction = () => {};
@@ -23,7 +26,9 @@ const fixture = () => {
     mkdirSync: p => { check(p); nodefs.mkdirSync(p); },
     listFileSync: p => { check(p); return nodefs.readdirSync(p); },
     mkdtempSync: p => { check(p); if (writeBlockedPrefix && p.startsWith(writeBlockedPrefix)) throw {code:201}; return nodefs.mkdtempSync(p.replace(/XXXXXX$/, '')); },
-    openSync: (p, flags) => { check(p); return { fd: nodefs.openSync(p.replace(/^file:\/\//, ''), flags) }; },
+    // The shipped code passes an OHOS mask. 64 is O_CREAT on the Linux runner but _O_TEMPORARY
+    // on Windows, so name the bits instead of handing the number to node.
+    openSync: (p, flags) => { check(p); const node = ((flags & 64) ? nodefs.constants.O_CREAT : 0) | ((flags & 512) ? nodefs.constants.O_TRUNC : 0) | ((flags & 128) ? nodefs.constants.O_EXCL : 0) | ((flags & 1024) ? nodefs.constants.O_APPEND : 0) | ((flags & 2) ? nodefs.constants.O_RDWR : ((flags & 1) ? nodefs.constants.O_WRONLY : nodefs.constants.O_RDONLY)); return { fd: nodefs.openSync(p.replace(/^file:\/\//, ''), node) }; },
     closeSync: f => nodefs.closeSync(typeof f === 'number' ? f : f.fd),
     writeSync: (fd, text) => nodefs.writeSync(fd, text),
     unlinkSync: p => nodefs.unlinkSync(p),
