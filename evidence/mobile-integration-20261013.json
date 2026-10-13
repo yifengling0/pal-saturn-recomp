@@ -1,0 +1,86 @@
+{
+  "base_remote_commit": "c203eca935c0a061bfa787311b62534dc6e5117b",
+  "base_tree": "7c1646473555caba6bf786a61eb1785f9da857eb",
+  "host_stages": {
+    "raw": "4fbf4d5b8344b16fba6a4a916cb8d5fca2c0c7fea6d764c0bc8ecf6b8e05f375",
+    "precise": "8920466d7255926378f292e8736097b095538070aa83fb2fc00e2bfc95804f3e",
+    "paired": "64f6a22b9a05f1709b76e4a815d60d972da253ac6aec94f6fdb97ad5b88cf3a6",
+    "mapping_final": "f2ae4720395b317f8fdaf372c148021f565eafbfc02aa5278b46e2df848edabc",
+    "accelerated_final": "6ddaa48666cbada98adde0527ae6f205f13e6967479e684aa29553c3b9c61b23"
+  },
+  "formal_linux": {
+    "build/recomp-build/saturn": {
+      "sha256": "9c9e5192f3d71906e51f3f0f3ec22f4bbf5cfe8fe6526f44701c4757d3340fba",
+      "test_injector_absent": true
+    },
+    "build/windows-pal-options/recomp-build/saturn": {
+      "sha256": "e73542f1cf265682dd078e884c2a74252b0094615ab9090d3f96be05f3e45116",
+      "test_injector_absent": true
+    }
+  },
+  "hap": {
+    "sha256": "6fd66d614ff9a8aabd249515f173210305cc925703e26448a7147edda54e277b",
+    "bytes": 29406815,
+    "unsigned": true,
+    "libs": {
+      "libs/arm64-v8a/libmain.so": {
+        "sha256": "98091e8ab7b5fc64dc18af3386535897e68352533c54c86cbb02bc8d393c5cc7",
+        "bytes": 10230232,
+        "expected_host_hash": true,
+        "audio_live": true,
+        "battle_ack": true,
+        "walking_setting": true,
+        "test_injector_absent": true,
+        "release_O2": true,
+        "correct_host_define": true
+      },
+      "libs/x86_64/libmain.so": {
+        "sha256": "2d6119901413cd6bc56d8ebbef5c5e0efe5b27114df9b0301f59c323d46ca4a7",
+        "bytes": 10618696,
+        "expected_host_hash": true,
+        "audio_live": true,
+        "battle_ack": true,
+        "walking_setting": true,
+        "test_injector_absent": true,
+        "release_O2": true,
+        "correct_host_define": true
+      }
+    },
+    "manifest_orientation": "$string:pal_start_orientation",
+    "resource_strings_present": true,
+    "compiled_arkts_lifecycle_and_diagnostics": true
+  },
+  "limits": [
+    "No physical HarmonyOS device run",
+    "No speaker or Bluetooth listening acceptance",
+    "No native Windows runtime acceptance",
+    "No release published"
+  ],
+  "source_orientation_resources": {
+    "base": "auto_rotation_restricted",
+    "phone": "auto_rotation_landscape",
+    "tablet": "auto_rotation_landscape"
+  },
+  "validation": {
+    "tools": "404 passed, 201 subtests passed; zero skipped",
+    "phone": "7 passed; typed nine-callback adapter and lifecycle cases",
+    "audio": "38 policy checks, 43 actual-host cases, 4613 checks; UBSan; final enhanced production host",
+    "hap": "assembleHap release: 33 tasks, 21 executed, 12 up-to-date; actual CompileArkTS and CompileResource executed",
+    "linux": "freshly generated ordinary and accelerated formal builds passed",
+    "resource_config_dump": [
+      "base",
+      "dark",
+      "phone",
+      "tablet"
+    ]
+  },
+  "preserved": {
+    "walking_sources_unchanged_from_E": true,
+    "battle_and_prompt_helpers_unchanged_from_E": true,
+    "release_not_updated": true
+  },
+  "warnings": [
+    "ArkTS deprecation/platform warnings remain; unsupported PC/TV orientation calls are skipped by runtime device guard",
+    "git diff --check reports three literal blank-context lines inside unified patch 0022; patch application itself verified"
+  ]
+}

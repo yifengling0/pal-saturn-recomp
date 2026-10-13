@@ -31,6 +31,10 @@
     {
       "name": "perm_reason_DOWNLOAD",
       "value": "Used to load your own game disc and store save files in the Download folder"
+    },
+    {
+      "name": "pal_start_orientation",
+      "value": "auto_rotation_restricted"
     }
   ]
 }

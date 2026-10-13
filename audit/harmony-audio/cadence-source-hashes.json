@@ -1,0 +1,10 @@
+{
+  "src/host/host.cpp": {
+    "before": "4f5b0f831527a605358c522f8333170fcb6814a5bd4b31c03b7a504215de63d5",
+    "after": "4fbf4d5b8344b16fba6a4a916cb8d5fca2c0c7fea6d764c0bc8ecf6b8e05f375"
+  },
+  "src/host/pal_audio_jitter_policy.h": {
+    "before": "893d30bfdf8b9a3373881b510064e086d516989232a1946f735011fbd46c89d8",
+    "after": "f7745651fd8b4f1131fbdee2a4b5e181975e342db243edac7c92875584dec4ff"
+  }
+}

@@ -31,7 +31,7 @@
     "abilities": [
       {
         "name": "EntryAbility",
-        "orientation": "auto_rotation_restricted",
+        "orientation": "$string:pal_start_orientation",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "description": "$string:EntryAbility_desc",
         "icon": "$media:layered_image",

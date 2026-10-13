@@ -18,10 +18,11 @@ struct Index {
   aboutToAppear(): void {
     this.alive = true;
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    this.orientation = new PhoneOrientation(context, (message: string): void => {
+    this.orientation = PhoneOrientation.getCurrent();
+    this.orientation?.setReporter((message: string): void => {
       if (this.alive) this.orientationStatus = message;
     });
-    this.orientation.refresh();
+    this.orientation?.refresh();
     try {
       // Explicit developer --selftest builds must reach SDL without a disc.
       const flag = context.resourceManager.getRawFileContentSync('pal-selftest.txt');
@@ -42,7 +43,7 @@ struct Index {
 
   aboutToDisappear(): void {
     this.alive = false;
-    this.orientation?.stop();
+    this.orientation?.setReporter(undefined);
     this.orientation = undefined;
   }
 

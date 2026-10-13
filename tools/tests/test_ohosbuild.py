@@ -347,6 +347,13 @@ class LauncherTests(LauncherFixture, unittest.TestCase):
                 self.invoke('--logs', flag)
         self.assertEqual(self.calls, [])
 
+    def test_logs_include_phone_orientation_diagnostics(self):
+        self.logs = 'PAL/ORIENTATION getMainWindow failed code=1300005 sdk=26\nother-app unrelated\n'
+        result, output = self.invoke('--logs')
+        self.assertEqual(result, 0)
+        self.assertIn('PAL/ORIENTATION getMainWindow failed code=1300005 sdk=26', output)
+        self.assertNotIn('other-app unrelated', output)
+
     def test_empty_matching_logs_still_reports_snapshot_limit(self):
         self.logs = 'unrelated app\n'
         result, output = self.invoke('--logs')
@@ -752,15 +759,17 @@ class NativeIdentityContractTests(unittest.TestCase):
 
 class CurrentGenerationPinsTests(unittest.TestCase):
     def test_current_mapping_and_accelerated_exact_pins(self):
-        # Independently replayed from the fixed-upstream patch chain through 0019,
+        # Independently replayed from the fixed-upstream patch chain through 0022,
         # precise-input/paired-queue host transforms, then keyboard+guard_host and the scoped prompt stage.
         self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
-            '9f167a6f7e80353d5d469ff5c0bb82fab5b760f805e770966a89b658231e51f2',
-            '7c48c8ad21c9bedc51ac4390ebef9d66516966a9e574e924056bd23f8e1875a3',
+            'f2ae4720395b317f8fdaf372c148021f565eafbfc02aa5278b46e2df848edabc',
+            '6ddaa48666cbada98adde0527ae6f205f13e6967479e684aa29553c3b9c61b23',
         }))
 
     def test_previous_ui13_hosts_are_no_longer_accepted(self):
         self.assertFalse(driver.OHOS_HOST_UI_SHA256 & {
+            '9f167a6f7e80353d5d469ff5c0bb82fab5b760f805e770966a89b658231e51f2',
+            '7c48c8ad21c9bedc51ac4390ebef9d66516966a9e574e924056bd23f8e1875a3',
             '8e1db06d45be432c08257b6be966d6fa85bddecd7dff4e3d8c2bc20d39b96f3d',
             '8937b8d3c31929d985406b33a2119cf80877ae85d11abd63c808532434bfe3d6',
 

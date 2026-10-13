@@ -1,5 +1,6 @@
 """Phone preflight service/policy and native handoff regression tests."""
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -26,6 +27,23 @@ class PhonePreflightTests(unittest.TestCase):
 
     def test_phone_window_policy(self):
         self.run_node('ohos_orientation_test.cjs', 'PhoneOrientation.ets')
+
+    def test_orientation_observes_sdl_lifecycle_without_replacing_it(self):
+        ability = (MAIN / 'ets/entryability/EntryAbility.ets').read_text(encoding='utf-8')
+        self.assertLess(ability.index('PhoneOrientation.install(this)'), ability.index('sdl.provideArkTSObjects('))
+        self.assertNotRegex(ability, r'(?m)^\s*onWindowStageCreate\(')
+        page = (MAIN / 'ets/pages/Index.ets').read_text(encoding='utf-8')
+        self.assertIn('PhoneOrientation.getCurrent()', page)
+        self.assertIn('setReporter(undefined)', page)
+        self.assertNotIn('orientation?.stop()', page)
+
+    def test_phone_tablet_launch_resources_match_runtime_policy(self):
+        self.assertIn('"orientation": "$string:pal_start_orientation"', (MAIN / 'module.json5').read_text())
+        for qualifier, expected in [('phone', 'auto_rotation_landscape'), ('tablet', 'auto_rotation_landscape'),
+                                    ('base', 'auto_rotation_restricted')]:
+            strings = json.loads((MAIN / 'resources' / qualifier / 'element/string.json').read_text())['string']
+            values = [item['value'] for item in strings if item['name'] == 'pal_start_orientation']
+            self.assertEqual(values, [expected])
 
     def test_native_handoff_parser(self):
         cxx = shutil.which('c++') or shutil.which('g++')

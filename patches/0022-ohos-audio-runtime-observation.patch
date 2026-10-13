@@ -1,0 +1,161 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -24,7 +24,7 @@
+ //
+ // Sound (sound.cpp) comes as it is made, in virtual time, into an SDL audio
+ // stream at 44 100 Hz: the window's pace keeps it level with the device.
+-// OHAudio retains one 50..100 ms prime; bounded adaptation leaves pull headroom.
++// OHAudio primes one quantum + 20 ms, bounded by source capacity and pull headroom.
+ // Other drivers retain their policy. The 250 ms cap includes all padding. An empty
+ // SDL input queue is not proof of a hardware underrun; device buffers are separate.
+ #include "saturn.h"
+@@ -222,6 +222,49 @@
+ static std::atomic<uint64_t> g_audio_short_epoch{0}, g_audio_callback_same_thread{0}, g_audio_callback_other_thread{0};
+ static std::atomic<SDL_ThreadID> g_audio_producer_thread{0};
+ 
++// Producer-owned telemetry: at most two lines every five seconds, never from
++// the realtime callback. Callback counters stay cumulative; snapshots use
++// relaxed loads (approximate concurrent boundary, not a synchronized trace).
++struct AudioLiveWindow {
++    Clock::time_point started{};
++    uint64_t accepted = 0, dropped = 0, failed = 0, empty = 0;
++    uint64_t calls = 0, short_calls = 0, additional = 0, requested = 0;
++    uint64_t resets = 0, rebases = 0, pushes = 0, max_gap_us = 0;
++    int min_queued = -1, max_queued = -1, min_chunk = 0, max_chunk = 0;
++};
++static AudioLiveWindow g_audio_live;
++static uint64_t g_audio_pace_rebases;
++
++static void audio_live_report(Clock::time_point now) {
++    if (!g_audio_jitter) return;
++    auto& w = g_audio_live;
++    if (now - w.started < std::chrono::seconds(5)) return;
++    const auto calls = g_audio_get_calls.load(std::memory_order_relaxed);
++    const auto shorts = g_audio_short_calls.load(std::memory_order_relaxed);
++    const auto additional = g_audio_additional_bytes.load(std::memory_order_relaxed);
++    const auto requested = g_audio_requested_bytes.load(std::memory_order_relaxed);
++    const double wall = std::chrono::duration<double>(now - w.started).count();
++    sat_note("audio live: wall_s=%.3f accepted=%llu dropped=%llu failed=%llu pushes=%llu chunk_frames=%d..%d queued_before_bytes=%d..%d max_push_gap_us=%llu empty=%llu lifecycle_resets=%llu pace_rebases=%llu (interval; wall includes pauses)",
++        wall, (unsigned long long)(g_pcm_accepted-w.accepted),
++        (unsigned long long)(g_pcm_dropped-w.dropped), (unsigned long long)(g_pcm_failed-w.failed),
++        (unsigned long long)w.pushes, w.min_chunk, w.max_chunk, w.min_queued, w.max_queued,
++        (unsigned long long)w.max_gap_us, (unsigned long long)(g_underruns-w.empty),
++        (unsigned long long)(g_audio_resets-w.resets), (unsigned long long)(g_audio_pace_rebases-w.rebases));
++    sat_note("audio live requests: observer=%d adaptive=%d calls=%llu short_calls=%llu additional_bytes_est=%llu requested_bytes_est=%llu max_request_bytes_est=%llu device_hz=%d quantum=%d initial_zeros=%llu recovery_zeros=%llu (requests interval; max and zeros cumulative; source shortage, not hardware underruns)",
++        (int)g_audio_observer, (int)g_audio_adaptive, (unsigned long long)(calls-w.calls),
++        (unsigned long long)(shorts-w.short_calls), (unsigned long long)(additional-w.additional),
++        (unsigned long long)(requested-w.requested),
++        (unsigned long long)g_audio_max_request_bytes.load(std::memory_order_relaxed),
++        g_audio_device_rate, g_audio_device_quantum,
++        (unsigned long long)g_initial_zeros, (unsigned long long)g_recovery_zeros);
++    w = {};
++    w.started = now; w.accepted = g_pcm_accepted; w.dropped = g_pcm_dropped;
++    w.failed = g_pcm_failed; w.empty = g_underruns;
++    w.calls = calls; w.short_calls = shorts; w.additional = additional; w.requested = requested;
++    w.resets = g_audio_resets; w.rebases = g_audio_pace_rebases;
++}
++
++
+ // SDL holds the stream lock here. Observe only: no Put/Get, allocation, logging,
+ // clock query, file I/O, or additional locks. Enable only with lock-free atomics.
+ static void SDLCALL audio_get_observer(void*, SDL_AudioStream*, int additional, int total) {
+@@ -301,6 +344,8 @@
+     g_initial_zeros = g_recovery_zeros = g_max_push_gap_us = 0;
+     g_audio_started = Clock::now();
+     g_audio_last_push = {};
++    g_audio_live = {}; g_audio_live.started = g_audio_started;
++    g_audio_pace_rebases = 0;
+     SDL_AudioSpec got = {};
+     int frames = 0;
+     if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(g_audio), &got, &frames)) {
+@@ -344,15 +389,28 @@
+         }
+     }
+     now = Clock::now();
+-    if (!g_audio_skip_gap && g_audio_last_push != Clock::time_point{})
+-        g_max_push_gap_us = std::max(g_max_push_gap_us, (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(now-g_audio_last_push).count());
++    if (!g_audio_skip_gap && g_audio_last_push != Clock::time_point{}) {
++        const auto gap = (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(now-g_audio_last_push).count();
++        g_max_push_gap_us = std::max(g_max_push_gap_us, gap);
++        g_audio_live.max_gap_us = std::max(g_audio_live.max_gap_us, gap);
++    }
+     g_audio_skip_gap = false;
+     g_audio_last_push = now;
+     g_pcm_attempted += frames;
+     int queued_bytes = [] { HostCall in("SDL_GetAudioStreamQueued"); return SDL_GetAudioStreamQueued(g_audio); }();
++    if (g_audio_jitter) {
++        auto& w = g_audio_live;
++        ++w.pushes;
++        w.min_chunk = w.min_chunk ? std::min(w.min_chunk, frames) : frames;
++        w.max_chunk = std::max(w.max_chunk, frames);
++        if (queued_bytes >= 0) {
++            w.min_queued = w.min_queued < 0 ? queued_bytes : std::min(w.min_queued, queued_bytes);
++            w.max_queued = std::max(w.max_queued, queued_bytes);
++        }
++    }
+     auto plan = pal_audio_queue_policy::plan_push(queued_bytes, frames, g_audio_jitter ? 0 : g_lead);
+-    if (!plan.ok()) { g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed); ++g_query_errors; g_pcm_failed += frames; return; }
+-    if (plan.dropped_real_frames) { g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed); ++g_dropped; g_pcm_dropped += frames; return; }
++    if (!plan.ok()) { g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed); ++g_query_errors; g_pcm_failed += frames; audio_live_report(now); return; }
++    if (plan.dropped_real_frames) { g_audio_growth.last_epoch = g_audio_short_epoch.load(std::memory_order_relaxed); ++g_dropped; g_pcm_dropped += frames; audio_live_report(now); return; }
+     // An empty input queue is an observation, NOT a measured device underrun.
+     if (plan.empty_observed) ++g_underruns;
+     if (g_audio_jitter && g_audio_observer && g_audio_adaptive) {
+@@ -368,6 +426,7 @@
+     HostCall in("SDL_PutAudioStreamData");
+     if (SDL_PutAudioStreamData(g_audio, lr, frames * 4)) g_pcm_accepted += frames;
+     else { ++g_put_errors; g_pcm_failed += frames; }
++    audio_live_report(now);
+ }
+ 
+ void host_audio_report() {
+@@ -1762,7 +1821,10 @@
+     }
+     Clock::time_point due = g_base + std::chrono::nanoseconds(now);
+     Clock::time_point t = Clock::now();
+-    if (t > due + std::chrono::milliseconds(100)) g_base += t - due;   // behind: do not run to catch up
++    if (t > due + std::chrono::milliseconds(100)) {
++        g_base += t - due;   // behind: do not run to catch up
++        if (g_audio_jitter) ++g_audio_pace_rebases;
++    }
+     else if (due > t) {
+         HostCall in("SDL_DelayPrecise");
+         SDL_DelayPrecise((Uint64)std::chrono::duration_cast<std::chrono::nanoseconds>(due - t).count());
+--- a/runtime/src/host/pal_audio_jitter_policy.h
++++ b/runtime/src/host/pal_audio_jitter_policy.h
+@@ -10,7 +10,7 @@
+ namespace pal_audio_jitter_policy {
+ inline constexpr int kSourceRate = 44100;
+ inline constexpr int kMinimumInitial = 2205;  // existing 50 ms minimum
+-inline constexpr int kMaximumInitial = 4410; // retain existing 100 ms maximum
++inline constexpr int kMaximumInitial = 5512; // <= half of the 250 ms source capacity
+ inline constexpr int kMaximumTarget = 9702;  // 220 ms
+ inline constexpr int kGrowStep = 882;        // 20 ms
+ inline constexpr int kMargin = 882;          // 20 ms
+@@ -32,14 +32,19 @@
+     if (device_frames <= 0 || device_rate <= 0) return {4410, 0, 4410, false, false, 4410};
+     const auto q = (std::int64_t{device_frames} * kSourceRate + device_rate - 1) / device_rate;
+     const auto prior = pal_audio_queue_policy::compute_lead(device_frames, device_rate);
+-    // Leave one reported pull quantum plus 20 ms producer headroom below cap.
+-    // Retain existing priming; a 200 ms prime plus a 93 ms pull phase can drop
+-    // real PCM against a 250 ms cap, including after a menu resume.
++    // A 4096-frame pull leaves only 314 frames from the old 100 ms prime:
++    // less than one 735-frame producer tick. Reserve one quantum + 20 ms.
++    // This is one-time phase coverage, not a cure for sustained producer lag.
++    // Also reserve one pull phase + 20 ms BELOW the existing source cap.
++    // If the quantum is too large to satisfy both, retain the old bounded prime;
++    // never grow the cap or drop PCM to manufacture this target.
+     const auto room = std::int64_t{kCapacity} - q - kMargin;
+-    const auto limit = room < prior.source_frames ? prior.source_frames
+-        : room > kMaximumTarget ? kMaximumTarget : room;
+-    return {prior.source_frames, q, prior.uncapped_source_frames, true,
+-            prior.maximum_applied, static_cast<int>(limit)};
++    const auto wanted = q + kMargin > prior.source_frames ? q + kMargin : prior.source_frames;
++    const auto bounded_room = room < prior.source_frames ? prior.source_frames
++        : room > kMaximumInitial ? kMaximumInitial : room;
++    const auto prime = wanted < bounded_room ? wanted : bounded_room;
++    const auto limit = room < prime ? prime : room > kMaximumTarget ? kMaximumTarget : room;
++    return {static_cast<int>(prime), q, wanted, true, prime < wanted, static_cast<int>(limit)};
+ }
+ 
+ struct Growth {

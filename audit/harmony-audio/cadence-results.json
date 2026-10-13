@@ -1,0 +1,231 @@
+{
+  "scope": "Deterministic source FIFO model, not an OHOS device/SDL-thread test.\nTime is in 1/44100 second units, so 735/VB and 4096/pull are exact.\nThe real producer's smaller chunks are aggregated to 60Hz for this experiment.\nSDL mixer silence is counted separately; never added to the source FIFO.\n",
+  "phase_sweeps": 105,
+  "baseline": {
+    "short_calls": {
+      "min": 0,
+      "max": 18
+    },
+    "after_10s_short_calls": {
+      "min": 0,
+      "max": 2
+    },
+    "mixer_silence_frames": {
+      "min": 0.0,
+      "max": 420.0
+    },
+    "dropped_real_frames": {
+      "min": 0,
+      "max": 0
+    },
+    "accepted_real_frames": {
+      "min": 2645265,
+      "max": 2645265
+    },
+    "source_min": {
+      "min": 0.0,
+      "max": 307.0
+    },
+    "source_max": {
+      "min": 4828.0,
+      "max": 5137.0
+    }
+  },
+  "quantum_plus_one_tick": {
+    "short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "after_10s_short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "mixer_silence_frames": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "dropped_real_frames": {
+      "min": 0,
+      "max": 0
+    },
+    "accepted_real_frames": {
+      "min": 2645265,
+      "max": 2645265
+    },
+    "source_min": {
+      "min": 1.0,
+      "max": 728.0
+    },
+    "source_max": {
+      "min": 4831.0,
+      "max": 5558.0
+    }
+  },
+  "bounded_20_40ms_jitter": {
+    "short_calls": {
+      "min": 3,
+      "max": 14
+    },
+    "after_10s_short_calls": {
+      "min": 0,
+      "max": 5
+    },
+    "mixer_silence_frames": {
+      "min": 547.0,
+      "max": 2158.0
+    },
+    "dropped_real_frames": {
+      "min": 0,
+      "max": 0
+    },
+    "accepted_real_frames": {
+      "min": 2643795,
+      "max": 2645265
+    },
+    "source_min": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "source_max": {
+      "min": 5554.0,
+      "max": 6559.0
+    }
+  },
+  "startup_bursts": [
+    {
+      "short_calls": 18,
+      "after_10s_short_calls": 1,
+      "mixer_silence_frames": 420.0,
+      "dropped_real_frames": 0,
+      "accepted_real_frames": 2645265,
+      "source_min": 0.0,
+      "source_max": 4828.0
+    },
+    {
+      "short_calls": 19,
+      "after_10s_short_calls": 1,
+      "mixer_silence_frames": 4516.0,
+      "dropped_real_frames": 0,
+      "accepted_real_frames": 2645265,
+      "source_min": 0.0,
+      "source_max": 4828.0
+    },
+    {
+      "short_calls": 20,
+      "after_10s_short_calls": 1,
+      "mixer_silence_frames": 8612.0,
+      "dropped_real_frames": 0,
+      "accepted_real_frames": 2645265,
+      "source_min": 0.0,
+      "source_max": 4828.0
+    }
+  ],
+  "menu_phase_resume": {
+    "short_calls": {
+      "min": 0,
+      "max": 17
+    },
+    "after_10s_short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "mixer_silence_frames": {
+      "min": 0.0,
+      "max": 419.0
+    },
+    "dropped_real_frames": {
+      "min": 0,
+      "max": 0
+    },
+    "accepted_real_frames": {
+      "min": 2512230,
+      "max": 2512230
+    },
+    "source_min": {
+      "min": 0.0,
+      "max": 293.0
+    },
+    "source_max": {
+      "min": 6289.0,
+      "max": 10352.0
+    }
+  },
+  "bounded_quantum_plus_20ms": {
+    "short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "after_10s_short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "mixer_silence_frames": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "dropped_real_frames": {
+      "min": 0,
+      "max": 0
+    },
+    "accepted_real_frames": {
+      "min": 2645265,
+      "max": 2645265
+    },
+    "source_min": {
+      "min": 59.0,
+      "max": 795.0
+    },
+    "source_max": {
+      "min": 4646.0,
+      "max": 5702.0
+    }
+  },
+  "candidate_menu_resume": {
+    "short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "after_10s_short_calls": {
+      "min": 0,
+      "max": 0
+    },
+    "mixer_silence_frames": {
+      "min": 0.0,
+      "max": 0.0
+    },
+    "dropped_real_frames": {
+      "min": 0,
+      "max": 0
+    },
+    "accepted_real_frames": {
+      "min": 2512230,
+      "max": 2512230
+    },
+    "source_min": {
+      "min": 149.0,
+      "max": 861.0
+    },
+    "source_max": {
+      "min": 6489.0,
+      "max": 10522.0
+    }
+  },
+  "sustained_0_136percent_slow": {
+    "short_calls": 115,
+    "after_10s_short_calls": 94,
+    "mixer_silence_frames": 4005.0,
+    "dropped_real_frames": 0,
+    "accepted_real_frames": 2642325,
+    "source_min": 0.0,
+    "source_max": 4724.0
+  },
+  "repeated_101ms_producer_clock_rebase": {
+    "short_calls": 102,
+    "after_10s_short_calls": 82,
+    "mixer_silence_frames": 49361.0,
+    "dropped_real_frames": 0,
+    "accepted_real_frames": 2596755,
+    "source_min": 0.0,
+    "source_max": 4824.0
+  }
+}

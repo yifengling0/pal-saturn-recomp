@@ -245,3 +245,16 @@ battle 65535→0，回到场景109(704,1456)，李/月如的生命灵力恢复�
   consumed; W throw preserved by A; D; F/R magic semantics. See
   `docs/PC_KEYBOARD.md` and `evidence/battle-items-20261013.json`.
 - No physical Harmony device or native Windows runtime acceptance claimed.
+
+## 2026-10-13 — mobile landscape and bounded audio phase headroom
+
+- Integrated phone/tablet landscape resources and SDL-main-window lifecycle
+  recovery on the published E-fix baseline; PC and proven walking retained.
+- Corrected actual ArkTS callback-class incompatibility with a typed nine-method
+  adapter; real CompileArkTS, resources and unsigned dual-ABI HAP passed.
+- Added bounded OHAudio phase prime and five-second producer diagnostics with
+  adaptation disabled. No assertion that physical speaker stutter is resolved.
+- Final tools: 404 tests + 201 subtests, zero skips; 7 phone tests; final-host
+  UBSan audio: 38 policy checks and 43 cases / 4613 checks. Both formal Linux
+  modes passed; package identities and boundaries recorded in
+  `docs/OHOS_MOBILE_INTEGRATION_20261013.md` and its linked evidence.

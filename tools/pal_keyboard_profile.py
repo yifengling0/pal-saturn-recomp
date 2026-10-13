@@ -40,6 +40,8 @@ RUNTIME_HASHES['host.cpp'].append('6f0c959abaa3d6f4f8324182d65c56af2f79acd374f65
 RUNTIME_HASHES['host.cpp'].append('8ec6ce8cad954a98be6a64b086d6b150644bafa7e7bdb0cf851664fe3a0d9bbf')
 # Exact 0019 audio-driver fix, raw and after unchanged precise/paired stages.
 RUNTIME_HASHES['host.cpp'].extend(['4f5b0f831527a605358c522f8333170fcb6814a5bd4b31c03b7a504215de63d5', '485ff48adb73ac2f32bd8a2470c50559e34b1d70b764b0339632f6a57c8735b1'])
+# Exact 0022 bounded quantum prime + producer-side live telemetry.
+RUNTIME_HASHES['host.cpp'].extend(['4fbf4d5b8344b16fba6a4a916cb8d5fca2c0c7fea6d764c0bc8ecf6b8e05f375', '64f6a22b9a05f1709b76e4a815d60d972da253ac6aec94f6fdb97ad5b88cf3a6'])
 
 FUNCTION_HASHES = {'06020040': ['49fc15d214cc14ad85134d3301ce577f699d38aec8301287d632dd5b545bad7c'], '06026D84': ['9e83b5975b9f141c3d0e22f15907be2ada11b74aab7237444cde410ae4fefaaa', 'f04a09eb1154c18fcdb61a95fd4f3f945106da5daccf7eec6131edf88800e8a8'], '06021F14': ['1a72d209543cdd95d863b4e62b28c7639a24c2098c855279d2a97075203722e0'], '06026F90': ['33b311616b04e42b7e6cb85366ff11f58e1ecc4a1573fd5b9d7b8527cb2fcb75', '677f5eb849f6f0f3731cf35a0292d91dacef58e127de7d427fb659101b56e056'], '0604A5B8': ['38a41b3879208ad03418cbe48ed1efeb1888129062f385fc362955afd8e0ce50'], '060516B4': ['8d243239da6d34c6b188603ca3108a13b9984f855348edf66a04759c5a93b60d'], '06020058': ['9548908855627449ef75ff2a63a87d8083fc953294231d447073e05bec6beca7']}
 FUNCTION_HASHES['0604A444'] = ['efbee91069182eaa9df6245d60aa68bc874cdb324da6e361517e8dbbf9fed158']
@@ -437,6 +439,8 @@ def verify_runtime_support_manifest(manifest, runtime, support_inputs):
   name=path.relative_to(runtime).as_posix()
   if recorded.get(name)!=sha(raw):raise ValueError('Incomplete runtime support manifest: '+name)
 
+AUDIO_CADENCE_HELPER_SHA = "f7745651fd8b4f1131fbdee2a4b5e181975e342db243edac7c92875584dec4ff"
+
 def runtime_support_inputs(runtime):
  """Read and verify one complete reviewed runtime support variant."""
  runtime=Path(runtime)
@@ -446,6 +450,9 @@ def runtime_support_inputs(runtime):
  host=runtime/'src/host/host.cpp'
  settings=runtime/'src/host/settings.cpp'
  if any(p.resolve()!=p or p.is_symlink() or not p.is_file() for p in (host,settings)):raise ValueError('Unsafe runtime variant source path')
+ # A new host must not silently package the legacy 100 ms helper (or vice versa).
+ if b'struct AudioLiveWindow {' in host.read_bytes():
+  expected['src/host/pal_audio_jitter_policy.h']=AUDIO_CADENCE_HELPER_SHA
  uses_ui=b'#include "host_menu_text.h"' in host.read_bytes()
  settings_ui=b'layout_version = )"' in settings.read_bytes()
  if uses_ui!=settings_ui or (not uses_ui and any((runtime/name).exists() or (runtime/name).is_symlink() for name in ui_only)):

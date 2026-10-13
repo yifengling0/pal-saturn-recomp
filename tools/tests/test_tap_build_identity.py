@@ -108,6 +108,35 @@ class TapSupportIdentityTests(unittest.TestCase):
             keyboard.verify_runtime_support_manifest(manifest, self.runtime, inputs)
 
 
+class AudioCadenceSupportIdentityTests(TapSupportIdentityTests):
+    def setUp(self):
+        super().setUp()
+        self.audio = self.runtime/'src/host/pal_audio_jitter_policy.h'
+        self.old = b'// old bounded prime\n'
+        self.new = b'// quantum bounded prime\n'
+        self.audio.write_bytes(self.old)
+        for mocker in (patch.object(keyboard, 'HARMONY_RUNTIME_HELPERS',
+                                   {'pal_audio_jitter_policy.h': keyboard.sha(self.old)}),
+                       patch.object(keyboard, 'AUDIO_CADENCE_HELPER_SHA', keyboard.sha(self.new))):
+            mocker.start()
+            self.addCleanup(mocker.stop)
+
+    def test_new_host_rejects_old_prime_header(self):
+        with (self.runtime/'src/host/host.cpp').open('a') as out: out.write('struct AudioLiveWindow {\n')
+        with self.assertRaisesRegex(ValueError, 'helper changed or missing'):
+            keyboard.runtime_support_inputs(self.runtime)
+
+    def test_new_host_accepts_exact_new_header(self):
+        with (self.runtime/'src/host/host.cpp').open('a') as out: out.write('struct AudioLiveWindow {\n')
+        self.audio.write_bytes(self.new)
+        self.assertEqual(keyboard.runtime_support_inputs(self.runtime)[self.audio], self.new)
+
+    def test_old_host_rejects_new_prime_header(self):
+        self.audio.write_bytes(self.new)
+        with self.assertRaisesRegex(ValueError, 'helper changed or missing'):
+            keyboard.runtime_support_inputs(self.runtime)
+
+
 class PatchNumberIdentityTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='patch identity ')
@@ -118,11 +147,11 @@ class PatchNumberIdentityTests(unittest.TestCase):
         mocker.start()
         self.addCleanup(mocker.stop)
 
-    def test_user_patch_numbers_include_14_to_19_once(self):
+    def test_user_patch_numbers_include_14_to_19_and_22_once(self):
         # 0014/0015 are the input patches, 0016 the guest-consumed field input, and 0017 the stub
         # VBlank clock 0016 needs to link selftest; 0018 adds scene-held continuity;
         # 0019 enables the existing audio policy for SDL's real OHAudio driver name.
-        self.assertEqual(setup.NUMBERS[-6:], (14, 15, 16, 17, 18, 19))
+        self.assertEqual(setup.NUMBERS[-7:], (14, 15, 16, 17, 18, 19, 22))
         self.assertEqual(len(setup.NUMBERS), len(set(setup.NUMBERS)))
 
     def test_resolves_unique_numbered_files(self):

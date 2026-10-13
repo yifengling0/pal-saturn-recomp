@@ -40,10 +40,10 @@ OHOS_HOST_UI_VERSION = 13
 # the two generations a HAP may be built from: the mapping-only host and the
 # accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
-    # Fresh mapping + prompt edge + battle item generation after runtime0019.
-    '9f167a6f7e80353d5d469ff5c0bb82fab5b760f805e770966a89b658231e51f2',
+    # Fresh mapping + prompt edge + battle item generation after runtime0022.
+    'f2ae4720395b317f8fdaf372c148021f565eafbfc02aa5278b46e2df848edabc',
     # Fresh precise/paired + keyboard + prompt edge + battle item generation.
-    '7c48c8ad21c9bedc51ac4390ebef9d66516966a9e574e924056bd23f8e1875a3',
+    '6ddaa48666cbada98adde0527ae6f205f13e6967479e684aa29553c3b9c61b23',
 })
 
 # The accelerated generation is the one the Windows package ships, so the tablet gets the same
@@ -165,7 +165,7 @@ def log_snapshot(hdc: str, device: str, timeout: int) -> None:
     if done.returncode:
         raise SystemExit(f'hilog 快照失败，退出码 {done.returncode}')
     lines = [line for line in done.stdout.splitlines()
-             if 'PAL/OHOS' in line or 'SDL/STARTUP' in line or ' SDL' in line]
+             if 'PAL/OHOS' in line or 'PAL/ORIENTATION' in line or 'SDL/STARTUP' in line or ' SDL' in line]
     print('已有 hilog 环形缓冲区快照（可能含多次运行；未清空日志）：')
     if not lines:
         print('没有匹配的 PAL/SDL 日志；可能已被环形缓冲区覆盖。')

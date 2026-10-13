@@ -9,15 +9,23 @@ static int checks, failures;
 
 int main() {
     const auto large = p::initial(4096, 44100);
-    CHECK(large.frames == 4410 && large.quantum_source_frames == 4096 && large.uncapped_frames == 12288 && large.capped && large.maximum_target == 6047);
+    CHECK(large.frames == 4978 && large.quantum_source_frames == 4096 && large.uncapped_frames == 4978 && !large.capped && large.maximum_target == 6047);
     CHECK(p::initial(960, 48000).frames == 2646);
     CHECK(p::initial(4096, 48000).quantum_source_frames == 3764);
-    CHECK(p::initial(4096, 48000).frames == 4410 && p::initial(4096,48000).maximum_target == 6379);
+    CHECK(p::initial(4096, 48000).frames == 4646 && p::initial(4096,48000).maximum_target == 6379);
     CHECK(p::initial(4096, 22050).frames == 4410);
     CHECK(!p::initial(0, 44100).valid && p::initial(0, 44100).frames == 4410);
     CHECK(!p::initial(4096, -1).valid);
     CHECK(p::initial(INT_MAX, 1).frames == 4410);
     CHECK(p::initial(INT_MAX, INT_MAX).quantum_source_frames == 44100);
+    CHECK(p::initial(4096, 44100).frames + 4096 + p::kMargin <= p::kCapacity);
+    CHECK(p::initial(4096, 48000).frames + 3764 + p::kMargin <= p::kCapacity);
+    CHECK(p::initial(5000, 44100).frames == 5143 && p::initial(5000,44100).capped);
+    CHECK(p::initial(8192, 44100).frames == 4410 && p::initial(8192,44100).capped);
+    p::State phase; phase.reset(4978, 0, 6047);
+    CHECK(phase.target == 4978 && phase.maximum_target == 6047);
+    CHECK(phase.observe(0, 1, 0, 735).silence_frames == 0);
+    CHECK(q::plan_push(0, 735, 0).accepted_real_frames == 735);
     p::State s; s.reset(4410, 0, 5292);
     CHECK(s.observe(3000000000ULL, 0, 0, 735).silence_frames == 0); // empty alone does nothing
     CHECK(s.observe(0, 1, 0, 735).silence_frames == 0); // startup consumed

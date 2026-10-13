@@ -5,12 +5,14 @@ import { i18n } from '@kit.LocalizationKit';
 import { inputMethod } from '@kit.IMEKit';
 import pointer from "@ohos.multimodalInput.pointer"
 import sdl from 'libSDL3.so';
+import { PhoneOrientation } from '../services/PhoneOrientation';
 
 const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'SDL/STARTUP', '%{public}s', 'Handing control from ArkTS to native SDL.');
+    PhoneOrientation.install(this);
     try {
         // This hands stuff to SDL's C code that it needs to deal with ArkTS interfaces. We are trying not to write scripting code, if we can
         //  handle it awkwardly in C through NAPI calls, so we have a _tiny_ surface area of risk where the script and the native code can go
