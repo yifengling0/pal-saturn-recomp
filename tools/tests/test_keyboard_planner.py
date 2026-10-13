@@ -82,10 +82,21 @@ class PlannerTests(unittest.TestCase):
         for key in ('g_item_keys', 'g_spell_keys'):
             self.assertEqual(out.count('for (auto key : %s) b[0] |= g_pc_press.read(key);' % key), 1)
 
+    def test_item_key_uses_separate_battle_latch_and_native_item_route(self):
+        host = self.plan()[self.f.runtime / 'src/host/host.cpp'].decode()
+        self.assertIn('add_keys("item", g_battle_item_keys, battle_key);', host)
+        self.assertIn('in_keys(g_battle_item_keys,e.key.scancode) ? pal_keyboard::Items', host)
+        self.assertEqual(host.count('for (auto key : g_battle_item_keys) pal_battle_bits |= g_battle_press.read(key);'), 1)
+        self.assertIn('g_battle_item_keys.clear();', host)
+        self.assertIn('g_battle_item_keys.end();', host)
+        # Existing battle custom commands win a shared custom item key.
+        self.assertLess(host.index('add_keys("throw",'), host.index('add_keys("item", g_battle_item_keys'))
+        self.assertIn('item ? pal_keyboard::context.item : pal_keyboard::context.spell', host)
+
     def test_battle_macro_is_after_real_sources_and_tap_publication(self):
         host=self.plan()[self.f.runtime / 'src/host/host.cpp'].decode()
-        self.assertLess(host.index('synthetic_gamepad_and_touch_publish();'),host.index('if (pal_real_pad_input) pal_keyboard::all_attack.stop();'))
-        self.assertLess(host.index('if (pal_real_pad_input) pal_keyboard::all_attack.stop();'),host.index('else pad |= pal_keyboard::all_attack.pad(sat_vblanks());'))
+        self.assertLess(host.index('synthetic_gamepad_and_touch_publish();'),host.index('if (pal_real_pad_input) { g_battle_press.block(); pal_keyboard::all_attack.stop(); }'))
+        self.assertLess(host.index('if (pal_real_pad_input) { g_battle_press.block(); pal_keyboard::all_attack.stop(); }'),host.index('else pad |= pal_keyboard::all_attack.pad(sat_vblanks());'))
         self.assertLess(host.index('const bool pal_real_pad_input = b[s] || pad;'),host.index('if ((pad & (B_LEFT | B_RIGHT))'))
         self.assertIn('SDL_EVENT_WILL_ENTER_BACKGROUND || e.type == SDL_EVENT_DID_ENTER_BACKGROUND',host)
         self.assertIn('g_all_attack_press.block(); pal_keyboard::all_attack.stop();',host)

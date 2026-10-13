@@ -226,3 +226,22 @@ CMake 对实际链接的生成代码拒绝旧、篡改或重复函数，包含 O
 battle 65535→0，回到场景109(704,1456)，李/月如的生命灵力恢复，彩依/晋元离场
 无 fatal。该结论仅是此处 Linux 实玩修复验收，不是全游戏或其它设备通关。
 完整根因、可复现命令和当前验证范围见 `docs/RENDER_NONLOCAL_RETURN_FIX.md`。
+
+## 2026-10-13 — battle E and scoped command taps
+
+- Fixed PC98 E in the native battle command menu by mapping the configured item
+  key through its own battle context to Saturn R; original item/target flow owns
+  choices, actions and consumption. Q battle flee remains unbound.
+- Reproduced same-pump E key-down/up loss on real SDL, then fixed E/W/D/F/R with
+  one first-edge-wins pending command until the original menu reader acknowledges
+  it. Input is retired at menu/actor/focus/overlay boundaries and projected after
+  tap carry, with genuine input priority. Field walking/audio/chest unchanged.
+- Independent review found and helped eliminate a multi-key pending deadlock
+  before acceptance. Added compiled generated-host conflict/lifecycle regression
+  tests and exact source guards for the single guest acknowledgement addition.
+- 389 tests + 201 subtests passed with zero skips. Both Linux generation modes
+  and release unsigned ARM64/x86_64 HAP passed. Actual SDL normal-save checks:
+  E list/target cancellation; held/repeated E across actors; exactly one herb
+  consumed; W throw preserved by A; D; F/R magic semantics. See
+  `docs/PC_KEYBOARD.md` and `evidence/battle-items-20261013.json`.
+- No physical Harmony device or native Windows runtime acceptance claimed.

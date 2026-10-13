@@ -44,7 +44,8 @@ folder. Do not overwrite a personal settings file or save file for a test.
 - Z/X/C: Saturn A/B/C. V: Saturn X, for the rare screen that needs it directly.
 - PAL98 shortcut letters, each one taking the Saturn button that does the same
   thing in the screen the game is actually on:
-  - `E` 物品/包袱 - the field's item page (the Saturn pad's R quick page)
+  - `E` 物品/包袱 - native Saturn R: field item page, or the battle main
+    command menu's original usable-item list, followed by target selection
   - `F` 仙術 - the field's spell page (the Saturn pad's L quick page); in the
     battle main command menu the same key is the original strongest fill
   - `A` 圍攻 - navigate the original battle Other → first entry, which selects
@@ -71,7 +72,8 @@ folder. Do not overwrite a personal settings file or save file for a test.
   - `W` 装备 -> 物品, because the Saturn release equips from the item page and
     has no separate equip screen
   - `Q` 系統 -> 系統, which is 儲存進度 / 讀取進度 on Saturn, not the PC 退出 screen
-  Battle-only `E` 物品 / `Q` 逃跑 are still unbound. W/D operate only at the
+  Battle-only `Q` 逃跑 remains unbound; use the original Other → flee menu.
+  E/W/D/F/R operate only at the
   original four-icon battle command menu; they do not interrupt an animation or
   replace a target choice. A has a 240-VBlank timeout and waits for guest menu
   acknowledgements. Any real competing input, focus loss or background entry
@@ -192,3 +194,69 @@ throw executed. That run only proves command selection; the two-actor run above
 provides the actual inventory-consumption and victory evidence. No original save
 was overwritten. Native semantic-key event logs are retained separately because
 the old pad-only recording cannot reproduce every PC shortcut intent.
+
+
+## 2026-10-13: battle items and command taps
+
+E now shares the configured item key across two isolated contexts. In battle it
+uses native R → event 11 → command -11 → the original use-item list (filter 1),
+then the game's target selection. It does not choose an item, modify HP, deduct
+inventory, or clear an earlier actor's command itself. W still uses Y → event 8
+→ command -8, selecting the original throw list (filter 4).
+
+A fresh E/W/D/F/R tap in the four-icon command menu survives a DOWN+UP pair in
+one SDL event pump. It is retired when the original blocking command reader
+returns any event, or the menu/actor scope ends. Holding a key cannot replay it
+for the next actor. Multiple command edges before consumption use the first
+eligible edge only, because the ROM rejects combined command button bits;
+losing edges never queue a second action. Real keyboard, touch and gamepad input
+wins over a pending shortcut. Projection happens after tap carry, so a retired
+command cannot leak into the item/target menu via the touch-tap stretcher.
+
+The acknowledgement hook is immediately after the original reader call at
+0604A12E, not a replacement for that reader or its return value. Field walking,
+item-acquired prompt confirmation and audio source code are unchanged.
+
+Mapping boundaries: A surrounds from the current actor onward and retains
+native continuous surround, F uses native strongest selection, R repeats each
+remaining actor's previous command, D defends the current actor, W opens throw,
+E opens use-item. Earlier actors' selected commands remain owned by the original
+game. Q battle flee is intentionally not mapped by this update. The Saturn
+keyboard profile and physical gamepad mappings remain independent.
+
+
+Verified on 2026-10-13 with a private copy of an ordinary Toad Mountain BUP,
+real SDL dummy video/audio and SDL keyboard events / virtual gamepad input:
+
+- Before the tap repair, same-pump E DOWN+UP left the battle menu unchanged;
+  a 14-VBlank press opened the original item list. The repaired same-pump tap
+  opens that list. E+W in one pump follows E only, with native item mode 0.
+- E list cancellation and target cancellation left 止血草 quantity at 7 and
+  both actors' actions unset. Target cancel follows the original intermediate
+  use/throw submenu; a second Esc returns to the command menu.
+- A held E selected the first actor's item through normal Enter and target
+  confirmation. Holding/repeating E across the second actor did not reopen the
+  list. Releasing E and tapping again did open it. Cancelling that second list
+  preserved the first actor's action 3 / item 99. D's same-pump tap selected
+  action 5 for the second actor. Execution consumed exactly one herb, 7 → 6,
+  and released the reservation. Later idle frames left the quantity at 6.
+- A shortcut pressed during the enemy animation was discarded, not queued.
+- W's same-pump tap opened throw mode 1. The original list selected bee hive
+  item 115 for actor 0 (action 4); A's same-pump tap on actor 1 selected normal
+  attack 6 while preserving the throw. Execution consumed one hive, 4 → 3,
+  then returned to the field. Esc was used to stop native continuous surround.
+- F's same-pump tap in the next battle selected native action 2, magic IDs
+  346 and 340. R's same-pump tap on the following turn repeated those commands.
+
+The diagnostic executable differed only by an input-only SDL event scheduler;
+no guest memory writes, edited HP/inventory/party/story state, or live desktop
+session were used. Its scheduler is absent from the separately generated formal
+Linux executables and both HAP ABIs. The original source BUP hash was unchanged.
+
+Final checks: 389 tools tests and 201 subtests passed, zero skips; ordinary and
+accelerated Linux builds passed; the unsigned release HAP built ARM64 and x86_64.
+Each HAP ABI embeds final host identity
+`7c48c8ad21c9bedc51ac4390ebef9d66516966a9e574e924056bd23f8e1875a3`,
+contains the battle acknowledgement and existing walking/audio implementation,
+and uses release -O2 compilation. This is not Windows or physical Harmony device
+acceptance; those hardware runs remain unperformed.

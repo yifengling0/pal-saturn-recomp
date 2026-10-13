@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-13",
+  "remote_base": "6670c6c79d6952508d1026aff631b84d3e131e92",
+  "base_tree": "8309753db37f1efbb51dbc23108f21d6d84e6e96",
+  "tests": "389 passed, 201 subtests passed, zero skips",
+  "formal_linux": {
+    "build/recomp-build/saturn": "a447c095c0acf423fb8cca936a9f2ce95106aa35971d98632a5a3a2b6ab8b1c0",
+    "build/windows-pal-options/recomp-build/saturn": "b9b051aee8e7b900d578c1e7c4e4d54be52c3a366f14f8a4aa00c3cc256ece89"
+  },
+  "hap": {
+    "sha256": "e0b73ab485e24b080b93f4c27c40d06837ced258c4b5f461c48aa947fc156e7c",
+    "size": 29396842,
+    "libs": {
+      "libs/arm64-v8a/libmain.so": {
+        "sha256": "37352991f5fab2158939808d063cdc375160e02ac632a3ebc0d2ae767daa1524",
+        "bytes": 10228592,
+        "expected_host_hash": true,
+        "test_injector_absent": true,
+        "battle_items": true,
+        "walking_setting": true,
+        "audio_driver": true,
+        "battle_ack": true,
+        "release_O2": true,
+        "correct_final_host_define": true
+      },
+      "libs/x86_64/libmain.so": {
+        "sha256": "8c7d662674f6cc6246c3cd49c633b9e44bd206d88b59e20916844c0dd40dfbf3",
+        "bytes": 10616808,
+        "expected_host_hash": true,
+        "test_injector_absent": true,
+        "battle_items": true,
+        "walking_setting": true,
+        "audio_driver": true,
+        "battle_ack": true,
+        "release_O2": true,
+        "correct_final_host_define": true
+      }
+    }
+  },
+  "source_save_unchanged": true,
+  "diagnostic_scope": "Original normal BUP, real SDL keyboard event queue and virtual gamepad through production adapters. Input scheduler only; no guest memory writes. Formal executables/HAP contain no scheduler.",
+  "cases": {
+    "E_same_pump": "VB4382 opens native use-item list, VB4471 list_active=1, inventory99 count7 reserved0",
+    "E_cancel": "VB4531 item99 count7 reserved0, both action records zero",
+    "E_W_compete": "VB4532 E then W same pump; VB4621 native mode0/use, no combined-button deadlock",
+    "target_cancel": "VB4701 target screen; VB4771 cancellation unchanged count7/action0; second Esc returns to commands VB4841",
+    "held_E": "VB4842 DOWN held through next actor; VB5051 first actor action3 item99 and second commands; repeat VB5052 leaves same screen at5171; release/newDOWN5173 opens list",
+    "preserve_prior_action": "VB5261 second actor item list and VB5321 cancellation preserve actor0 action3/item99",
+    "E_one_consumption_D": "VB5322 same-pump D selects actor1 action5; VB5721 herb99 quantity6 reserved0; VB5941 still6",
+    "offphase": "D VB5942 during animation ignored and not queued",
+    "W_A": "VB6142 same-pump W opens throw mode1; VB6381 actor0 action4 item115; VB6382 same-pump A leaves actor0 throw and actor1 action6; VB7021 field inventory115 4->3",
+    "F_R": "F VB7402 yields action2 magic346/340 at7501; R VB8002 repeats action2 magic346/340 at8091"
+  },
+  "private_evidence_sha256": {
+    "commands.jsonl": "dc072b70ec70bc2fd738ed3adfb201b0b69e9f6bfa3cc65f33a3d3acca27a0f6",
+    "events.txt": "ba18a2b17a338d5860c442bdd5072aa5d8400da5a6ef9d3941b88222e7062b37",
+    "runtime.log": "1b25ab106d3376c7807d097ca086e47e942334a8cceeba48649d61b398cba241",
+    "proof.json": "2120d67f01125193c79b088a9bcb52d2673cb54498456de61e6a908ede176796"
+  },
+  "limits": [
+    "No physical HarmonyOS device run",
+    "No native Windows runtime acceptance",
+    "Q battle flee remains unbound; original Other menu retained"
+  ]
+}

@@ -18,6 +18,9 @@ inline Context context;
 inline uint64_t boundary = 0;
 inline bool battle_commands = false;
 inline uint64_t battle_boundary = 0;
+// Advances only after the original command reader returns a real event.
+inline uint64_t battle_consumed = 0;
+inline void battle_event_consumed() { ++battle_consumed; }
 
 // A PC surround request navigates the original menus. It never writes action,
 // damage, RNG, inventory or target data. Real guest input always wins.
@@ -192,27 +195,37 @@ struct PressLatch {
     }
 };
 
-// New battle shortcuts have their own latch: presses outside the main command
-// menu are consumed as zero, never queued for a later menu/turn. Crossing a
-// scope boundary retires the bit but keeps the physical hold until key-up.
+// Battle commands retain a fresh tap until the original blocking menu reader
+// consumes an event. This queue never applies to field input or other menus.
+// Acknowledgement retires all competing shortcuts; held keys require UP first.
 struct BattlePressLatch {
     PressLatch presses;
-    uint64_t seen_boundary = battle_boundary;
+    uint16_t pending = 0;
+    int pending_key = -1;
+    uint64_t seen_boundary = battle_boundary, seen_consumed = battle_consumed;
+    void block() { presses.block(); pending=0; pending_key=-1; }
     void sync() {
-        if (seen_boundary != battle_boundary) {
+        if (seen_boundary != battle_boundary || seen_consumed != battle_consumed) {
             seen_boundary = battle_boundary;
-            presses.block();
+            seen_consumed = battle_consumed;
+            block();
         }
     }
     void down(int key, uint16_t bit, bool repeat, bool focused, bool blocked) {
-        sync(); // Retire old presses before accepting a fresh edge.
+        sync();
+        if (key < 0 || static_cast<size_t>(key) >= presses.keys.size()) return;
+        const bool fresh = !repeat && !presses.keys[key].down;
         presses.down(key, battle_commands ? bit : uint16_t(0), repeat, focused, blocked);
+        // First eligible edge wins: the ROM rejects simultaneous command bits.
+        // Losing edges remain physically latched but are never queued behind it.
+        if (fresh && !pending && presses.read(key)) {
+            pending=presses.read(key); pending_key=key;
+        }
     }
-    void up(int key) { presses.up(key); }
-    void block() { presses.block(); }
+    void up(int key) { presses.up(key); } // pending survives a same-pump UP
     uint16_t read(int key) {
         sync();
-        return battle_commands ? presses.read(key) : uint16_t(0);
+        return battle_commands && key == pending_key ? pending : uint16_t(0);
     }
 };
 }

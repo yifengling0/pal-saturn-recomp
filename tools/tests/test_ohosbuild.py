@@ -755,12 +755,15 @@ class CurrentGenerationPinsTests(unittest.TestCase):
         # Independently replayed from the fixed-upstream patch chain through 0019,
         # precise-input/paired-queue host transforms, then keyboard+guard_host and the scoped prompt stage.
         self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
-            '8e1db06d45be432c08257b6be966d6fa85bddecd7dff4e3d8c2bc20d39b96f3d',
-            '8937b8d3c31929d985406b33a2119cf80877ae85d11abd63c808532434bfe3d6',
+            '9f167a6f7e80353d5d469ff5c0bb82fab5b760f805e770966a89b658231e51f2',
+            '7c48c8ad21c9bedc51ac4390ebef9d66516966a9e574e924056bd23f8e1875a3',
         }))
 
     def test_previous_ui13_hosts_are_no_longer_accepted(self):
         self.assertFalse(driver.OHOS_HOST_UI_SHA256 & {
+            '8e1db06d45be432c08257b6be966d6fa85bddecd7dff4e3d8c2bc20d39b96f3d',
+            '8937b8d3c31929d985406b33a2119cf80877ae85d11abd63c808532434bfe3d6',
+
             '6f43dc25fb417a481f8576c66405a28e537281b46b5d253a81def7d5244f6886',
             'cc9e663c9c1d44e140daa4288bdbafcb8b147c29e9e2513c4f293c24a953681a',
             'fc6905e7db4acdd74372706a83461e0cf463c91d27835428eee947262e0c0398',

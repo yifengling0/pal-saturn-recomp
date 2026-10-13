@@ -131,6 +131,7 @@ int main() {
         battle.up(f);
         battle.down(f, Strongest, false, true, false);
         check(battle.read(f) == Strongest, "fresh F maps only native L");
+        battle_event_consumed(); // F was accepted before the next command edge.
         battle.down(r, Repeat, false, true, false);
         check(battle.read(r) == Repeat, "fresh R maps only native Z");
     }
@@ -192,9 +193,59 @@ int main() {
         battle.up(f);
         battle.down(f, Strongest, false, true, false);
         battle.up(f);
-        check(battle.read(f) == 0, "battle helper is mapping only, no short-tap queue");
+        check(battle.read(f) == Strongest, "battle retains short tap until guest consumes");
+        battle_event_consumed();
+        check(battle.read(f) == 0, "guest event acknowledgement retires short tap");
         ui();
         check(!battle_commands, "explicit UI boundary fails closed");
+    }
+    for (uint16_t bit : {Items, Throw, Defend, Strongest, Repeat}) {
+        BattlePressLatch taps;
+        BattleCommandsScope main(true, 0, 2);
+        taps.down(8, bit, false, true, false); taps.up(8);
+        check(taps.read(8) == bit, "same-pump tap survives UP");
+        for (int poll=0; poll<20; ++poll) check(taps.read(8)==bit, "multiple polls cannot consume pending");
+        battle_event_consumed();
+        check(taps.read(8)==0, "one real guest event consumes tap");
+        taps.down(8, bit, false, true, false);
+        battle_event_consumed(); check(taps.read(8)==0, "held acknowledged command retires");
+        taps.down(8, bit, true, true, false); taps.down(8, bit, false, true, false);
+        check(taps.read(8)==0, "held repeat and duplicate DOWN cannot rearm");
+        taps.up(8); taps.down(8, bit, false, true, false);
+        taps.down(9, Throw, false, true, false); taps.up(9);
+        check(taps.read(8)==bit && taps.read(9)==0, "first edge wins without combined ROM-invalid command bits");
+        battle_event_consumed();
+        check(taps.read(8)==0 && taps.read(9)==0, "one guest event retires every competing shortcut");
+    }
+    // E shares a physical key across separate field and battle meanings. Every
+    // command has identical retirement rules, including actor order changes.
+    for (uint16_t bit : {Items, Throw, Defend, Strongest, Repeat}) {
+        for (uint16_t actor : {0, 1, 2}) {
+            for (uint16_t member : {0, 1, 2, 3, 4, 5}) {
+                BattlePressLatch command;
+                command.down(8, bit, false, true, false);
+                {
+                    BattleCommandsScope main(true, actor, member);
+                    check(command.read(8) == 0, "out-of-phase key cannot queue into any actor/member");
+                    command.up(8);
+                    command.down(8, bit, false, true, false);
+                    check(command.read(8) == bit, "fresh command uses exact native bit");
+                    command.down(8, bit, true, true, false);
+                    check(command.read(8) == bit, "OS repeat does not change native command");
+                }
+                check(command.read(8) == 0, "list/target phase retires command");
+                {
+                    BattleCommandsScope next(true, (actor + 1) % 3, (member + 1) % 6);
+                    command.down(8, bit, false, true, false);
+                    check(command.read(8) == 0, "held or duplicate DOWN cannot affect next actor");
+                    command.up(8);
+                    command.down(8, bit, false, true, false);
+                    check(command.read(8) == bit, "next actor requires fresh release and press");
+                    command.block();
+                    check(command.read(8) == 0, "focus/overlay retires command");
+                }
+            }
+        }
     }
     // A PAL98 letter with no Saturn button behind it. Pacing is measured in
     // emulated VBlanks, not the number of host reads in one VBlank.
