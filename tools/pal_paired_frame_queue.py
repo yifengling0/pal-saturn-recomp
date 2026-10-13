@@ -29,6 +29,9 @@ HOST_INPUT_SHA256.add('7441a6f17a9b448fd8b383f6baf760eed517297b37bac6dc61daee09c
 # 0018, independently replayed unchanged precise-host transform.
 HOST_INPUT_SHA256.add('810165bb7e2cee839b3147708e7788f8587be49878fc9524da30c3612f61dec3')
 
+# 0019 OHAudio identity fix after the unchanged precise-host transform.
+HOST_INPUT_SHA256.add('eda0a7d87e08dc9ddd3c7b7c1cb8a9bcaa83501864ac38fd8494657315692f2e')
+
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))
 def once(s,a,b,label):

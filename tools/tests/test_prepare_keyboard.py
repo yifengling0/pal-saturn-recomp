@@ -50,6 +50,17 @@ class PrepareTests(unittest.TestCase):
         self.patches.__enter__()
         self.addCleanup(self.patches.__exit__, None, None, None)
 
+    def test_prompt_planner_identity_cannot_reuse_stale_manifest(self):
+        self.prepare()
+        with patch('pal_prompt_confirm.source_identity', return_value='changed-planner'):
+            self.rejects_without_writes('Prompt planner manifest changed')
+
+    def test_prompt_planner_race_is_detected_before_writes(self):
+        from pal_prompt_confirm import source_identity
+        identity = source_identity()
+        with patch('pal_prompt_confirm.source_identity', side_effect=[identity, 'changed-during-plan']):
+            self.rejects_without_writes('Prompt planner changed while preparing')
+
     def prepare(self):
         return m.prepare_keyboard(self.f.recomp, self.f.runtime, self.f.root)
 

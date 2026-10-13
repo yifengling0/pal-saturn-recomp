@@ -1,0 +1,16 @@
+{
+  "saturn-recomp-before-audio": {
+    "raw": "109c29033e8159c462a9516e85fbaceb57611112269bbc8f838a92383dd6233a",
+    "precise": "810165bb7e2cee839b3147708e7788f8587be49878fc9524da30c3612f61dec3",
+    "paired": "6f0c959abaa3d6f4f8324182d65c56af2f79acd374f65ba2e7f5765527c78ef5",
+    "mapping_final": "fc6905e7db4acdd74372706a83461e0cf463c91d27835428eee947262e0c0398",
+    "accelerated_final": "808098fd058a034da91e63cda91745dfd9e58716ff537fbdc6409c79fa12a3af"
+  },
+  "saturn-recomp-pal": {
+    "raw": "4f5b0f831527a605358c522f8333170fcb6814a5bd4b31c03b7a504215de63d5",
+    "precise": "eda0a7d87e08dc9ddd3c7b7c1cb8a9bcaa83501864ac38fd8494657315692f2e",
+    "paired": "485ff48adb73ac2f32bd8a2470c50559e34b1d70b764b0339632f6a57c8735b1",
+    "mapping_final": "6f43dc25fb417a481f8576c66405a28e537281b46b5d253a81def7d5244f6886",
+    "accelerated_final": "cc9e663c9c1d44e140daa4288bdbafcb8b147c29e9e2513c4f293c24a953681a"
+  }
+}

@@ -12,7 +12,7 @@ import re
 
 VERSION = 'pal-field-input-planner-v1'
 HELPER_FILE = 'pal_field_input.h'
-HELPER_SHA256 = 'bec7e3713f164dcac5a64c0bc76884ed9d269f685fbb32d23ec8b6bdd37d43df'
+HELPER_SHA256 = 'b09d3270f9f15fc5170c045ec11d803e2faa71870fd8057e0ed9490dff9002b8'
 REQUIRED_FUNCTIONS = ('06026D84', '06026F90', '06020040', '06020058',
                       '0606016E', '06021F14', '0604A0BC', '060516B4', '0605D68A')
 # Exact complete functions after reviewed ordinary PC98 / all-options injection.
@@ -137,6 +137,8 @@ def plan_field_input(recomp, texts, helper_bytes, release_helpers=None):
                             after='pal_field_input::apply(c);')
         body = _instruction(body, '06026E74', 'c.r[8] = 0x0603440Cu;',
                             after='pal_field_input::outcome();')
+        body = _instruction(body, '06026E76', 'f_0603440C(c)',
+                            after='pal_field_input::wait_after();')
         for address, callee in SCRIPT_CALLS.items():
             body = _instruction(body, address, f'f_{callee}(c)',
                                 before='pal_field_input::script_before();',
@@ -170,6 +172,7 @@ def plan_field_input(recomp, texts, helper_bytes, release_helpers=None):
         # Removing only our exact inserts/guards must reproduce every original
         # byte: guest instructions, mover/NPC calls, RNG, polls, waits, FFC13 and
         # all old script/sync/frame-queue bookkeeping are therefore unchanged.
+        # The reviewed helper may select only the proved live field wait cadence.
         if _without_field_changes(text) != original[path]:
             raise ValueError('Field-input planner changed unrelated generated source')
         outputs[path] = text.encode()

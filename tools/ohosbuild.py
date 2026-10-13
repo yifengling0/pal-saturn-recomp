@@ -36,14 +36,14 @@ DEFAULT_DEVECO = Path(r'C:/Program Files/Huawei/DevEco Studio')
 # older complete runtime variants. Filled only with reviewed post-PC98 source
 # hashes after the current UI source is frozen; an empty set fails closed.
 OHOS_HOST_UI_VERSION = 13
-# UI generation remains 13; require its current 0014/0015 source, in whichever of
+# UI generation remains 13; require the 0019 OHAudio identity fix, in whichever of
 # the two generations a HAP may be built from: the mapping-only host and the
 # accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
-    # mapping generation: tools/winbuild.py build --recompile
-    'fc6905e7db4acdd74372706a83461e0cf463c91d27835428eee947262e0c0398',
-    # accelerated generation: winbuild.py learn --pal-options
-    '808098fd058a034da91e63cda91745dfd9e58716ff537fbdc6409c79fa12a3af',
+    # Fresh mapping + prompt edge generation after verified runtime0019.
+    '8e1db06d45be432c08257b6be966d6fa85bddecd7dff4e3d8c2bc20d39b96f3d',
+    # Fresh precise/paired + keyboard + prompt edge generation, same runtime.
+    '8937b8d3c31929d985406b33a2119cf80877ae85d11abd63c808532434bfe3d6',
 })
 
 # The accelerated generation is the one the Windows package ships, so the tablet gets the same

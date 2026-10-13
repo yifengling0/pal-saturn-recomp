@@ -752,15 +752,19 @@ class NativeIdentityContractTests(unittest.TestCase):
 
 class CurrentGenerationPinsTests(unittest.TestCase):
     def test_current_mapping_and_accelerated_exact_pins(self):
-        # Independently replayed from 5c6d50c's pinned runtime patch chain,
-        # precise-input/paired-queue host transforms, then keyboard+guard_host.
+        # Independently replayed from the fixed-upstream patch chain through 0019,
+        # precise-input/paired-queue host transforms, then keyboard+guard_host and the scoped prompt stage.
         self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
-            'fc6905e7db4acdd74372706a83461e0cf463c91d27835428eee947262e0c0398',
-            '808098fd058a034da91e63cda91745dfd9e58716ff537fbdc6409c79fa12a3af',
+            '8e1db06d45be432c08257b6be966d6fa85bddecd7dff4e3d8c2bc20d39b96f3d',
+            '8937b8d3c31929d985406b33a2119cf80877ae85d11abd63c808532434bfe3d6',
         }))
 
     def test_previous_ui13_hosts_are_no_longer_accepted(self):
         self.assertFalse(driver.OHOS_HOST_UI_SHA256 & {
+            '6f43dc25fb417a481f8576c66405a28e537281b46b5d253a81def7d5244f6886',
+            'cc9e663c9c1d44e140daa4288bdbafcb8b147c29e9e2513c4f293c24a953681a',
+            'fc6905e7db4acdd74372706a83461e0cf463c91d27835428eee947262e0c0398',
+            '808098fd058a034da91e63cda91745dfd9e58716ff537fbdc6409c79fa12a3af',
             'c69b7a176ecf926c06ad5351c2d6b7d5edcab507c9a61639e949308190c495c6',
             'bd2449a58ac52d73d08a304b84efb1781a22d0a7144ef16fe31b487407d09d79',
         })

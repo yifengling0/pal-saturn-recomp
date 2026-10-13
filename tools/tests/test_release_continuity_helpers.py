@@ -37,6 +37,11 @@ class Helpers(unittest.TestCase):
   if not (rt/'src/host/pal_field_input_ledger.h').is_file():self.skipTest('Prepare pinned patched runtime first')
   for on in ['0','1']:
    with self.subTest(continuity=on):self.assertIn('PASS',self.run_cpp('field_scene_integration_test.cpp',[rt/'include',rt/'src/host'],env={'PAL_FIELD_CONTINUITY':on}))
+ def test_walk_cadence_opt_out_and_unknown_values(self):
+  rt=ROOT/'third_party/saturn-recomp-pal/runtime'
+  if not (rt/'src/host/pal_field_input_ledger.h').is_file():self.skipTest('Prepare pinned patched runtime first')
+  cases=[{'PAL_FIELD_WALK_CADENCE':value} for value in ['original','0','1','','fast','Gentle','gentle ']]
+  self.assertEqual(self.run_cpp('field_scene_integration_test.cpp',[rt/'include',rt/'src/host'],env=cases).count('PASS'),len(cases))
  def test_reveal_enabled(self):self.assertIn('PASS',self.run_cpp('field_release_reveal_test.cpp',env={'PAL_FIELD_CONTINUITY':'1'}))
  def test_reveal_disabled(self):self.assertIn('PASS',self.run_cpp('field_release_reveal_test.cpp',env={'PAL_FIELD_CONTINUITY':'0'}))
  def test_debt_enabled(self):self.assertIn('PASS',self.run_cpp('field_release_debt_test.cpp',env={'PAL_FIELD_CONTINUITY':'1'}))

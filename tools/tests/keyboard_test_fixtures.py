@@ -164,7 +164,9 @@ class Fixture:
     @contextmanager
     def hashes(self, module):
         # Only fake source inputs are blessed. The real helper digest is never patched.
-        with patch.object(module, 'HARMONY_RUNTIME_HELPERS', {}, create=True), \
+        # Prompt injection has separate identity/host fixtures in test_prompt_confirm.
+        with patch('pal_prompt_confirm.plan', return_value={}), \
+             patch.object(module, 'HARMONY_RUNTIME_HELPERS', {}, create=True), \
              patch.object(module, 'FUNCTION_HASHES', {pc: [digest(text)] for pc, text in self.functions.items()}), \
              patch.object(module, 'RUNTIME_HASHES', {p.name: [digest(text)] for p, text in self.rt.items()}):
             yield

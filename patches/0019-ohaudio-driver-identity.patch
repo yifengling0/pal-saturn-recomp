@@ -1,0 +1,14 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -282,7 +282,10 @@
+     SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
+     g_audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+     if (!g_audio) { sat_note("SDL audio: %s (no sound)", SDL_GetError()); return false; }
+-    g_audio_jitter = SDL_GetCurrentAudioDriver() && std::strcmp(SDL_GetCurrentAudioDriver(), "ohaudio") == 0;
++    // SDL registers this backend as "OHAudio" (not the lowercase source directory).
++    // Match SDL's case-insensitive driver selection; other backends keep their policy.
++    const char* audio_driver = SDL_GetCurrentAudioDriver();
++    g_audio_jitter = audio_driver && SDL_strcasecmp(audio_driver, "OHAudio") == 0;
+     g_audio_observer = false;
+     g_audio_adaptive = g_audio_jitter && SDL_GetHintBoolean("PAL_AUDIO_ADAPTIVE_LEAD", false);
+     g_lead = g_audio_jitter ? 4410 : 2205;

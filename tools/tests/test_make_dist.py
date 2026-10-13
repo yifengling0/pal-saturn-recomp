@@ -103,7 +103,9 @@ class PackagingTests(unittest.TestCase):
         cd = self.runtime / pal_data_cd_speed._SOURCE
         shutil.copy2(REPO / 'third_party/saturn-recomp-pal/runtime' / pal_data_cd_speed._SOURCE, cd)
         pal_data_cd_speed.apply_data_cd_speed(self.runtime)
+        from pal_prompt_confirm import source_identity
         self.instrumentation = {
+            'prompt_planner_sha256': source_identity(),
             'version': pal_options.VERSION, 'runtime': '../runtime',
             'headers_sha256': self.headers,
             'defaults': {'PAL_RESPONSIVE_INPUT': '0', 'PAL_RESPONSIVE_ALIGN': '0',

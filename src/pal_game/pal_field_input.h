@@ -7,7 +7,8 @@
 uint64_t sat_vblanks();
 
 // PAL field-only policy at the existing input decision slot. This helper never
-// calls the guest mover, advances the machine, changes waits, or writes position.
+// calls the guest mover, advances the machine, or writes position. The optional
+// gentle cadence changes only the proved live-field render wait interval.
 namespace pal_field_input {
 inline constexpr uint32_t Scene = 0x060768EEu, SceneChange = 0x060768DCu;
 inline constexpr uint32_t ReleaseGate = 0x06076A09u;
@@ -22,6 +23,37 @@ struct Outcome {
     uint16_t before_x = 0, before_y = 0, after_x = 0, after_y = 0;
     bool accepted = false, observed = false, displaced = false;
 };
+// Only live, successfully displaced continuous field holds use this cadence.
+// Five repeat intervals total 18 VBlanks: 16.7% slower than the original 15.
+// No sleep, host clock change, extra mover call or smaller collision-grid step.
+struct WalkCadence {
+    uint64_t source = 0, press = 0;
+    uint16_t direction = 0;
+    unsigned phase = 0;
+    bool restoring = false;
+    static bool enabled() {
+        const char* value = std::getenv("PAL_FIELD_WALK_CADENCE");
+        return !value || !std::strcmp(value, "gentle");
+    }
+    void reset() { source = press = direction = phase = 0; }
+    unsigned next(const pal_field_host::Read& read, bool displaced) {
+        if (!enabled() || !displaced || !read.active || read.blocked ||
+            !read.direction || !(read.held & read.direction) || read.scene_held) {
+            reset(); return 3;
+        }
+        if (read.pending || source != read.source || press != read.press_seq ||
+            direction != read.direction) {
+            source = read.source; press = read.press_seq;
+            direction = read.direction; phase = 0;
+            return 3; // Fresh press/turn always retains original first interval.
+        }
+        // Ceiling cumulative 18/5 produces 4,4,3,4,3 with <=1 VB jitter.
+        const unsigned before = (phase * 18 + 4) / 5;
+        const unsigned after = ((phase + 1) * 18 + 4) / 5;
+        phase = (phase + 1) % 5;
+        return after - before;
+    }
+};
 struct State {
     pal_field_host::Read read{};
     ReadState read_state = ReadState::Empty;
@@ -32,6 +64,7 @@ struct State {
     uint16_t script_scene = 0;
     uint64_t accepted = 0, blocked = 0, rejected = 0;
     Outcome outcome{};
+    WalkCadence cadence;
 };
 inline State state;
 
@@ -55,6 +88,7 @@ inline void invalidate_read() {
 // replacement are conditional on owns_input(). No scope hook changes guest RAM.
 inline void clear() {
     pal_release_runtime::hard_boundary();
+    state.cadence.reset();
     invalidate_read();
     state.field = false;
     state.scene = ld16(Scene);
@@ -251,7 +285,8 @@ inline void apply(SH2Context& c) {
     c.r[0] = c.r[1] = 1;
 }
 
-// Hook at 06026E74, after the ONE original f06033654 call. Observation only.
+// Hook at 06026E74, after the ONE original f06033654 call. Observe collision
+// outcome before selecting the next continuous manual-field wait interval.
 inline void outcome() {
     if (!owns_input() || !state.outcome.accepted || state.outcome.observed) return;
     auto& result = state.outcome;
@@ -260,6 +295,25 @@ inline void outcome() {
     result.after_y = ld16(PlayerY);
     result.displaced = result.before_x != result.after_x || result.before_y != result.after_y;
     result.observed = true;
+    // E74 is after the original collision/mover and before its field render
+    // wait. Never touch scene debt, a scripted delta, neutral/blocked motion or
+    // an unknown interval. Resource/scene release provenance remains unchanged.
+    const bool ordinary = state.field && !state.script_depth && !state.ui_depth &&
+        !ld16(SceneChange) && ld16(Scene) == state.scene &&
+        !pal_release_runtime::state.carry_required && ld8(0x060FFC12u) == 3;
+    const unsigned interval = state.cadence.next(result.read, ordinary && result.displaced);
+    if (ordinary && interval == 4) {
+        st8(0x060FFC12u, 4);
+        state.cadence.restoring = true;
+    }
+}
+// Paired immediately after E76's field render/wait. The longer NEXT field
+// countdown is owned by the original sync; do not leak interval4 into scripts,
+// menus, palette reveals or battles invoked later in this iteration.
+inline void wait_after() {
+    if (!state.cadence.restoring) return;
+    state.cadence.restoring = false;
+    if (ld8(0x060FFC12u) == 4) st8(0x060FFC12u, 3);
 }
 
 inline void script_before() {

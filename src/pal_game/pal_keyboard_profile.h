@@ -216,3 +216,60 @@ struct BattlePressLatch {
     }
 };
 }
+
+// A single ROM-proven mode-10 message wait owns these edges. This is not a
+// global input queue: old presses, repeated DOWN, focus loss and the next box
+// cannot reuse an edge. Host callbacks are absent in headless/scripted builds.
+#include <set>
+#include <map>
+#include <tuple>
+namespace pal_prompt {
+using Source = std::tuple<uint64_t, uint64_t, uint64_t>;
+struct Ledger {
+    std::map<Source,uint16_t> down;
+    std::set<Source> pending;
+    uint64_t generation = 0;
+    bool active = false, spent = false;
+    uint64_t begin() { pending.clear(); active=true; spent=false; return ++generation; }
+    void end(uint64_t token) { if(token==generation) {active=false; pending.clear();} }
+    // Interrupt the input opportunity, not the still-running ROM wait. Keep
+    // physical holds retired until UP; resume may accept only a new DOWN.
+    void cancel() { pending.clear(); }
+    void press(Source source, bool eligible, uint16_t bits=0x0400) {
+        auto entry=down.emplace(source,uint16_t(bits & 0x0600));
+        if (!entry.second) { entry.first->second |= uint16_t(bits & 0x0600); return; }
+        if (active && !spent && eligible) pending.insert(source);
+    }
+    void release(Source source, bool canceled=false) {
+        down.erase(source);
+        if(canceled) pending.erase(source);
+    }
+    uint16_t held() const { uint16_t bits=0; for(const auto& entry:down) bits|=entry.second; return bits; }
+    bool consume(uint64_t token) {
+        if(token!=generation || !active || spent || pending.empty()) return false;
+        pending.clear(); spent=true; return true;
+    }
+};
+inline Ledger ledger;
+inline bool (*host_begin)() = nullptr;
+inline bool (*host_valid)() = nullptr;
+inline void (*host_consume)() = nullptr;
+struct Scope {
+    uint64_t token=0;
+    bool enabled=false, retired=false;
+    explicit Scope(bool exact) {
+        // Nested or unknown calls must not claim the outer wait's edges.
+        if(exact && !ledger.active && host_begin && host_valid && host_consume && host_begin()) {
+            token=ledger.begin(); enabled=true;
+        }
+    }
+    ~Scope() { if(enabled) { if(!retired) host_consume(); ledger.end(token); } }
+    bool accept() {
+        if(!enabled) return false;
+        if(!host_valid()) {ledger.cancel();return false;}
+        if(!ledger.consume(token)) return false;
+        host_consume(); retired=true; return true;
+    }
+    Scope(const Scope&)=delete;
+};
+}

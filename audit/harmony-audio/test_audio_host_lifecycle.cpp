@@ -4,6 +4,18 @@
 #ifndef HOST_SOURCE
 #error "Compile with HOST_SOURCE pointing at the runtime src/host/host.cpp under test"
 #endif
+// Keep three real stream endpoints reachable for the device-free SDL pull case.
+// Rename the host's wrappers instead of ELF-interposing these SDL entry points.
+#include <SDL3/SDL.h>
+static auto real_put = SDL_PutAudioStreamData;
+static auto real_queued = SDL_GetAudioStreamQueued;
+static auto real_callback = SDL_SetAudioStreamGetCallback;
+extern "C" bool SDLCALL test_put(SDL_AudioStream*, const void*, int);
+extern "C" int SDLCALL test_queued(SDL_AudioStream*);
+extern "C" bool SDLCALL test_callback(SDL_AudioStream*, SDL_AudioStreamCallback, void*);
+#define SDL_PutAudioStreamData test_put
+#define SDL_GetAudioStreamQueued test_queued
+#define SDL_SetAudioStreamGetCallback test_callback
 #include HOST_SOURCE
 #include <cstdarg>
 #include <cstdio>
@@ -37,6 +49,7 @@ static std::vector<bool> put_results;
 static std::vector<std::string> notes;
 static bool open_ok = true, format_ok = true, resume_ok = true, pause_ok = true, callback_ok = true;
 static std::string driver = "mock_audio";
+static bool null_driver = false;
 static SDL_AudioStreamCallback get_callback = nullptr;
 static int pause_calls = 0;
 static SDL_AudioSpec device{SDL_AUDIO_S16, 2, 44100}, requested{};
@@ -44,7 +57,8 @@ static int quantum = 4096, queued_bytes = 400, open_calls = 0;
 static int query_calls = 0, resume_calls = 0, gain_calls = 0;
 static SDL_AudioStreamCallback requested_callback = nullptr;
 static std::string hint_name, hint_value;
-static SDL_AudioStream* stream() { return reinterpret_cast<SDL_AudioStream*>(2); }
+static SDL_AudioStream* real_stream = nullptr;
+static SDL_AudioStream* stream() { return real_stream ? real_stream : reinterpret_cast<SDL_AudioStream*>(2); }
 }
 
 void sat_note(const char* fmt, ...) {
@@ -67,10 +81,11 @@ extern "C" bool SDLCALL SDL_GetAudioDeviceFormat(SDL_AudioDeviceID, SDL_AudioSpe
     *spec = mock::device; *frames = mock::quantum; return true;
 }
 extern "C" const char* SDLCALL SDL_GetError() { return "injected mock error"; }
-extern "C" const char* SDLCALL SDL_GetCurrentAudioDriver() { return mock::driver.c_str(); }
+extern "C" const char* SDLCALL SDL_GetCurrentAudioDriver() { return mock::null_driver ? nullptr : mock::driver.c_str(); }
 extern "C" bool SDLCALL SDL_SetAudioStreamGetCallback(SDL_AudioStream*, SDL_AudioStreamCallback cb, void*) {
     if (!mock::callback_ok) return false;
-    mock::get_callback = cb; return true;
+    mock::get_callback = cb;
+    return mock::real_stream ? real_callback(mock::real_stream, cb, nullptr) : true;
 }
 extern "C" bool SDLCALL SDL_PauseAudioStreamDevice(SDL_AudioStream*) {
     ++mock::pause_calls; return mock::pause_ok;
@@ -82,11 +97,13 @@ extern "C" bool SDLCALL SDL_ResumeAudioStreamDevice(SDL_AudioStream*) {
     ++mock::resume_calls; return mock::resume_ok;
 }
 extern "C" int SDLCALL SDL_GetAudioStreamQueued(SDL_AudioStream*) {
-    ++mock::query_calls; return mock::queued_bytes;
+    ++mock::query_calls;
+    return mock::real_stream ? real_queued(mock::real_stream) : mock::queued_bytes;
 }
 extern "C" bool SDLCALL SDL_PutAudioStreamData(SDL_AudioStream*, const void* data, int bytes) {
     const std::size_t index = mock::puts.size();
-    const bool ok = index < mock::put_results.size() ? mock::put_results[index] : true;
+    const bool injected_ok = index < mock::put_results.size() ? mock::put_results[index] : true;
+    const bool ok = injected_ok && (!mock::real_stream || real_put(mock::real_stream, data, bytes));
     const auto* begin = static_cast<const unsigned char*>(data);
     mock::puts.push_back({std::vector<unsigned char>(begin, begin + bytes), bytes, ok});
     return ok;
@@ -99,7 +116,7 @@ static void reset() {
     ++cases;
     g_audio_jitter = g_audio_observer = g_audio_skip_gap = g_audio_adaptive = false;
     g_audio_lifecycle_epoch = 0; g_audio_format_dirty = false;
-    mock::driver = "mock_audio"; mock::get_callback = nullptr; mock::pause_calls = 0;
+    mock::driver = "mock_audio"; mock::null_driver = false; mock::get_callback = nullptr; mock::pause_calls = 0;
     mock::pause_ok = mock::callback_ok = true;
     SDL_ResetHint("PAL_AUDIO_ADAPTIVE_LEAD");
     g_cfg = SaturnConfig{};
@@ -156,6 +173,49 @@ static std::string capture_report() {
 }
 
 int main() {
+    // SDL's pinned OHAudio bootstrap and real device logs spell it "OHAudio".
+    // The old lowercase-only mock hid the production branch-selection failure.
+    const struct { const char* name; bool ohaudio; } drivers[] = {
+        {"OHAudio", true}, {"ohaudio", true}, {"OHAUDIO", true}, {"pulse", false},
+        {"dummy", false}, {"", false}, {"OHAudio-extra", false}, {nullptr, false}
+    };
+    for (const auto& item : drivers) {
+        const char* driver = item.name;
+        reset(); mock::null_driver = !driver; mock::driver = driver ? driver : "";
+        const bool oh = item.ohaudio;
+        CHECK(host_audio_open());
+        CHECK(g_audio_jitter == oh && g_audio_observer == oh);
+        CHECK((mock::get_callback != nullptr) == oh);
+        CHECK(!g_audio_adaptive); // never silently turn the rejected tuning experiment on
+        CHECK(g_initial_zeros == 4410 && g_lead == 4410);
+        const auto original = pcm(735);
+        // A downstream pull may exactly drain the source queue with NO shortage.
+        // Repeated zero-queue observations must not add 100 ms holes on OHAudio.
+        for (int pull = 0; pull < 20; ++pull) {
+            if (mock::get_callback) mock::get_callback(nullptr, mock::stream(), 0, 4096 * 4);
+            mock::queued_bytes = 0;
+            host_audio_push(original.data(), 735);
+            CHECK(same_pcm(mock::puts.back(), original));
+        }
+        CHECK(g_pcm_accepted == 20 * 735 && g_pcm_dropped == 0 && g_pcm_failed == 0);
+        CHECK(g_recovery_zeros == (oh ? 0 : 20 * 4410));
+        CHECK(g_audio_short_calls == 0 && g_audio_growth_events == 0);
+        if (oh) {
+            CHECK(g_audio_get_calls == 20 && g_audio_max_request_bytes == 4096 * 4);
+            for (int cycle = 0; cycle < 5; ++cycle) {
+                const auto before = mock::puts.size();
+                audio_pause_for_menu(); audio_resume_after_menu();
+                CHECK(mock::puts.size() == before);
+                g_audio_lifecycle_epoch.fetch_add(1); // recognized background/foreground signal
+                host_audio_push(original.data(), 735);
+            }
+            CHECK(g_audio_resets == 15 && g_recovery_zeros == 0 && g_lead == 4410);
+            CHECK(capture_report().find("observer=1 adaptive=0") != std::string::npos);
+        }
+        conserved();
+    }
+    // A failed identity regression should report its checks, not call a null observer below.
+    if (failures) { std::printf("driver identity: %d failures\n", failures); return 1; }
     reset(); g_win = nullptr;
     CHECK(!host_audio_open()); CHECK(mock::open_calls == 0); CHECK(mock::puts.empty());
 
@@ -277,7 +337,7 @@ int main() {
         return line.find("driver=mock_audio") != std::string::npos;
     }));
 
-    reset(); mock::driver = "ohaudio";
+    reset(); mock::driver = "OHAudio";
     CHECK(host_audio_open()); CHECK(g_audio_jitter && g_audio_observer && mock::get_callback);
     CHECK(g_initial_zeros == 4410 && g_lead == 4410 && mock::puts.size() == 1);
     g_audio_adaptive=true;
@@ -330,7 +390,7 @@ int main() {
     CHECK(report.find("callback_other_thread=1")!=std::string::npos);
     CHECK(report.find("source shortage estimates, not hardware underruns")!=std::string::npos);
 
-    reset(); mock::driver="ohaudio"; CHECK(host_audio_open()); g_audio_adaptive=true;
+    reset(); mock::driver="OHAudio"; CHECK(host_audio_open()); g_audio_adaptive=true;
     g_audio_adapt_started=Clock::now()-std::chrono::seconds(3); mock::queued_bytes=0;
     mock::get_callback(nullptr,mock::stream(),4096*4,4096*4);
     mock::put_results={true,false,true}; // initial success, growth failure, real success
@@ -338,14 +398,14 @@ int main() {
     CHECK(g_recovery_zeros==0 && g_pcm_accepted==735 && g_audio_growth.target==4410 && g_put_errors==1);
     CHECK(same_pcm(mock::puts.back(),small)); conserved();
 
-    reset(); mock::driver="ohaudio"; CHECK(host_audio_open()); g_audio_adaptive=true;
+    reset(); mock::driver="OHAudio"; CHECK(host_audio_open()); g_audio_adaptive=true;
     g_audio_adapt_started=Clock::now()-std::chrono::seconds(3); mock::queued_bytes=0;
     mock::get_callback(nullptr,mock::stream(),4096*4,4096*4);
     mock::put_results={true,true,false};
     host_audio_push(small.data(),735);
     CHECK(g_recovery_zeros==882 && g_pcm_accepted==0 && g_pcm_failed==735 && g_lead==5292); conserved();
 
-    reset(); mock::driver="ohaudio"; CHECK(host_audio_open()); g_audio_adaptive=true;
+    reset(); mock::driver="OHAudio"; CHECK(host_audio_open()); g_audio_adaptive=true;
     g_audio_adapt_started=Clock::now()-std::chrono::seconds(3); mock::queued_bytes=(11025-735-881)*4;
     mock::get_callback(nullptr,mock::stream(),4096*4,4096*4);
     host_audio_push(small.data(),735);
@@ -356,11 +416,67 @@ int main() {
     host_audio_push(small.data(),735); mock::queued_bytes=0; host_audio_push(small.data(),735);
     CHECK(g_recovery_zeros==0 && g_query_errors==1); conserved();
 
-    reset(); mock::driver="ohaudio"; mock::callback_ok=false; CHECK(host_audio_open());
+    reset(); mock::driver="OHAudio"; mock::callback_ok=false; CHECK(host_audio_open());
     CHECK(!g_audio_observer); mock::queued_bytes=0; host_audio_push(small.data(),735);
     CHECK(g_recovery_zeros==0 && g_pcm_accepted==735);
     mock::pause_ok=mock::resume_ok=false; audio_pause_for_menu(); audio_resume_after_menu();
     CHECK(g_audio_pause_errors==1 && g_audio_resume_errors==1);
+    // A genuine SDL stream, manually pulled at the measured 4096-frame quantum.
+    // No device/init/thread timing is simulated here: this establishes PCM identity
+    // and that an exactly drained input stream does not cause inserted 100 ms gaps.
+    reset(); mock::driver = "OHAudio";
+    SDL_AudioSpec source{SDL_AUDIO_S16, 2, 44100};
+    mock::real_stream = SDL_CreateAudioStream(&source, &source);
+    CHECK(mock::real_stream != nullptr);
+    if (mock::real_stream) {
+        CHECK(host_audio_open());
+        std::vector<int16_t> prime(4410 * 2, -1);
+        CHECK(SDL_GetAudioStreamData(mock::real_stream, prime.data(), 4410 * 4) == 4410 * 4);
+        CHECK(std::all_of(prime.begin(), prime.end(), [](int16_t x) { return x == 0; }));
+        CHECK(real_queued(mock::real_stream) == 0);
+        auto chunk = pcm(4096);
+        std::vector<int16_t> pulled(chunk.size());
+        for (int cycle = 0; cycle < 20; ++cycle) {
+            host_audio_push(chunk.data(), 4096);
+            CHECK(real_queued(mock::real_stream) == 4096 * 4);
+            CHECK(SDL_GetAudioStreamData(mock::real_stream, pulled.data(), 4096 * 4) == 4096 * 4);
+            CHECK(pulled == chunk && real_queued(mock::real_stream) == 0);
+            if (cycle % 4 == 0) { audio_pause_for_menu(); audio_resume_after_menu(); }
+        }
+        CHECK(g_pcm_attempted == 20 * 4096 && g_pcm_accepted == 20 * 4096);
+        CHECK(g_audio_get_calls == 21 && g_audio_short_calls == 0);
+        CHECK(g_initial_zeros == 4410 && g_recovery_zeros == 0 && g_pcm_dropped == 0 && g_pcm_failed == 0);
+        CHECK(g_underruns == 20 && !g_audio_adaptive && g_audio_growth_events == 0);
+        conserved();
+        // An actual shortage must not leave the stream waiting for a refill
+        // threshold, nor insert silence before the next real producer chunk.
+        // Run beyond startup warmup so that default-off adaptation is meaningful.
+        g_audio_adapt_started = Clock::now() - std::chrono::seconds(3);
+        std::fill(pulled.begin(), pulled.end(), -12345);
+        CHECK(SDL_GetAudioStreamData(mock::real_stream, pulled.data(), 4096 * 4) == 0);
+        CHECK(std::all_of(pulled.begin(), pulled.end(), [](int16_t x) { return x == -12345; }));
+        CHECK(g_audio_short_calls == 1 && g_audio_additional_bytes == 4096 * 4);
+        CHECK(real_queued(mock::real_stream) == 0);
+        const auto partial = pcm(735);
+        host_audio_push(partial.data(), 735);
+        CHECK(real_queued(mock::real_stream) == 735 * 4);
+        CHECK(SDL_GetAudioStreamData(mock::real_stream, pulled.data(), 4096 * 4) == 735 * 4);
+        CHECK(std::equal(partial.begin(), partial.end(), pulled.begin()));
+        CHECK(std::all_of(pulled.begin() + partial.size(), pulled.end(), [](int16_t x) { return x == -12345; }));
+        CHECK(real_queued(mock::real_stream) == 0);
+        CHECK(g_audio_short_calls == 2 && g_audio_additional_bytes == (4096 + 4096 - 735) * 4);
+        host_audio_push(chunk.data(), 4096);
+        CHECK(real_queued(mock::real_stream) == 4096 * 4);
+        CHECK(SDL_GetAudioStreamData(mock::real_stream, pulled.data(), 4096 * 4) == 4096 * 4);
+        CHECK(pulled == chunk && real_queued(mock::real_stream) == 0);
+        CHECK(g_audio_get_calls == 24 && g_audio_short_calls == 2);
+        CHECK(g_pcm_accepted == 21 * 4096 + 735 && g_pcm_dropped == 0 && g_pcm_failed == 0);
+        CHECK(g_recovery_zeros == 0 && g_initial_zeros == 4410 && g_lead == 4410);
+        CHECK(!g_audio_adaptive && g_audio_growth_events == 0);
+        conserved();
+        SDL_DestroyAudioStream(mock::real_stream); mock::real_stream = nullptr;
+        g_audio = nullptr;
+    }
     std::printf("%d actual-host audio cases, %d checks, %d failures; no GUI/audio device created\n", cases, checks, failures);
     return failures ? 1 : 0;
 }

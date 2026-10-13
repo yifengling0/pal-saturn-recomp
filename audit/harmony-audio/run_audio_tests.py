@@ -61,7 +61,7 @@ def main() -> int:
     result = {'runtime': str(runtime), 'policy_only': args.policy_only,
               'sanitizer': None if args.no_sanitizer else 'undefined',
               'source_sha256_before': before, 'steps': [], 'passed': False,
-              'scope': 'pure policy and actual host.cpp with mocked SDL audio endpoints; no device'}
+              'scope': 'pure policy and actual host.cpp with mocked device endpoints and a real manually pulled SDL stream; no device'}
     env = os.environ.copy()
     # A developer's optional adaptation setting must not change the baseline cases.
     env.pop('PAL_AUDIO_ADAPTIVE_LEAD', None)

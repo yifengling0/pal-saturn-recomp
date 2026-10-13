@@ -37,7 +37,7 @@ def fixture(mode):
     field += '    f_06033654(c); // 06026E70 original mover\n'
     field += '    c.r[8] = 0x0603440Cu; // 06026E74 original load\n'
     if mode == 'options': field += '    pal_input_wait_begin(c);\n    if (pal_pfq_enabled) pal_pfq_field_begin(c);\n'
-    field += '    original_wait(); // 06026E76 original wait\n'
+    field += '    f_0603440C(c); // 06026E76 original wait\n'
     if mode == 'options': field += '    pal_input_wait_end();\n'
     for addr,callee in p.UI_CALLS.items():
         if mode == 'options': field += '    pal_input_clear();\n'
@@ -133,7 +133,8 @@ class PlannerTests(unittest.TestCase):
             outputs=self.plan(mode);path,*_=p._function(self.fixtures[mode][1],'06026D84');lines=outputs[path].decode().splitlines()
             expectations={'06026E54':(-1,'pal_field_input::begin();'),
                           '06026E58':(1,'pal_field_input::apply(c);'),
-                          '06026E74':(1,'pal_field_input::outcome();')}
+                          '06026E74':(1,'pal_field_input::outcome();'),
+                          '06026E76':(1,'pal_field_input::wait_after();')}
             for addr,(offset,code) in expectations.items():
                 i=next(i for i,line in enumerate(lines) if '// '+addr+' ' in line)
                 self.assertEqual(lines[i+offset].strip(),code)

@@ -201,6 +201,12 @@ static void disabled_comparison() {
     std::puts("PASS disabled: initial activation, resource/fade hard wait, FF rejection");
 }
 int main() {
+    if (!field::WalkCadence::enabled()) {
+        field::WalkCadence cadence;
+        Read r{}; r.active=true; r.held=r.direction=Up; r.source=Key; r.press_seq=1;
+        for (unsigned i=0;i<1000;++i) assert(cadence.next(r,true)==3);
+        std::puts("PASS original/unknown cadence fail-closed"); return 0;
+    }
     if (!release::enabled()) { disabled_comparison(); return 0; }
     run("initial entry cannot borrow scene permission", [] {
         reset(); assert(!fixture_ledger.active()); assert(!release::can_scene_suspend());
@@ -475,6 +481,77 @@ int main() {
         release::neutral_post(); hold(); field_slot(); apply(); assert(moved());
         field::filter_scene_debt(c); assert(moved());
     });
-    assert(cases == 62);
+    run("gentle cadence repeats 18 VB in five slots and keeps fresh edges at3", [] {
+        field::WalkCadence cadence;
+        Read r{}; r.active=true; r.held=r.direction=Up; r.source=Key; r.press_seq=1;
+        r.pending=true; assert(cadence.next(r,true)==3); r.pending=false;
+        for (unsigned cycle=0;cycle<100;++cycle) {
+            unsigned total=0;
+            for (unsigned expected : {4u,4u,3u,4u,3u}) {
+                const auto interval=cadence.next(r,true);
+                assert(interval==expected); total+=interval;
+            }
+            assert(total==18);
+        }
+        r.direction=r.held=Left; r.pending=true; ++r.press_seq;
+        assert(cadence.next(r,true)==3);
+        r.pending=false; assert(cadence.next(r,true)==4);
+        r.pending=true; ++r.press_seq; assert(cadence.next(r,true)==3);
+    });
+    run("release collision and different sources never owe slow phase", [] {
+        field::WalkCadence cadence;
+        Read r{}; r.active=true; r.held=r.direction=Up; r.source=Key; r.press_seq=1;
+        assert(cadence.next(r,true)==3); assert(cadence.next(r,true)==4);
+        r.held=0; assert(cadence.next(r,true)==3);
+        r.held=Up; ++r.press_seq; assert(cadence.next(r,true)==3);
+        assert(cadence.next(r,false)==3); assert(cadence.next(r,true)==3);
+        ++r.source; assert(cadence.next(r,true)==3);
+        r.scene_held=true; assert(cadence.next(r,true)==3);
+        r.scene_held=false; assert(cadence.next(r,true)==3);
+        r.active=false; assert(cadence.next(r,true)==3);
+        r.active=true; assert(cadence.next(r,true)==3);
+    });
+    run("outcome changes only successful continuous field wait interval", [] {
+        established_hold();
+        const auto finish = [](bool displace=true) {
+            st8(0x060FFC12,3);
+            if (displace) st16(field::PlayerX,ld16(field::PlayerX)+16);
+            field::outcome();
+        };
+        finish(); assert(ld8(0x060FFC12)==3); field::wait_after();
+        fixture_vblank+=3; field_slot(); apply();
+        const auto before=memory; const auto regs=c;
+        finish(); assert(ld8(0x060FFC12)==4);
+        for (unsigned i=0;i<16;++i) assert(c.r[i]==regs.r[i]);
+        for (const auto& [address,value] : memory) {
+            if (address==0x060FFC12 || address==field::PlayerX || address==field::PlayerX+1) continue;
+            auto it=before.find(address); assert(value==(it==before.end()?0:it->second));
+        }
+        field::wait_after(); assert(ld8(0x060FFC12)==3);
+        field::wait_after(); assert(ld8(0x060FFC12)==3);
+        fixture_vblank+=4; field_slot(); apply(); finish(false);
+        assert(ld8(0x060FFC12)==3);
+        fixture_ledger.release(Key); field_slot(); apply(); finish(false);
+        assert(ld8(0x060FFC12)==3 && !moved());
+    });
+    run("scene carry script and UI never install gentle interval", [] {
+        arrive_scene(); field_slot(); apply();
+        st8(0x060FFC12,3); st16(field::PlayerX,ld16(field::PlayerX)+16);
+        field::outcome(); assert(ld8(0x060FFC12)==3);
+        established_hold(); st8(0x060FFC12,3);
+        st16(field::PlayerX,16); field::outcome();
+        field_slot(); apply(); ++field::state.script_depth;
+        st16(field::PlayerX,32); field::outcome(); assert(ld8(0x060FFC12)==3);
+        --field::state.script_depth; field_slot(); apply(); ++field::state.ui_depth;
+        st16(field::PlayerX,48); field::outcome(); assert(ld8(0x060FFC12)==3);
+    });
+    run("non-live and unrecognized modes keep original interval", [] {
+        reset(false); st8(0x060FFC12,6); field::outcome(); assert(ld8(0x060FFC12)==6);
+        established_hold(); st16(field::PlayerX,16); st8(0x060FFC12,3); field::outcome();
+        field_slot(); apply(); st8(0x060FFC12,2); st16(field::PlayerX,32);
+        field::outcome(); assert(ld8(0x060FFC12)==2);
+        field::wait_after(); assert(ld8(0x060FFC12)==2);
+    });
+    assert(cases == 67);
     std::printf("PASS %u field/scene integration cases (synthetic memory and host)\n", cases);
 }

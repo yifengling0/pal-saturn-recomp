@@ -51,8 +51,8 @@ source change. Logs, executables, and `results.json` go only to `--build-dir`
 
 ## Coverage and interpretation
 
-Verified against the integrated runtime: 31 pure-policy checks and 27 host
-scenarios / 166 assertions pass with UBSan; selected source hashes are unchanged.
+Verified with the 0019 driver-identity fix: 31 pure-policy checks and 36 host
+scenarios / 510 assertions pass with UBSan; selected source hashes are unchanged.
 The policy-only environment-variable path and an output directory containing
 spaces were also exercised. Missing runtime input fails before creating outputs.
 
@@ -60,7 +60,9 @@ spaces were also exercised. Missing runtime input fails before creating outputs.
   reported-quantum headroom, warmup/cooldown, invalid inputs, finite padding budget,
   successful-Put-only growth, stale-epoch suppression, queue errors, and capacity.
 - `test_audio_host_lifecycle.cpp`: includes the actual selected `host.cpp` and
-  mocks only external audio endpoints. It covers unchanged generic-driver behavior,
+  mocks device endpoints and uses both mock queues and one genuine device-free SDL
+  stream. It covers the actual `OHAudio` registration name, case variants, null and
+  unrelated drivers, unchanged generic-driver behavior,
   OHAudio source-empty without unconditional refill, PCM byte identity and frame
   accounting, API failures, capacity priority, an observer invoked on another
   thread, ten repeated menu-audio pause/resume boundaries, retained last-push
@@ -80,3 +82,7 @@ real PCM/wall-time diagnostics as a separate acceptance step.
 The larger synthetic scheduling sweep, real SDL stream test, dummy-device A/B
 runs, and rejected 200 ms lead experiment belong to the accompanying audit
 evidence rather than this minimal repository suite.
+
+The 2026-10-13 identity regression, old-host red test, real SDL PCM pull check,
+and on-device acceptance checklist are documented in
+[`HARMONY_AUDIO_DRIVER_IDENTITY.md`](../../docs/HARMONY_AUDIO_DRIVER_IDENTITY.md).

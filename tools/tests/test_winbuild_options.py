@@ -85,7 +85,7 @@ class WindowsDraftTests(unittest.TestCase):
     def test_new_game_layer_cpp_is_fingerprinted(self):
         source=self.root/'src/pal_game/pal_audio_stream_init.cpp'
         source.parent.mkdir(parents=True);source.write_text('// fixture one')
-        for name in ('winbuild.py','pal_render_returns.py','pal_options.py','pal_data_cd_speed.py','pal_paired_frame_queue.py','pal_keyboard_profile.py','pal_field_input.py','pal_scene_continuity.py'):
+        for name in ('winbuild.py','pal_render_returns.py','pal_options.py','pal_data_cd_speed.py','pal_paired_frame_queue.py','pal_keyboard_profile.py','pal_prompt_confirm.py','pal_field_input.py','pal_scene_continuity.py'):
             tool=self.root/'tools'/name;tool.parent.mkdir(exist_ok=True);tool.write_text('# fixture')
         self.call(['build','--pal-options','--headless'])
         first=dict(self.fakebuild.inputs(self.game))

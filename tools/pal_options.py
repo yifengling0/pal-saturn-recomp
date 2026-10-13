@@ -79,11 +79,15 @@ def prepare_options(recomp: Path, runtime: Path, root: Path, *, verify_only: boo
         for name in ('pal_release_gate.h', 'pal_release_runtime.h'):
             source_headers[name] = (root/'src/pal_game'/name).read_bytes()
     header_hashes = {name: digest(data) for name, data in source_headers.items()}
+    from pal_prompt_confirm import source_identity
+    prompt_identity = source_identity()
     from pal_keyboard_profile import runtime_support_inputs, verify_runtime_support_manifest
     support_inputs = runtime_support_inputs(runtime)
     manifest = recomp / MANIFEST
     if manifest.exists():
         previous = json.loads(manifest.read_text(encoding='utf-8'))
+        if previous.get('prompt_planner_sha256') != prompt_identity:
+            raise ValueError('Prompt planner changed; regenerate')
         verify_runtime_support_manifest(previous, runtime, support_inputs)
         if previous.get('version') != VERSION or previous.get('headers_sha256') != header_hashes:
             raise ValueError('Option/header version changed; regenerate a fresh detached build')
@@ -283,7 +287,9 @@ def prepare_options(recomp: Path, runtime: Path, root: Path, *, verify_only: boo
     for p, data in all_original.items():
         if p.resolve() != p or p.read_bytes() != data:
             raise ValueError(f'Source changed while preparing injection: {p}')
-    data = {'version': VERSION, 'runtime': relative_runtime, 'headers_sha256': header_hashes,
+    if source_identity() != prompt_identity:
+        raise ValueError('Prompt planner changed while preparing injection')
+    data = {'prompt_planner_sha256': prompt_identity, 'version': VERSION, 'runtime': relative_runtime, 'headers_sha256': header_hashes,
         'defaults': {'PAL_RESPONSIVE_INPUT': '0', 'PAL_RESPONSIVE_ALIGN': '0',
                      'PAL_RESPONSIVE_WAKE': '0', 'PAL_SHORT_EFFECT_PREP': '1',
                      'PAL_EFFECT_ANIMATION_SPEED': '1.5', 'PAL_PAIRED_FRAME_QUEUE': '0'},

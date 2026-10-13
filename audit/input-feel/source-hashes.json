@@ -1,0 +1,17 @@
+{
+  "head": "6e2c20cca4006aab65b4866fe9a29fd5bc4b7ceb",
+  "raw_host_sha256": "4f5b0f831527a605358c522f8333170fcb6814a5bd4b31c03b7a504215de63d5",
+  "precise_host_sha256": "eda0a7d87e08dc9ddd3c7b7c1cb8a9bcaa83501864ac38fd8494657315692f2e",
+  "paired_host_sha256": "485ff48adb73ac2f32bd8a2470c50559e34b1d70b764b0339632f6a57c8735b1",
+  "mapping_final_host_sha256": "8e1db06d45be432c08257b6be966d6fa85bddecd7dff4e3d8c2bc20d39b96f3d",
+  "accelerated_final_host_sha256": "8937b8d3c31929d985406b33a2119cf80877ae85d11abd63c808532434bfe3d6",
+  "mapping_fresh_generation_matches": true,
+  "planner_sha256": {
+    "pal_options.py": "284890e091c39c6390def318fbdce9ae5127e89e12bbf03d636a825ea6ecb4ed",
+    "pal_paired_frame_queue.py": "2039478d4f74babac830ba0f83475b4a74c740dbc57c97079b2b599bddf61c42",
+    "pal_keyboard_profile.py": "f7783e2de9877f5045116cc6a55f57ffb6b415d62a047d7e1e9e9f6bf77b64fb",
+    "pal_prompt_confirm.py": "3e1f31adfa15b69fef3f9609ccf205060cf1987bef10f0f11117ca876fb2a3a4"
+  },
+  "accelerated_fresh_generation_matches": true,
+  "both_final_hashes_match_manifest_outputs": true
+}
