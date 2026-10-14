@@ -481,27 +481,28 @@ int main() {
         release::neutral_post(); hold(); field_slot(); apply(); assert(moved());
         field::filter_scene_debt(c); assert(moved());
     });
-    run("gentle cadence repeats 18 VB in five slots and keeps fresh edges at3", [] {
+    run("gentle cadence is 20 percent slower than 18/5 and keeps fresh edges at3", [] {
         field::WalkCadence cadence;
         Read r{}; r.active=true; r.held=r.direction=Up; r.source=Key; r.press_seq=1;
         r.pending=true; assert(cadence.next(r,true)==3); r.pending=false;
         for (unsigned cycle=0;cycle<100;++cycle) {
             unsigned total=0;
-            for (unsigned expected : {4u,4u,3u,4u,3u}) {
+            for (unsigned expected : {5u,4u,5u,4u,5u,4u,5u,4u,5u,4u}) {
                 const auto interval=cadence.next(r,true);
                 assert(interval==expected); total+=interval;
             }
-            assert(total==18);
+            // Ten previous intervals totalled 36 VB. 36/45 is exactly 80% speed.
+            assert(total==45 && total*4==36*5);
         }
         r.direction=r.held=Left; r.pending=true; ++r.press_seq;
         assert(cadence.next(r,true)==3);
-        r.pending=false; assert(cadence.next(r,true)==4);
+        r.pending=false; assert(cadence.next(r,true)==5);
         r.pending=true; ++r.press_seq; assert(cadence.next(r,true)==3);
     });
     run("release collision and different sources never owe slow phase", [] {
         field::WalkCadence cadence;
         Read r{}; r.active=true; r.held=r.direction=Up; r.source=Key; r.press_seq=1;
-        assert(cadence.next(r,true)==3); assert(cadence.next(r,true)==4);
+        assert(cadence.next(r,true)==3); assert(cadence.next(r,true)==5);
         r.held=0; assert(cadence.next(r,true)==3);
         r.held=Up; ++r.press_seq; assert(cadence.next(r,true)==3);
         assert(cadence.next(r,false)==3); assert(cadence.next(r,true)==3);
@@ -521,7 +522,8 @@ int main() {
         finish(); assert(ld8(0x060FFC12)==3); field::wait_after();
         fixture_vblank+=3; field_slot(); apply();
         const auto before=memory; const auto regs=c;
-        finish(); assert(ld8(0x060FFC12)==4);
+        finish(); assert(ld8(0x060FFC12)==5);
+        field::outcome(); assert(ld8(0x060FFC12)==5);
         for (unsigned i=0;i<16;++i) assert(c.r[i]==regs.r[i]);
         for (const auto& [address,value] : memory) {
             if (address==0x060FFC12 || address==field::PlayerX || address==field::PlayerX+1) continue;
@@ -529,7 +531,18 @@ int main() {
         }
         field::wait_after(); assert(ld8(0x060FFC12)==3);
         field::wait_after(); assert(ld8(0x060FFC12)==3);
-        fixture_vblank+=4; field_slot(); apply(); finish(false);
+        fixture_vblank+=5; field_slot(); apply(); finish();
+        assert(ld8(0x060FFC12)==4);
+        field::wait_after(); assert(ld8(0x060FFC12)==3);
+        fixture_vblank+=4; field_slot(); apply(); finish();
+        assert(ld8(0x060FFC12)==5);
+        // A real boundary resets the phase but must still restore the owned override.
+        field::clear(); field::wait_after(); assert(ld8(0x060FFC12)==3);
+        established_hold(); finish(); field::wait_after();
+        fixture_vblank+=3; field_slot(); apply(); finish();
+        assert(ld8(0x060FFC12)==5);
+        st8(0x060FFC12,6); field::wait_after(); assert(ld8(0x060FFC12)==6);
+        fixture_vblank+=5; field_slot(); apply(); finish(false);
         assert(ld8(0x060FFC12)==3);
         fixture_ledger.release(Key); field_slot(); apply(); finish(false);
         assert(ld8(0x060FFC12)==3 && !moved());

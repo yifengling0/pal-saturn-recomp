@@ -24,13 +24,13 @@ struct Outcome {
     bool accepted = false, observed = false, displaced = false;
 };
 // Only live, successfully displaced continuous field holds use this cadence.
-// Five repeat intervals total 18 VBlanks: 16.7% slower than the original 15.
+// Two repeat intervals total 9 VBlanks: 20% slower than the previous 18/5.
 // No sleep, host clock change, extra mover call or smaller collision-grid step.
 struct WalkCadence {
     uint64_t source = 0, press = 0;
     uint16_t direction = 0;
     unsigned phase = 0;
-    bool restoring = false;
+    unsigned restoring = 0;
     static bool enabled() {
         const char* value = std::getenv("PAL_FIELD_WALK_CADENCE");
         return !value || !std::strcmp(value, "gentle");
@@ -47,11 +47,10 @@ struct WalkCadence {
             direction = read.direction; phase = 0;
             return 3; // Fresh press/turn always retains original first interval.
         }
-        // Ceiling cumulative 18/5 produces 4,4,3,4,3 with <=1 VB jitter.
-        const unsigned before = (phase * 18 + 4) / 5;
-        const unsigned after = ((phase + 1) * 18 + 4) / 5;
-        phase = (phase + 1) % 5;
-        return after - before;
+        // Alternating 5,4 averages 4.5 VB, with <=1 VB variation.
+        const unsigned interval = phase ? 4 : 5;
+        phase ^= 1;
+        return interval;
     }
 };
 struct State {
@@ -302,18 +301,19 @@ inline void outcome() {
         !ld16(SceneChange) && ld16(Scene) == state.scene &&
         !pal_release_runtime::state.carry_required && ld8(0x060FFC12u) == 3;
     const unsigned interval = state.cadence.next(result.read, ordinary && result.displaced);
-    if (ordinary && interval == 4) {
-        st8(0x060FFC12u, 4);
-        state.cadence.restoring = true;
+    if (ordinary && (interval == 4 || interval == 5)) {
+        st8(0x060FFC12u, interval);
+        state.cadence.restoring = interval;
     }
 }
 // Paired immediately after E76's field render/wait. The longer NEXT field
-// countdown is owned by the original sync; do not leak interval4 into scripts,
+// countdown is owned by the original sync; do not leak the override into scripts,
 // menus, palette reveals or battles invoked later in this iteration.
 inline void wait_after() {
     if (!state.cadence.restoring) return;
-    state.cadence.restoring = false;
-    if (ld8(0x060FFC12u) == 4) st8(0x060FFC12u, 3);
+    const unsigned interval = state.cadence.restoring;
+    state.cadence.restoring = 0;
+    if (ld8(0x060FFC12u) == interval) st8(0x060FFC12u, 3);
 }
 
 inline void script_before() {

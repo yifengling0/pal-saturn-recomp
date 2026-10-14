@@ -12,7 +12,7 @@ import re
 
 VERSION = 'pal-field-input-planner-v1'
 HELPER_FILE = 'pal_field_input.h'
-HELPER_SHA256 = 'b09d3270f9f15fc5170c045ec11d803e2faa71870fd8057e0ed9490dff9002b8'
+HELPER_SHA256 = '7ef4f3b89dcd2783cd66f10a0b7d8b88115406bc9afec4e910f878cf8e78f2a1'
 REQUIRED_FUNCTIONS = ('06026D84', '06026F90', '06020040', '06020058',
                       '0606016E', '06021F14', '0604A0BC', '060516B4', '0605D68A')
 # Exact complete functions after reviewed ordinary PC98 / all-options injection.

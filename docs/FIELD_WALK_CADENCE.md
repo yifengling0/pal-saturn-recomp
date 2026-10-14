@@ -8,9 +8,11 @@ cadence; unknown values fail closed to the original cadence. `PAL_FIELD_INPUT=0`
 and pure headless/scripted playback retain their original behavior.
 
 A newly accepted press or direction change retains the original movement and
-first interval. Subsequent successful continuous steps use `4,4,3,4,3` VBlanks:
-18 rather than 15 VBlanks per five repeated steps, a 16.7% steady-state speed
-reduction. There is no initial repeat delay, dropped movement attempt, smaller
+first interval. Subsequent successful continuous steps use `5,4` VBlanks:
+45 rather than the previous 36 VBlanks per ten repeated steps, a further 20%
+steady-state speed reduction on both Windows and HarmonyOS. Compared with the
+original 3-VBlank interval, the total reduction is 33.3%. There is no initial
+repeat delay, dropped movement attempt, smaller
 collision-grid displacement, extra mover invocation, or global frame/audio clock
 change. A pending short tap is still acknowledged and consumed only once.
 
@@ -32,7 +34,7 @@ physics clock and must not be described as one.
 The longer interval is installed after `06026E74`'s original mover and restored
 immediately after the field render/wait call at `06026E76`, before later script,
 UI or battle calls. Their subsequent intervals are unchanged. A countdown already
-loaded by a gentle step can still add at most one VBlank (about 16.7 ms at 60 Hz)
+loaded by a gentle step can still add at most two VBlanks (about 33.3 ms at 60 Hz)
 to a newly arriving turn/press or the first subsequent script wait. We deliberately
 do not rewrite the countdown or skip its original erase/render stage to erase
 this bounded difference. First-input responsiveness is not claimed identical in
@@ -49,18 +51,53 @@ not only the interval constant, when comparing responsiveness.
   one mover and render call. The added wait restoration hook is paired at E76.
 - Portable integration covers fresh taps, direction changes, holds, release,
   collision, source changes, scene debt, real UI/script boundaries, non-live paths,
-  unknown intervals, repeated observation and exact 18/5 cadence over 100 cycles.
+  unknown intervals, repeated observation and exact 9/2 cadence over 100 cycles.
+- Both 4- and 5-VBlank overrides are restored after the original wait, including
+  a boundary during the wait. A changed interval belonging to the guest is retained.
 - Only the proved field wait interval is changed by the cadence outcome helper;
   tests compare the remaining fixture WRAM and registers.
 - The original and unknown option values retain interval3 over 1,000 repetitions.
 - Header identity remains checked by the field planner and detached-generation
   manifests. An old generated header cannot silently inherit the new behavior.
 
-Actual SDL software-renderer input tests and their measured results are recorded
-below. SDL queue injection is not a physical OpenHarmony touchscreen/keyboard
-measurement; phone/tablet feel remains a device validation item.
+The earlier SDL software-renderer input tests and their measured results are
+recorded below. They measured the previous cadence, not the current 9/2 cadence.
+SDL queue injection is not a physical OpenHarmony touchscreen/keyboard measurement;
+phone/tablet feel remains a device validation item.
 
-### Measured SDL comparison (2026-10-13)
+### Current 9/2 cadence: build and regression verification (2026-10-14)
+
+The shared-header change was built on master `adb7392`, including its HarmonyOS
+orientation-menu fix. The complete tool suite passed: 406 tests and 201 subtests,
+with 8 skips. The cadence integration checks 1,000 repeated intervals, fresh
+presses/turns, release/collision, both override restorations and guest-owned
+interval updates. The 20% figure describes steady continuous walking; the initial
+step and a pending original countdown can affect a short movement segment.
+
+Windows was fully regenerated and compiled, then passed the distribution identity
+gate. HarmonyOS ARM64 and x86_64 were built from the same generated guest code.
+Each platform's compiled field-loop object records the current header dependency
+and is newer than that header. Both HarmonyOS guests use `-O2`; the signed HAP's
+native libraries match the corresponding stripped build outputs, and official
+`verify-app` succeeded. These checks establish build inclusion, not a new physical
+input timing measurement.
+
+The Windows package was launched from the opening sequence using the existing
+window settings and a new working copy of the private pre-battle save. Its live
+log confirmed Direct3D11 presentation, WASAPI audio and serial-fiber CPU handoff.
+The signed HAP was installed as an update on the connected MLR-AL10 tablet;
+application identity and first-install time were preserved. Continuous walking
+feel on physical devices has not yet been reassessed for this revision.
+
+- Shared helper SHA-256:
+  `7ef4f3b89dcd2783cd66f10a0b7d8b88115406bc9afec4e910f878cf8e78f2a1`.
+- Windows package: `PAL-Saturn-Windows-adb7392-walk80.zip`;
+  executable SHA-256:
+  `c01e4758e74d9a6fddbdbfba2567d8dfa807105235e1c04f86bac9edb0d68abd`.
+- HarmonyOS package: `PAL-Saturn-adb7392-walk80-release-signed.hap`;
+  SHA-256: `67f749c135bda12d9c9c25dedc3cb20335d35ea1a259b94bb3b1425aa54dfe50`.
+
+### Previous 18/5 cadence: measured SDL comparison (2026-10-13)
 
 A private copy of the normal Yangzhou well pre-medicine-chest BUP was loaded
 through the game's original save menu, then handed to the live host at VB3401.
