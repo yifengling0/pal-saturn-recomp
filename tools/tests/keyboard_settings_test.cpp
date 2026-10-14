@@ -40,7 +40,13 @@ int main() {
     check(legacy.get("keyboard", "start") == "F2", "profile switching does not replace old bindings");
     Settings empty;
     empty.read("", errors);
-    check(empty.get("controls", "keyboard_profile") == "saturn", "existing empty file stays legacy");
+    check(empty.get("controls", "keyboard_profile") == "pc98", "existing empty file receives PC98 defaults");
+    Settings old_defaults;
+    old_defaults.read("[keyboard]\na = Z\nb = X\nstart = Return\n",errors);
+    check(old_defaults.get("controls","keyboard_profile")=="pc98", "old untouched keyboard defaults receive PC98");
+    Settings explicit_saturn;
+    explicit_saturn.read("[controls]\nkeyboard_profile = saturn\n",errors);
+    check(explicit_saturn.get("controls","keyboard_profile")=="saturn", "explicit Saturn choice is retained");
     Settings generated;
     generated.read(Settings::default_text(), errors);
     check(errors.empty() && generated.get("controls", "keyboard_profile") == "pc98", "generated default file is explicit pc98");

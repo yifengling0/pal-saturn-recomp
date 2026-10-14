@@ -320,7 +320,7 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(out.count('PAL_KEYBOARD_PROFILE_V2'), 1)
         for expected in ('keyboard_profile = pc98', '[keyboard pc98]', 'confirm = Return, Keypad Enter, Space',
                          'menu_cancel = Escape', 'item = E', 'spell = F', 'status = S', 'equip = W', 'system = Q', 'strongest = F', 'repeat = R',
-                         'start = Tab', 'has_profile ? "pc98" : "saturn"',
+                         'start = Tab', '!has_profile && customized_keyboard ? "saturn" : "pc98"',
                          '{"keyboard_profile", {"pc98", "saturn"}}'):
             self.assertIn(expected, out)
         # The PAL98 letters own the Saturn buttons they replace, so they ship unbound.
@@ -333,7 +333,7 @@ class PlannerTests(unittest.TestCase):
     def test_host_semantic_priorities_boundaries_and_focus_guards_present(self):
         out = self.plan()[self.f.runtime / 'src/host/host.cpp'].decode()
         for expected in ('cancel ? pal_keyboard::context.cancel : pal_keyboard::context.confirm',
-                         '!semantic_key(key)', '!(pc_keyboard() && key == SDL_SCANCODE_F10)',
+                         '!semantic_key(key)', '!(f10_is_host_key() && key == SDL_SCANCODE_F10)',
                          'pc_keyboard() || !f10_bound || g_menu_open',
                          'g_pc_boundary != pal_keyboard::boundary',
                          'SDL_EVENT_WINDOW_FOCUS_LOST && e.window.windowID == wid) { g_pc_press.reset(); g_battle_press.block(); g_pc98_walk.stop(); g_all_attack_press.block(); pal_keyboard::all_attack.stop(); }',

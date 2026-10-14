@@ -15,6 +15,8 @@ target_sources(${PAL_GAME_TARGET} PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/pal_medicine_chest.cpp)
 # Windows application icon; Harmony uses its own layered media resources.
 if(WIN32)
+  # Preserve the original guest CPU schedule on one host thread, as on Harmony.
+  target_compile_definitions(saturn_machine PRIVATE PAL_SERIAL_SLAVE_COROUTINE=1)
   enable_language(RC)
   target_sources(${PAL_GAME_TARGET} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/app_icon/pal_app.rc)
   target_include_directories(${PAL_GAME_TARGET} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/app_icon)

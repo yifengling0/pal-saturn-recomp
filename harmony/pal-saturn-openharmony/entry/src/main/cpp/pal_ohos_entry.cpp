@@ -7,6 +7,7 @@
 
 #include <AbilityKit/ability_runtime/application_context.h>
 #include "pal_ohos_launch.h"
+#include "pal_ohos_audio.h"
 
 #include <cerrno>
 #include <cstdarg>
@@ -27,6 +28,8 @@ extern "C" const char* pal_movie_cache_feature();
 // implemented by the actual host.cpp, not stamped onto this entry wrapper.
 extern "C" int pal_host_ui_feature_version();
 extern "C" const char* pal_host_ui_source_hash();
+extern "C" const char* pal_vdp2_compose_source_hash();
+extern "C" const char* pal_cpu_handoff_source_hash();
 
 namespace {
 
@@ -172,11 +175,14 @@ extern "C" int SDL_main(int argc, char** argv)
     note("PAL features: %s", pal_movie_cache_feature());
     const int host_ui_version = pal_host_ui_feature_version();
     note("PAL host UI: version=%d source_bytes_sha256=%s", host_ui_version, pal_host_ui_source_hash());
+    note("PAL production: compose=cached-frame-v1 source_bytes_sha256=%s handoff=serial-fiber-v1 source_bytes_sha256=%s",
+         pal_vdp2_compose_source_hash(), pal_cpu_handoff_source_hash());
     if (host_ui_version != 13) {
         note("host UI version mismatch: require 13; rebuild the verified OHOS runtime");
         return 2;
     }
     const int result = saturn_main((int)argv_out.size() - 1, argv_out.data());
+    pal_ohos_audio::close();
     host_shutdown_input();
     return result;
 }

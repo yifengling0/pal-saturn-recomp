@@ -20,6 +20,21 @@ static void defaults() {
 int main() {
     using namespace pal_keyboard;
     defaults();
+    field();key_event("Escape");
+    check(read_bits()==Menu,"Escape delivers the native game menu command");
+    check(!requests_host_menu(code("Escape")),"gameplay Escape does not open the host menu");
+    key_event("Escape",false);ui();key_event("Escape");
+    check(read_bits()==Cancel,"Escape delivers native UI cancellation");
+    check(requests_host_menu(code("F10")),"F10 opens host settings");
+#ifdef _WIN32
+    defaults();g_settings.set("controls","keyboard_profile","saturn");
+    g_settings.set("keyboard","r","F10");bindings();k[code("F10")]=true;
+    check(requests_host_menu(code("F10")),"Windows reserves F10 with legacy/custom mappings");
+    check(read_bits()==0,"Windows F10 does not leak to the guest pad");
+    check(!requests_host_menu(code("Escape")),"unbound legacy Escape does not open Windows host settings");
+    g_menu_open=true;check(requests_host_menu(code("Escape")),"Escape may close an already open host panel");
+#endif
+    defaults();
     field(); key_event("E"); check(read_bits()==Items,"field E retains native items");
     clear(); ui();
     {

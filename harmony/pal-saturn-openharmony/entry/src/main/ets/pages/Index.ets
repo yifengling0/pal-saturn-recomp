@@ -110,6 +110,11 @@ struct Index {
         // hardware-key events to the focused component, not to the page.
         XComponent({ id: 'SDL_XComponent', type: XComponentType.SURFACE, libraryname: 'SDL3' }).id('SDL_XComponent')
           .focusable(true).defaultFocus(true)
+          .onAreaChange((_old: Area, area: Area): void => {
+            const ui = this.getUIContext();
+            this.orientation?.setSurface(ui.vp2px(Number(area.globalPosition.x)),
+              ui.vp2px(Number(area.globalPosition.y)), ui.vp2px(Number(area.width)), ui.vp2px(Number(area.height)));
+          })
       } else {
         Scroll() {
           Column({ space: 16 }) {

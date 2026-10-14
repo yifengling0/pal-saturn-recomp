@@ -6,6 +6,7 @@
   "author": "",
   "license": "",
   "dependencies": {
+    "libpal_display.so": "file:./src/main/cpp/types/libpal_display",
     //"libSDL3.so": "file:./src/main/cpp/types/libSDL3",
   }
 }

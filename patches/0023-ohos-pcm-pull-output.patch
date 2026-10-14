@@ -1,0 +1,97 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -53,6 +53,9 @@
+ #include "pal_ohos_gamepad.h"
+ #endif
+ #include <SDL3/SDL.h>
++#ifdef PAL_OHOS_AUDIO_PULL
++#include "pal_ohos_audio.h"
++#endif
+ #include <algorithm>
+ #include <chrono>
+ #include <cstring>
+@@ -180,6 +183,10 @@
+     // the events reach the run, so a watch sees them as they are sent
+     SDL_AddEventWatch([](void*, SDL_Event* e) {
+         if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND) ++g_host_paused;
++#ifdef PAL_OHOS_AUDIO_PULL
++        if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND) pal_ohos_audio::background(true);
++        if (e->type == SDL_EVENT_WILL_ENTER_FOREGROUND) pal_ohos_audio::background(false);
++#endif
+         if (e->type == SDL_EVENT_WILL_ENTER_FOREGROUND) --g_host_paused;
+         if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND || e->type == SDL_EVENT_WILL_ENTER_FOREGROUND)
+             g_audio_lifecycle_epoch.fetch_add(1, std::memory_order_release);
+@@ -299,11 +306,17 @@
+ }
+ 
+ static void audio_pause_for_menu() {
++#ifdef PAL_OHOS_AUDIO_PULL
++    if (pal_ohos_audio::active()) { pal_ohos_audio::pause(); return; }
++#endif
+     if (!g_audio) return;
+     if (!SDL_PauseAudioStreamDevice(g_audio)) ++g_audio_pause_errors;
+     audio_reset_observation();
+ }
+ static void audio_resume_after_menu() {
++#ifdef PAL_OHOS_AUDIO_PULL
++    if (pal_ohos_audio::active()) { pal_ohos_audio::resume(); return; }
++#endif
+     if (!g_audio) return;
+     audio_reset_observation();
+     if (!SDL_ResumeAudioStreamDevice(g_audio)) ++g_audio_resume_errors;
+@@ -320,6 +333,12 @@
+ 
+ bool host_audio_open() {
+     if (!g_win) return false;
++#ifdef PAL_OHOS_AUDIO_PULL
++    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_STREAM_ROLE, "Game");
++    if (!SDL_GetHintBoolean("PAL_AUDIO_SDL_FALLBACK", false) &&
++        pal_ohos_audio::open(g_settings.number("audio", "volume") / 100.0f)) return true;
++    sat_note("audio: project pull output unavailable or disabled; using SDL fallback");
++#endif
+     SDL_AudioSpec spec = {SDL_AUDIO_S16, 2, 44100};
+     // This is only a request: the backend may choose a different quantum.
+     SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
+@@ -374,6 +393,12 @@
+ }
+ 
+ void host_audio_push(const int16_t* lr, int frames) {
++#ifdef PAL_OHOS_AUDIO_PULL
++    if (pal_ohos_audio::active()) {
++        if (!sat_resuming()) pal_ohos_audio::push(lr, frames);
++        return;
++    }
++#endif
+     if (sat_resuming() || !g_audio || frames <= 0) return;
+     auto now = Clock::now();
+     if (g_audio_jitter && g_audio_seen_lifecycle != g_audio_lifecycle_epoch.load(std::memory_order_acquire)) {
+@@ -430,6 +455,9 @@
+ }
+ 
+ void host_audio_report() {
++#ifdef PAL_OHOS_AUDIO_PULL
++    if (pal_ohos_audio::active()) { pal_ohos_audio::report(); return; }
++#endif
+     if (!g_audio) return;
+     if (g_audio_jitter) std::fprintf(stderr,
+         "  audio input requests: observer=%d adaptive=%d calls=%llu short_calls=%llu additional_bytes_est=%llu requested_bytes_est=%llu max_request_bytes_est=%llu callback_producer_thread=%llu callback_other_thread=%llu target_frames=%d target_limit_frames=%d growth_events=%llu budget_exhausted=%llu lifecycle_resets=%llu pause_errors=%llu resume_errors=%llu format_changes=%llu current_device_hz=%d current_device_quantum=%d (source shortage estimates, not hardware underruns)\n",
+@@ -1810,6 +1838,9 @@
+ 
+ void host_present(const Frame& f) {
+     if (!g_win) return;
++#ifdef PAL_OHOS_AUDIO_PULL
++    pal_ohos_audio::flush();
++#endif
+     tasks_on_thread_stack([](void* f) { present(*static_cast<const Frame*>(f)); }, const_cast<Frame*>(&f));
+ }
+ 
+@@ -1822,6 +1853,9 @@
+     Clock::time_point due = g_base + std::chrono::nanoseconds(now);
+     Clock::time_point t = Clock::now();
+     if (t > due + std::chrono::milliseconds(100)) {
++#ifdef PAL_OHOS_AUDIO_PULL
++        pal_ohos_audio::rebase(static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(t-due).count()));
++#endif
+         g_base += t - due;   // behind: do not run to catch up
+         if (g_audio_jitter) ++g_audio_pace_rebases;
+     }

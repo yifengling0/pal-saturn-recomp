@@ -31,9 +31,12 @@ class BattleItemHostTests(unittest.TestCase):
         event = host.split('static void on_event(const SDL_Event& e) {', 1)[1].split('    switch (e.type)', 1)[0]
         menus = host.split('static void menu_close() {', 1)[1].split('static bool escape_is_a_button()', 1)[0]
         menus = 'static void menu_close() {' + menus
+        escape = '[[maybe_unused]] static bool escape_is_a_button()' + host.split('static bool escape_is_a_button()',1)[1].split('static void on_event(',1)[0]
+        key_route = '#ifdef _WIN32' + host.split('static void on_event(',1)[1].split('#ifdef _WIN32',1)[1].split('#endif',1)[0] + '#endif\n'
         source = (HERE / 'battle_item_host_prefix.cpp').read_text() + declarations
         source += '\nstatic uint16_t read_bits() { uint16_t b[1]{};\n' + read + '\nconst int s=0; uint16_t pad=b[0] | real_pad_bits;\n' + projection + '\nreturn pad; }\n'
-        source += menus + '\nstatic void on_event(const SDL_Event& e) {\n' + event + '\n}\n'
+        source += menus + escape + '\nstatic bool requests_host_menu(int k) {\n' + key_route + '\nreturn back; }\n'
+        source += '\nstatic void on_event(const SDL_Event& e) {\n' + event + '\n}\n'
         source += (HERE / 'battle_item_host_suffix.cpp').read_text()
         with tempfile.TemporaryDirectory(prefix='battle item host ') as td:
             td = Path(td)

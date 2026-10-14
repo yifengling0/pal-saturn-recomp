@@ -3,6 +3,7 @@ import { window } from '@kit.ArkUI';
 import { BusinessError, deviceInfo } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { PalStorage } from './PalStorage';
+import { FoldLayout } from './FoldLayout';
 
 // Observe the lifecycle independently: SDL installs its own UIAbility methods.
 // The WindowStage owns the main window; getLastWindow may return a picker/dialog.
@@ -21,6 +22,7 @@ export class PhoneOrientation {
   private message: string = '';
   private report: ((message: string) => void) | undefined = undefined;
   private readonly ability: UIAbility;
+  private readonly fold: FoldLayout = new FoldLayout();
   private listener = (event: window.WindowEventType): void => {
     if (event === window.WindowEventType.WINDOW_SHOWN || event === window.WindowEventType.WINDOW_ACTIVE) {
       this.refresh();
@@ -58,6 +60,10 @@ export class PhoneOrientation {
 
   static getCurrent(): PhoneOrientation | undefined { return PhoneOrientation.current; }
 
+  setSurface(x: number, y: number, width: number, height: number): void {
+    this.fold.setSurface(x, y, width, height);
+  }
+
   setReporter(report: ((message: string) => void) | undefined): void {
     this.report = report;
     report?.(this.message);
@@ -70,7 +76,7 @@ export class PhoneOrientation {
 
   private failure(step: string, error: Object): void {
     this.log(step + ' failed' + PalStorage.errorCode(error) + ' message=' + (error as BusinessError).message);
-    this.message = '横屏设置暂未完成（' + step + '）' + PalStorage.errorCode(error);
+    this.message = '屏幕方向设置暂未完成（' + step + '）' + PalStorage.errorCode(error);
     this.report?.(this.message);
   }
 
@@ -79,6 +85,7 @@ export class PhoneOrientation {
     this.cancelRetry();
     this.retries = 0;
     this.bind();
+    this.fold.refresh();
   }
 
   private retry(): void {
@@ -110,6 +117,7 @@ export class PhoneOrientation {
           properties.windowRect.width.toString() + 'x' + properties.windowRect.height.toString());
       } catch (error) { this.log('getWindowProperties failed' + PalStorage.errorCode(error)); }
       this.main = main;
+      this.fold.bind(main, (): void => { this.apply(); });
       step = 'listen windowEvent';
       main.on('windowEvent', this.listener);
       this.listening = true;
@@ -127,18 +135,26 @@ export class PhoneOrientation {
     const main = this.main;
     const epoch = this.epoch;
     this.applying = true;
+    const requested = this.fold.preferredOrientation();
     try {
-      await main.setPreferredOrientation(window.Orientation.AUTO_ROTATION_LANDSCAPE);
+      await main.setPreferredOrientation(requested);
       if (!this.active || epoch !== this.epoch) return;
       this.message = '';
       this.report?.('');
-      this.log('landscape requested');
+      this.log('orientation requested=' + requested.toString());
     } catch (error) {
       if (this.active && epoch === this.epoch) { this.failure('setPreferredOrientation', error); this.retry(); }
-    } finally { if (epoch === this.epoch) this.applying = false; }
+    } finally {
+      if (epoch === this.epoch) {
+        this.applying = false;
+        // A posture event may arrive while the system orientation request is pending.
+        if (this.active && requested !== this.fold.preferredOrientation()) this.apply();
+      }
+    }
   }
 
   private resetWindow(): void {
+    this.fold.stop();
     this.epoch++;
     this.cancelRetry();
     if (this.listening) {

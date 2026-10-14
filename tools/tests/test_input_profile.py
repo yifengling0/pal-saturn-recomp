@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 ROOT=Path(__file__).resolve().parents[2]
+@unittest.skipIf(os.name == 'nt', 'POSIX shell profiles require POSIX paths and executables')
 class ProfileTests(unittest.TestCase):
     def test_explicit_profiles_and_argument_boundaries(self):
         with tempfile.TemporaryDirectory(prefix='pal profile ') as d:

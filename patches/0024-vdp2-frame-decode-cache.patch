@@ -1,0 +1,191 @@
+--- a/runtime/src/video/vdp2.cpp
++++ b/runtime/src/video/vdp2.cpp
+@@ -49,7 +49,7 @@
+ static int cram_mode() { return reg(0x0E) >> 12 & 3; }
+ 
+ // A colour RAM entry as 0x00RRGGBB, and its MSB (the colour calculation bit).
+-static uint32_t cram(uint32_t i, bool* msb) {
++static uint32_t cram_decode(uint32_t i, bool* msb) {
+     if (cram_mode() == 2) {
+         uint32_t a = (i & 0x3FF) * 4;
+         uint32_t v = (uint32_t)g_vdp2_cram[a] << 24 | g_vdp2_cram[a + 1] << 16 | g_vdp2_cram[a + 2] << 8 | g_vdp2_cram[a + 3];
+@@ -64,6 +64,53 @@
+ 
+ static uint32_t rgb555(uint16_t v) {
+     return (uint32_t)((v & 0x1F) << 3) << 16 | ((v >> 5 & 0x1F) << 3) << 8 | ((v >> 10 & 0x1F) << 3);
++}
++
++// Rebuild from the current register/CRAM view at each composition, including
++// paired snapshots and save-state restoration. No cache survives a frame.
++struct ComposeCache {
++    struct Colour { uint32_t rgb; bool msb; } palette[2048];
++    uint32_t palette_mask;
++    uint16_t spctl;
++    uint8_t prio[8], ratio[8];
++    uint32_t sprite_caos;
++    bool transparent_shadow, sprite_cc, sprite_offset, sprite_offset_b;
++    int offset[2][3];
++};
++static ComposeCache g_compose_cache;
++
++static void prepare_compose_cache() {
++    auto& c = g_compose_cache;
++    c.palette_mask = cram_mode() == 1 ? 0x7FF : 0x3FF;
++    for (uint32_t i=0; i<=c.palette_mask; ++i)
++        c.palette[i].rgb = cram_decode(i, &c.palette[i].msb);
++    c.spctl = reg(0xE0);
++    for (int i=0; i<8; ++i) {
++        c.prio[i] = (uint8_t)(reg(0xF0+(i/2)*2) >> ((i&1)*8) & 7);
++        c.ratio[i] = (uint8_t)(reg(0x100+(i/2)*2) >> ((i&1)*8) & 0x1F);
++    }
++    c.sprite_caos = (uint32_t)(reg(0xE6) >> 4 & 7) << 8;
++    c.transparent_shadow = reg(0xE2) >> 8 & 1;
++    c.sprite_cc = reg(0xEC) >> 6 & 1;
++    c.sprite_offset = reg(0x110) >> 6 & 1;
++    c.sprite_offset_b = reg(0x112) >> 6 & 1;
++    for (int b=0; b<2; ++b)
++        for (int i=0; i<3; ++i)
++            c.offset[b][i] = (int)((uint32_t)(reg((b ? 0x11A : 0x114)+i*2) & 0x1FF) << 23) >> 23;
++}
++
++static uint32_t cram(uint32_t i, bool* msb) {
++    const auto& p = g_compose_cache.palette[i & g_compose_cache.palette_mask];
++    if (msb) *msb = p.msb;
++    return p.rgb;
++}
++
++extern "C" const char* pal_vdp2_compose_source_hash() {
++#ifdef PAL_VDP2_COMPOSE_SOURCE_SHA256
++    return PAL_VDP2_COMPOSE_SOURCE_SHA256;
++#else
++    return "cached-frame-v1";
++#endif
+ }
+ 
+ // One layer's pixel on a line.
+@@ -207,11 +254,12 @@
+     sx &= pw * 2 - 1;                            // the map: 2x2 planes
+     sy &= ph * 2 - 1;
+     int pl = (sy >= ph ? 2 : 0) + (sx >= pw ? 1 : 0);
+-    uint32_t ix = sx % pw, iy = sy % ph;
++    uint32_t ix = sx & (pw - 1), iy = sy & (ph - 1);
+     uint32_t page = (iy / 512) * (uint32_t)s.plane_w + ix / 512;
+-    int cs = s.cell2x2 ? 16 : 8;
+-    uint32_t cx = (ix % 512) / (uint32_t)cs, cy = (iy % 512) / (uint32_t)cs;
+-    uint32_t cpr = 512 / (uint32_t)cs;
++    const int cell_shift = s.cell2x2 ? 4 : 3;
++    const int cs = 1 << cell_shift;
++    uint32_t cx = (ix & 511) >> cell_shift, cy = (iy & 511) >> cell_shift;
++    uint32_t cpr = 512u >> cell_shift;
+     uint32_t pnd_addr = s.plane[pl] + page * s.page_bytes + (cy * cpr + cx) * (s.word1 ? 2 : 4);
+     uint32_t chr, pal;
+     bool hf, vf;
+@@ -237,7 +285,7 @@
+         pal = w0 & 0x7F;
+         chr = w1 & 0x7FFF;
+     }
+-    int px = (int)(ix % (uint32_t)cs), py = (int)(iy % (uint32_t)cs);
++    int px = (int)(ix & (uint32_t)(cs - 1)), py = (int)(iy & (uint32_t)(cs - 1));
+     if (hf) px = cs - 1 - px;
+     if (vf) py = cs - 1 - py;
+     static const uint32_t kCellBytes[] = {32, 64, 128, 128, 256};
+@@ -258,15 +306,15 @@
+ // S_SHADOW is a dot that shows nothing itself and halves the brightness of what is under it.
+ enum SpriteDot { S_NONE, S_DOT, S_SHADOW };
+ 
+-static SpriteDot sprite_pixel(uint16_t d, Pix& p) {
+-    uint16_t spctl = reg(0xE0);
++static SpriteDot decode_sprite_pixel(uint16_t d, Pix& p) {
++    uint16_t spctl = g_compose_cache.spctl;
+     int type = spctl & 0xF;
+     bool window = spctl >> 4 & 1;
+     bool mixed = spctl >> 5 & 1;
+     int ccmode = spctl >> 12 & 3, ccnum = spctl >> 8 & 7;
+     if (d == 0) return S_NONE;
+-    auto prio_of = [](int i) { return (uint8_t)(reg(0xF0 + (i / 2) * 2) >> ((i & 1) * 8) & 7); };
+-    auto ratio_of = [](int i) { return (uint8_t)(reg(0x100 + (i / 2) * 2) >> ((i & 1) * 8) & 0x1F); };
++    auto prio_of = [](int i) { return g_compose_cache.prio[i]; };
++    auto ratio_of = [](int i) { return g_compose_cache.ratio[i]; };
+     bool msb;
+     SpriteDot kind = S_DOT;
+     if (mixed && (d & 0x8000)) {
+@@ -282,7 +330,7 @@
+         bool msb_shadow = type >= 2 && type <= 7 && !window && (d & 0x8000);
+         if (dc == t.dc_mask - 1) kind = S_SHADOW;                       // a normal shadow
+         else if (msb_shadow && !(d & 0x7FFF)) {
+-            if (!(reg(0xE2) >> 8 & 1)) return S_NONE;                    // transparent shadows off (TPSDSL)
++            if (!g_compose_cache.transparent_shadow) return S_NONE;                    // transparent shadows off (TPSDSL)
+             kind = S_SHADOW;
+         } else if (dc == 0) return S_NONE;
+         p.shade = msb_shadow;
+@@ -290,7 +338,7 @@
+         int cc = t.cc_mask ? d >> t.cc_shift & t.cc_mask : 0;
+         p.prio = prio_of(pr);
+         p.ratio = ratio_of(cc);
+-        uint32_t caos = (uint32_t)(reg(0xE6) >> 4 & 7) << 8;
++        uint32_t caos = g_compose_cache.sprite_caos;
+         p.rgb = cram(dc + caos, &msb);
+     }
+     switch (ccmode) {
+@@ -299,10 +347,29 @@
+     case 2: p.cc = p.prio >= ccnum; break;
+     default: p.cc = msb; break;
+     }
+-    p.cc = p.cc && (reg(0xEC) >> 6 & 1);
+-    p.offset = reg(0x110) >> 6 & 1;
+-    p.offset_b = reg(0x112) >> 6 & 1;
++    p.cc = p.cc && g_compose_cache.sprite_cc;
++    p.offset = g_compose_cache.sprite_offset;
++    p.offset_b = g_compose_cache.sprite_offset_b;
+     return p.prio ? kind : S_NONE;
++}
++
++// Palette sprite codes repeat across a field. Decode each encountered code
++// once; RGB dots keep their inexpensive direct path. A fresh epoch for every
++// compose prevents reuse after CRAM/register changes or a paired snapshot.
++struct SpriteCacheEntry { Pix pixel; SpriteDot kind; uint32_t epoch; };
++static SpriteCacheEntry g_sprite_cache[65536];
++static uint32_t g_sprite_cache_epoch;
++static SpriteDot sprite_pixel(uint16_t d, Pix& p) {
++    if (!d || ((g_compose_cache.spctl & 0x20) && (d & 0x8000)))
++        return decode_sprite_pixel(d, p);
++    auto& entry = g_sprite_cache[d];
++    if (entry.epoch != g_sprite_cache_epoch) {
++        entry.pixel = {};
++        entry.kind = decode_sprite_pixel(d, entry.pixel);
++        entry.epoch = g_sprite_cache_epoch;
++    }
++    p = entry.pixel;
++    return entry.kind;
+ }
+ 
+ // ---- windows ----------------------------------------------------------------------------------
+@@ -362,10 +429,9 @@
+ }
+ 
+ static uint32_t apply_offset(uint32_t rgb, bool b) {
+-    uint32_t base = b ? 0x11A : 0x114;
+     int out = 0;
+     for (int i = 0; i < 3; ++i) {
+-        int o = (int)((uint32_t)(reg(base + i * 2) & 0x1FF) << 23) >> 23;
++        int o = g_compose_cache.offset[b ? 1 : 0][i];
+         int c = (int)(rgb >> (16 - i * 8) & 0xFF) + o;
+         out = out << 8 | std::clamp(c, 0, 255);
+     }
+@@ -381,6 +447,16 @@
+     f.h = vdp2_lines() * (dd ? 2 : 1);
+     f.px.assign((size_t)f.w * f.h, 0);
+     if (!(tvmd & 0x8000)) return;                // display off
++    prepare_compose_cache();
++    if (++g_sprite_cache_epoch == 0) {
++        for (auto& entry : g_sprite_cache) entry.epoch = 0;
++        ++g_sprite_cache_epoch;
++    }
++    static bool noted_cache;
++    if (!noted_cache) {
++        noted_cache = true;
++        sat_note("VDP2 composer: cached-frame-v1 source=%s", pal_vdp2_compose_source_hash());
++    }
+     note_unsupported();
+     Nbg nbg[4];
+     for (int n = 0; n < 4; ++n) setup_nbg(n, nbg[n]);

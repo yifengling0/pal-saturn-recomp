@@ -10,6 +10,7 @@ import hashlib
 import re
 
 EXPECTED = {'version': 'paired-rgb-queue-prototype-v3-portable-release-gate-1', 'runtime_sha256': {'src/video/vdp1.cpp': 'fa02008639d95c8cf4495ba90105787601d7ea736dbcdc806aac945193be9257', 'src/video/video.cpp': 'c5b60810fd60d0dd84863b880b377fcb77be5950765538afbee8c681ff5236a3', 'src/video/video.h': 'ac712aceb90eba545dc64570ef35aa9f534e897da05326f638648d7dc94a1c92', 'src/video/vdp2.cpp': '52921c0ba3b3ba6c48d055252a8ad598bd0c7266966aff174274a453ec7c6169', 'src/machine/scu.cpp': '29b796d946d821fd111de4ba5ade0a410e50c7ac80cf0e3a80331f6a25985ee2', 'src/host/host.cpp': '72e5be22df26c094f438ae35e74746b1337a0f29c297bbe9bea2011c1c09f2d6'}, 'input_headers_sha256': {'pal_responsive_input.h': '53152f3895590c8308cd05b654b93eb4329b848deb3617412e865f0dd065e366', 'pal_input_intent.h': '5c0389dfd664c3a4f8bf3d7aeb76b37d4952017c95624073cf3872a798a36ba7', 'pal_input_wait.h': '2eb804283850210ae7eb41316bba9100572117ddfc5da9557cfc7608b9d45378'}, 'source_sha256': {'pal_paired_frame_queue.cpp': 'bcf4798b875a9a975aac9ca3be44049422235b04efa33313d6051eab51dd4226', 'pal_paired_frame_queue.h': '1ddce67acdcbca8f4dcb697166f704666333587c105e46f75a084bdd6c385a2c'}}
+HOST_DISPLAY_PIN='5f8ef2f0179c52301cc2a2d2de30535ec7fedab20862a1b42cb716d52ba0919e'
 RUNTIME_FILES = tuple(EXPECTED["runtime_sha256"])
 HELPER_FILES = tuple(EXPECTED["source_sha256"])
 # Exact post-input host variants; unrelated runtime drift remains rejected.
@@ -22,6 +23,7 @@ HOST_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/host/host.cpp'],
  'bafa40a8fa223e74b3a5ea65ad1b69b077704c1f77b694a4bac50b38570c6658'}
 
 # UI13 + 0014/0015 after the unchanged precise-input host transform.
+HOST_INPUT_SHA256.add(HOST_DISPLAY_PIN)
 HOST_INPUT_SHA256.add('811c1789dae3b183c059922cd3f977ef0d43dae3db727fb7d1ce990c39c57681')
 
 # Frozen field-host r2 after the unchanged precise-input transform, full-chain replay.
@@ -33,6 +35,14 @@ HOST_INPUT_SHA256.add('810165bb7e2cee839b3147708e7788f8587be49878fc9524da30c3612
 HOST_INPUT_SHA256.add('eda0a7d87e08dc9ddd3c7b7c1cb8a9bcaa83501864ac38fd8494657315692f2e')
 # Exact 0022 after unchanged precise-host transform.
 HOST_INPUT_SHA256.add('8920466d7255926378f292e8736097b095538070aa83fb2fc00e2bfc95804f3e')
+# 0023 after the same precise-input transform; audio only, guest cadence unchanged.
+HOST_INPUT_SHA256.add('6c16924bf27a3b197f01818e4b61aead2b4929c9f880b2b6542425136e1ef14d')
+# Exact 0027 after the unchanged precise-input transform.
+HOST_INPUT_SHA256.add('259fca8a0ce494fd3099318079a0ff5de812b7f65e87b5f868c48f76ba773d5c')
+
+# 0024 preserves RGB composition while caching frame-local decode work.
+VDP2_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/video/vdp2.cpp'],
+ 'eb23040fd2b53af5ca16f15cf776239c5cccf199e2503289c4849a702fadf08f'}
 
 def sha(x):return hashlib.sha256(x).hexdigest()
 def norm(s):return re.sub(r'#include "[^"\n]*[/\\]pal_host_edge.h"','#include "pal_host_edge.h"',s.replace('\r\n','\n'))
@@ -79,7 +89,8 @@ def plan_queue(recomp, runtime, texts, rt, cmake_text, helper_bytes):
   # Quote the observed digest: a new accepted host.cpp generation is a pin update,
   # and re-deriving it means re-running the whole injection to find out what it is.
   got=sha(norm(rt[p]).encode()) if p in rt else ''
-  if p not in rt or got not in (HOST_INPUT_SHA256 if name=='src/host/host.cpp' else {h}):
+  accepted = HOST_INPUT_SHA256 if name=='src/host/host.cpp' else VDP2_INPUT_SHA256 if name=='src/video/vdp2.cpp' else {h}
+  if p not in rt or got not in accepted:
    raise ValueError('Runtime source/version changed: '+name+' observed '+got)
   selected_rt[p]=rt[p].replace('\r\n','\n')
  rt=selected_rt

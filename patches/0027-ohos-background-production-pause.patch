@@ -1,0 +1,54 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -184,7 +184,7 @@
+     SDL_AddEventWatch([](void*, SDL_Event* e) {
+         if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND) ++g_host_paused;
+ #ifdef PAL_OHOS_AUDIO_PULL
+-        if (e->type == SDL_EVENT_DID_ENTER_BACKGROUND) pal_ohos_audio::background(true);
++        if (e->type == SDL_EVENT_WILL_ENTER_BACKGROUND || e->type == SDL_EVENT_DID_ENTER_BACKGROUND) pal_ohos_audio::background(true);
+         if (e->type == SDL_EVENT_WILL_ENTER_FOREGROUND) pal_ohos_audio::background(false);
+ #endif
+         if (e->type == SDL_EVENT_WILL_ENTER_FOREGROUND) --g_host_paused;
+@@ -392,9 +392,14 @@
+     return true;
+ }
+ 
++#ifdef PAL_OHOS_AUDIO_PULL
++static void wait_in_background();
++#endif
++
+ void host_audio_push(const int16_t* lr, int frames) {
+ #ifdef PAL_OHOS_AUDIO_PULL
+     if (pal_ohos_audio::active()) {
++        if (pal_ohos_audio::backgrounded()) wait_in_background();
+         if (!sat_resuming()) pal_ohos_audio::push(lr, frames);
+         return;
+     }
+@@ -1478,6 +1483,27 @@
+     }
+ }
+ 
++#ifdef PAL_OHOS_AUDIO_PULL
++// OHOS keeps SDL_PollEvent running in the background. Park guest production
++// on the real SDL thread stack, while still servicing lifecycle/quit events.
++static void wait_in_background() {
++    const auto began = Clock::now();
++    tasks_on_thread_stack([](void*) {
++        HostCall in("PAL background pause");
++        while (pal_ohos_audio::backgrounded()) {
++            SDL_Event e;
++            while (SDL_PollEvent(&e)) {
++                on_event(e);
++                if (e.type == SDL_EVENT_QUIT) return;
++            }
++            if (pal_ohos_audio::backgrounded()) SDL_Delay(10);
++        }
++    }, nullptr);
++    // Exclude the pause from wall-clock pacing, as the host menu already does.
++    g_base += Clock::now() - began;
++}
++#endif
++
+ static void events() {
+     host_pump_input();
+     if (!g_virtual.empty()) virtual_press();

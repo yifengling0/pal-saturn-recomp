@@ -20,7 +20,12 @@ const tick = ()=>new Promise(resolve=>setImmediate(resolve));
   const app={on:(type,cb)=>{assert.equal(type,'abilityLifecycle');registrations++;lifecycle=cb;return 9;},off:async(type,id)=>{assert.equal(id,9);unregistrations++;}};
   const ability={context:{getApplicationContext:()=>app}};
   const stage={getMainWindow:async()=>{acquisition++;if(pending)return pending;if(failAcquire)throw {code:1300005};return main;}};
-  const scope={window,deviceInfo,hilog:{info:(_d,_t,_f,s)=>logs.push(s)},PalStorage:{errorCode:e=>e.code?'（错误 '+e.code+'）':''},setTimeout:(cb)=>{timers.set(++timerId,cb);return timerId;},clearTimeout:id=>timers.delete(id)};
+  // Window lifecycle is isolated here; the actual direction/fold adapter has its own regression.
+  class FoldLayout {
+    preferredOrientation(){return 7;}
+    bind(){} refresh(){} stop(){} setSurface(){}
+  }
+  const scope={FoldLayout,window,deviceInfo,hilog:{info:(_d,_t,_f,s)=>logs.push(s)},PalStorage:{errorCode:e=>e.code?'（错误 '+e.code+'）':''},setTimeout:(cb)=>{timers.set(++timerId,cb);return timerId;},clearTimeout:id=>timers.delete(id)};
   vm.createContext(scope);vm.runInContext(code+'\nthis.Policy=PhoneOrientation;',scope);
   const Policy=scope.Policy;
   Policy.install(ability);const policy=Policy.getCurrent();policy.setReporter(m=>reports.push(m));

@@ -1,0 +1,42 @@
+--- a/runtime/src/machine/machine.cpp
++++ b/runtime/src/machine/machine.cpp
+@@ -284,9 +284,18 @@
+     throw RunStop{};
+ }
+ 
++extern "C" const char* pal_cpu_handoff_source_hash() {
++#ifdef PAL_CPU_HANDOFF_SOURCE_SHA256
++    return PAL_CPU_HANDOFF_SOURCE_SHA256;
++#else
++    return "directed-wake-v1";
++#endif
++}
++
+ // ---- the slave: a coroutine on its own thread -----------------------------------------------
+ static std::mutex g_mu;
+-static std::condition_variable g_cv;
++// One waiter per direction; keep the original serial guest schedule.
++static std::condition_variable g_cv[2];
+ static int g_turn;                  // 0 the master runs, 1 the slave
+ static bool g_slave_on, g_slave_idle = true, g_slave_reset, g_slave_thread;
+ static int g_slave_polls;
+@@ -294,8 +303,8 @@
+ static void give(int to) {          // hand the CPU over and wait until it comes back
+     std::unique_lock<std::mutex> lk(g_mu);
+     g_turn = to;
+-    g_cv.notify_all();
+-    g_cv.wait(lk, [&] { return g_turn == 1 - to; });
++    g_cv[to].notify_one();
++    g_cv[1-to].wait(lk, [&] { return g_turn == 1 - to; });
+ }
+ 
+ static void to_slave() {
+@@ -313,7 +322,7 @@
+ static void slave_main() {
+     {
+         std::unique_lock<std::mutex> lk(g_mu);
+-        g_cv.wait(lk, [] { return g_turn == 1; });
++        g_cv[1].wait(lk, [] { return g_turn == 1; });
+     }
+     g_cpu = &g_slave;
+     for (;;) {

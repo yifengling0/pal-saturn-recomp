@@ -28,6 +28,9 @@ class PhonePreflightTests(unittest.TestCase):
     def test_phone_window_policy(self):
         self.run_node('ohos_orientation_test.cjs', 'PhoneOrientation.ets')
 
+    def test_fold_screen_orientation(self):
+        self.run_node('ohos_fold_orientation_test.cjs', 'FoldLayout.ets')
+
     def test_orientation_observes_sdl_lifecycle_without_replacing_it(self):
         ability = (MAIN / 'ets/entryability/EntryAbility.ets').read_text(encoding='utf-8')
         self.assertLess(ability.index('PhoneOrientation.install(this)'), ability.index('sdl.provideArkTSObjects('))

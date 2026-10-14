@@ -110,9 +110,31 @@ else()
     message(WARNING "PAL physical gamepad bridge disabled: the current SDL OHOS dummy/virtual backend cannot read hardware controllers")
 endif()
 target_sources(saturn_host PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/pal_ohos_gamepad.cpp")
+target_sources(saturn_host PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/pal_ohos_audio.cpp")
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/pal_ohos_audio.cpp" _PAL_OHOS_AUDIO_SHA256)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/pal_ohos_audio.cpp")
+target_compile_definitions(saturn_host PRIVATE PAL_OHOS_AUDIO_PULL=1 "PAL_OHOS_AUDIO_SOURCE_SHA256=\"${_PAL_OHOS_AUDIO_SHA256}\"")
 target_include_directories(saturn_host PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_library(pal_display SHARED pal_ohos_display.cpp)
+set_target_properties(pal_display PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+target_include_directories(pal_display PRIVATE "${PAL_OHOS_RUNTIME}/src/host")
+target_link_libraries(pal_display PRIVATE libace_napi.z.so)
+target_compile_definitions(saturn_host PRIVATE PAL_OHOS_DISPLAY=1)
+target_link_libraries(saturn_host PUBLIC pal_display)
 # Dynamic loading preserves the existing API 16 minimum; no new load-time NEEDED entry.
-target_link_libraries(saturn_host PUBLIC ${CMAKE_DL_LIBS})
+target_link_libraries(saturn_host PUBLIC ${CMAKE_DL_LIBS} libhilog_ndk.z.so)
+
+# These sources are linked into libmain, not only the generated executable.
+# Embed their actual bytes so a packaged build can be paired with its evidence.
+file(SHA256 "${_PAL_EXPECTED_RUNTIME}/src/video/vdp2.cpp" _PAL_VDP2_COMPOSE_SHA256)
+file(SHA256 "${_PAL_EXPECTED_RUNTIME}/src/machine/machine.cpp" _PAL_CPU_HANDOFF_SHA256)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${_PAL_EXPECTED_RUNTIME}/src/video/vdp2.cpp"
+    "${_PAL_EXPECTED_RUNTIME}/src/machine/machine.cpp")
+target_compile_definitions(saturn_machine PRIVATE
+    PAL_SERIAL_SLAVE_COROUTINE=1
+    "PAL_VDP2_COMPOSE_SOURCE_SHA256=\"${_PAL_VDP2_COMPOSE_SHA256}\""
+    "PAL_CPU_HANDOFF_SOURCE_SHA256=\"${_PAL_CPU_HANDOFF_SHA256}\"")
 
 # 生成工程里的 find_package(Threads) 只在它自己的目录作用域有效，壳这层要自己找一次
 find_package(Threads REQUIRED)

@@ -42,12 +42,18 @@ RUNTIME_HASHES['host.cpp'].append('8ec6ce8cad954a98be6a64b086d6b150644bafa7e7bdb
 RUNTIME_HASHES['host.cpp'].extend(['4f5b0f831527a605358c522f8333170fcb6814a5bd4b31c03b7a504215de63d5', '485ff48adb73ac2f32bd8a2470c50559e34b1d70b764b0339632f6a57c8735b1'])
 # Exact 0022 bounded quantum prime + producer-side live telemetry.
 RUNTIME_HASHES['host.cpp'].extend(['4fbf4d5b8344b16fba6a4a916cb8d5fca2c0c7fea6d764c0bc8ecf6b8e05f375', '64f6a22b9a05f1709b76e4a815d60d972da253ac6aec94f6fdb97ad5b88cf3a6'])
+# 0023 routes OHOS audio through the project-owned PCM pull adapter.
+RUNTIME_HASHES['host.cpp'].append('d422d20f45e2eae43a93fb96da7923c51531c409fc7928a3091f68b1b146341c')
+RUNTIME_HASHES['host.cpp'].append('aa2ba57808c2186199b1ac25ae1717a8236af51bf31ee38496325fedff7e3db4')
+# 0027 pauses background production; logical input ownership is unchanged.
+RUNTIME_HASHES['host.cpp'].extend(['df8ef277c16c3a832b1b25b7f92afbefd4c043ca024b16de8cc86c7239af9d1f',
+ '5a24062d48da563f93245145e0b6bf32e10f9df93373df6dfedf27cccf29ab45'])
 
 FUNCTION_HASHES = {'06020040': ['49fc15d214cc14ad85134d3301ce577f699d38aec8301287d632dd5b545bad7c'], '06026D84': ['9e83b5975b9f141c3d0e22f15907be2ada11b74aab7237444cde410ae4fefaaa', 'f04a09eb1154c18fcdb61a95fd4f3f945106da5daccf7eec6131edf88800e8a8'], '06021F14': ['1a72d209543cdd95d863b4e62b28c7639a24c2098c855279d2a97075203722e0'], '06026F90': ['33b311616b04e42b7e6cb85366ff11f58e1ecc4a1573fd5b9d7b8527cb2fcb75', '677f5eb849f6f0f3731cf35a0292d91dacef58e127de7d427fb659101b56e056'], '0604A5B8': ['38a41b3879208ad03418cbe48ed1efeb1888129062f385fc362955afd8e0ce50'], '060516B4': ['8d243239da6d34c6b188603ca3108a13b9984f855348edf66a04759c5a93b60d'], '06020058': ['9548908855627449ef75ff2a63a87d8083fc953294231d447073e05bec6beca7']}
 FUNCTION_HASHES['0604A444'] = ['efbee91069182eaa9df6245d60aa68bc874cdb324da6e361517e8dbbf9fed158']
 FUNCTION_HASHES['0604A0BC'] = ['ab7cfc91ca77e9b977d3bc6e986174bdc7ff89baed1a1ab21630540fe749cae1']
 HEADER_SHA256 = '52290e15f45eae205ecb926233c87c32aeb9837a5dd52910c80e8980e8ca8c22'
-LAUNCHER_HUNKS = [('        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_ == "keyboard") name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n', '        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_.rfind("keyboard", 0) == 0) name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n'), ('\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_ == "keyboard" ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. Every gamepad uses these.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n', '\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        const bool pc = set_.get("controls", "keyboard_profile") == "pc98";\n        if (ImGui::RadioButton("PC98 keyboard", pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "pc98"); save();\n        }\n        ImGui::SameLine();\n        if (ImGui::RadioButton("Saturn keyboard", !pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "saturn"); save();\n        }\n        ImGui::TextWrapped("PC98 F10: host menu. Enter confirms/interacts; Esc opens the game menu or cancels. E opens items in the field and battle main menu; F opens field spells and in the battle main menu F uses native strongest attacks, A selects ordinary all-party attack, D defends and W throws and R repeats previous commands for the remaining party. Gamepad bindings are independent.");\n        const char* keyboard_section = pc ? "keyboard pc98" : "keyboard";\n        if (pc) {\n            const struct { const char* key; const char* label; } kSemantic[] = {\n                {"confirm", "Confirm / interact"}, {"menu_cancel", "Game menu / cancel"},\n                {"item", "Items (field / battle)"}, {"spell", "Spells (field) / strongest (battle)"},\n                {"status", "Status (field)"}, {"equip", "Equipment (field)"},\n                {"system", "Save / load (field)"},\n                {"strongest", "Strongest attacks (battle)"}, {"repeat", "Repeat commands (battle)"}, {"all_attack", "All-party normal attack (battle)"}, {"defend", "Defend (battle)"}, {"throw", "Throw item (battle)"}};\n            for (auto& sem : kSemantic) {\n                ImGui::TextUnformatted(sem.label);\n                ImGui::SameLine();\n                std::string id = set_.get(keyboard_section, sem.key) + "##semantic" + sem.key;\n                if (ImGui::Button(id.c_str()) && binding_.empty()) { binding_ = sem.key; binding_section_ = keyboard_section; }\n            }\n        }\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_.rfind("keyboard", 0) == 0 ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. PC98 reserves F10. Existing ordinary/confirm/cancel bindings and host hotkeys take priority over the field and battle shortcuts. Saturn keeps custom F10 bindings. Esc cancels binding capture.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n'), ('                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {"keyboard", "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n', '                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {keyboard_section, "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n'), ('        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {"keyboard", "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n', '        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {keyboard_section, "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n')]
+LAUNCHER_HUNKS = [('        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_ == "keyboard") name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n', '        std::string name;\n        if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {\n            if (e.key.scancode == SDL_SCANCODE_ESCAPE) { binding_.clear(); return true; }\n            if (binding_section_.rfind("keyboard", 0) == 0) name = SDL_GetScancodeName(e.key.scancode);\n        } else if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && binding_section_ == "gamepad") {\n            name = SDL_GetGamepadStringForButton((SDL_GamepadButton)e.gbutton.button);\n        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && binding_section_ == "gamepad" &&\n'), ('\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_ == "keyboard" ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. Every gamepad uses these.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n', '\n    void controls() {\n        ImGui::SeparatorText("Controls");\n        const bool pc = set_.get("controls", "keyboard_profile") == "pc98";\n        if (ImGui::RadioButton("PC98 keyboard", pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "pc98"); save();\n        }\n        ImGui::SameLine();\n        if (ImGui::RadioButton("Saturn keyboard", !pc)) {\n            binding_.clear(); set_.set("controls", "keyboard_profile", "saturn"); save();\n        }\n        ImGui::TextWrapped("PC98 F10: host menu. Enter confirms/interacts; Esc opens the game menu or cancels. E opens items in the field and battle main menu; F opens field spells and in the battle main menu F uses native strongest attacks, A selects ordinary all-party attack, D defends and W throws and R repeats previous commands for the remaining party. Gamepad bindings are independent.");\n        const char* keyboard_section = pc ? "keyboard pc98" : "keyboard";\n        if (pc) {\n            const struct { const char* key; const char* label; } kSemantic[] = {\n                {"confirm", "Confirm / interact"}, {"menu_cancel", "Game menu / cancel"},\n                {"item", "Items (field / battle)"}, {"spell", "Spells (field) / strongest (battle)"},\n                {"status", "Status (field)"}, {"equip", "Equipment (field)"},\n                {"system", "Save / load (field)"},\n                {"strongest", "Strongest attacks (battle)"}, {"repeat", "Repeat commands (battle)"}, {"all_attack", "All-party normal attack (battle)"}, {"defend", "Defend (battle)"}, {"throw", "Throw item (battle)"}};\n            for (auto& sem : kSemantic) {\n                ImGui::TextUnformatted(sem.label);\n                ImGui::SameLine();\n                std::string id = set_.get(keyboard_section, sem.key) + "##semantic" + sem.key;\n                if (ImGui::Button(id.c_str()) && binding_.empty()) { binding_ = sem.key; binding_section_ = keyboard_section; }\n            }\n        }\n        if (!binding_.empty())\n            ImGui::TextColored(ImVec4(1, 0.9f, 0.4f, 1), "Press the %s for %s (Esc cancels)",\n                               binding_section_.rfind("keyboard", 0) == 0 ? "key" : "gamepad button", label(binding_));\n        else\n            ImGui::TextWrapped("Choose a binding, then press its new key or button. PC98 reserves F10. Existing ordinary/confirm/cancel bindings and host hotkeys take priority over the field and battle shortcuts. Windows always reserves F10 for the host menu. Esc cancels binding capture.");\n        if (ImGui::BeginTable("controls", 3, ImGuiTableFlags_SizingStretchSame)) {\n            ImGui::TableSetupColumn("Saturn");\n            ImGui::TableSetupColumn("Keyboard");\n'), ('                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {"keyboard", "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n', '                ImGui::TableNextRow();\n                ImGui::TableNextColumn();\n                ImGui::TextUnformatted(b.label);\n                for (const char* section : {keyboard_section, "gamepad"}) {\n                    ImGui::TableNextColumn();\n                    std::string id = set_.get(section, b.key) + "##" + section + b.key;\n                    bool waiting = binding_ == b.key && binding_section_ == section;\n'), ('        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {"keyboard", "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n', '        }\n        if (ImGui::Button("Default controls")) {\n            Settings defaults;\n            for (const char* section : {keyboard_section, "gamepad"})\n                for (auto& key : defaults.keys(section)) set_.set(section, key, defaults.get(section, key));\n            save();\n        }\n')]
 
 
 def once(s,a,b):
@@ -97,13 +103,17 @@ throw = W
  s=once(s,anchor,new+anchor)
  s=once(s,'{"controls", {"auto", "on", "off"}},','{"keyboard_profile", {"pc98", "saturn"}}, {"controls", {"auto", "on", "off"}},')
  s=once(s,'void Settings::read(const std::string& text, std::vector<std::string>& problems) {','''void Settings::read(const std::string& text, std::vector<std::string>& problems) {
-    // A pre-profile file retains every legacy binding and the legacy Escape rule.
+    // Old customized Saturn bindings retain their profile. Unedited defaults get PC98.
     // Never rewrite the user's file merely because it was read.
     bool has_profile = false;
-    each_line(text, [&](int, const std::string& section, const std::string& key, const std::string&) {
+    bool customized_keyboard = false;
+    const Settings defaults;
+    each_line(text, [&](int, const std::string& section, const std::string& key, const std::string& value) {
         if (section == "controls" && key == "keyboard_profile") has_profile = true;
+        if (section == "keyboard" && defaults.values_.at("keyboard").count(key) &&
+            defaults.get(section,key) != value) customized_keyboard = true;
     });
-    values_["controls"]["keyboard_profile"] = has_profile ? "pc98" : "saturn";''')
+    values_["controls"]["keyboard_profile"] = !has_profile && customized_keyboard ? "saturn" : "pc98";''')
  return s
 
 def host(s):
@@ -142,6 +152,13 @@ static uint16_t wanted_entry(SDL_Scancode key) {
 }
 static pal_keyboard::PressLatch g_pc_press;
 static bool pc_keyboard() { return g_settings.get("controls", "keyboard_profile") == "pc98"; }
+static bool f10_is_host_key() {
+#ifdef _WIN32
+    return true;
+#else
+    return pc_keyboard();
+#endif
+}
 static bool semantic_key(SDL_Scancode key) {
     return battle_key(key) || field_key(key) || walk_key(key) ||
            std::find(g_confirm_keys.begin(), g_confirm_keys.end(), key) != g_confirm_keys.end() ||
@@ -284,8 +301,18 @@ static bool semantic_key(SDL_Scancode key) {
  s=s.replace('Android\'s Back, Escape, a','Android\'s Back, F10 (or unbound Escape), a')
  s=once(s,'static pal_keyboard::PressLatch g_pc_press;','static pal_keyboard::PressLatch g_pc_press;\nstatic uint64_t g_pc_boundary = 0;\nstatic void sync_pc_boundary() {\n    if (g_pc_boundary != pal_keyboard::boundary) {\n        g_pc_boundary = pal_keyboard::boundary; g_pc_press.block(); g_pc98_walk.stop();\n    }\n}')
  s=once(s,'static void read_pads() {','static void read_pads() {\n    sync_pc_boundary();\n    uint16_t pal_battle_bits = 0;')
- s=s.replace('!semantic_key(key) && key != SDL_SCANCODE_F10 && k[key]', '!semantic_key(key) && !(pc_keyboard() && key == SDL_SCANCODE_F10) && k[key]')
+ s=s.replace('!semantic_key(key) && key != SDL_SCANCODE_F10 && k[key]', '!semantic_key(key) && !(f10_is_host_key() && key == SDL_SCANCODE_F10) && k[key]')
  s=once(s,'        bool back = k == SDL_SCANCODE_F10 || k == SDL_SCANCODE_AC_BACK ||', '        const bool f10_bound = std::any_of(g_keys.begin(), g_keys.end(), [](const auto& v) { return v.first == SDL_SCANCODE_F10; });\n        bool back = (k == SDL_SCANCODE_F10 && (pc_keyboard() || !f10_bound || g_menu_open)) || k == SDL_SCANCODE_AC_BACK ||')
+ s=once(s,'''        const bool f10_bound = std::any_of(g_keys.begin(), g_keys.end(), [](const auto& v) { return v.first == SDL_SCANCODE_F10; });
+        bool back = (k == SDL_SCANCODE_F10 && (pc_keyboard() || !f10_bound || g_menu_open)) || k == SDL_SCANCODE_AC_BACK ||
+                    (k == SDL_SCANCODE_ESCAPE && (g_menu_open || !escape_is_a_button()));''','''#ifdef _WIN32
+        bool back = k == SDL_SCANCODE_F10 || k == SDL_SCANCODE_AC_BACK ||
+                    (k == SDL_SCANCODE_ESCAPE && g_menu_open);
+#else
+        const bool f10_bound = std::any_of(g_keys.begin(), g_keys.end(), [](const auto& v) { return v.first == SDL_SCANCODE_F10; });
+        bool back = (k == SDL_SCANCODE_F10 && (pc_keyboard() || !f10_bound || g_menu_open)) || k == SDL_SCANCODE_AC_BACK ||
+                    (k == SDL_SCANCODE_ESCAPE && (g_menu_open || !escape_is_a_button()));
+#endif''')
  return s
 
 
@@ -358,7 +385,14 @@ def plan_keyboard(recomp,runtime,texts,rt,header_bytes):
  changes[runtime/'include/saturn/pal_keyboard_profile.h']=header_bytes
  from pal_prompt_confirm import plan as plan_prompt
  changes.update(plan_prompt(texts,runtime/'src/host/host.cpp',changes))
+ # OHOS can run both logical CPUs on the SDL thread. Input remains master-only,
+ # matching the old separate-thread gate without changing guest input cadence.
+ host_path=runtime/'src/host/host.cpp'
+ changes[host_path]=guard_master_input(changes[host_path].decode()).encode()
  return changes
+
+def guard_master_input(s):
+ return s.replace('SDL_IsMainThread()', '(SDL_IsMainThread() && g_cpu == &g_master)')
 
 # Existing unreadable settings must never be mistaken for a missing file.
 def settings_header(s):
@@ -409,6 +443,17 @@ def guard_host(s):
 RUNTIME_HASHES["settings.h"] = ["2f3c544cc54529a9243ac022a79ccb707bd4e86338569fb00c21ee44fc6854b7"]
 
 
+# 0028 source-aspect presentation, fold regions and batched desktop PCM.
+RUNTIME_HASHES['host.cpp'].extend(['12bde94614f8eded14197dc0b88b710e5b4040c186eecfff3ab6a650ea1b13f5', '37e9aa989e039d466dd914b126e1e2962c8399f06cd802ce4220d62957b595ab'])
+RUNTIME_HASHES['settings.cpp'].append('1e0672f27de9e64f23cc26abe1ebf3cc4f535262a0a963cb6b40a11af17b0aeb')
+
+# 0029 Harmony orientation controls and manual separation following the surface.
+RUNTIME_HASHES['host.cpp'].extend(['a99b1ac4806643f44e5b5b703f32653895a34173ad8492c129ccca8d3f53a238', '330f3ac807733bd0ead2c50f609a3cc7473b88b2a90560774edf082fc2e9f36d'])
+RUNTIME_HASHES['settings.cpp'].append('52c5c83fecbacf4e311a4334e350804ed1faa270568055f123d30bfa827f609c')
+# 0030 default fit and host menu boundary diagnostics; Windows reserves F10.
+RUNTIME_HASHES['host.cpp'].extend(['9bd3e7b899636283c28a699db5f0e2e7548c867b762320c118b7a58ec3efd521', 'b7711256d4e8a10546076eba03398264578a34ff67e94c01fbf89637af3aa839'])
+RUNTIME_HASHES['settings.cpp'].append('b5f4fb797ed7f3569aceb33bcf1a100829f7d80a5c07c5f710137adc7df4f2b2')
+
 MANIFEST = 'pal-keyboard-manifest.json'
 HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165d9f5edf185529caaf9461bce175d7784e', 'touch_menu_paging.h': 'a05761a95eebe222e1c51602b44f75ea19c4a68daaa9cbdb047cfc84c78710e7', 'pal_audio_queue_policy.h': 'b873e70bc52a265c7f74626dc771a914774b86b76e36f0379a27f2bb0ae30c67', 'pal_audio_jitter_policy.h': '893d30bfdf8b9a3373881b510064e086d516989232a1946f735011fbd46c89d8', 'host_sdl.h': 'a02c549b334ae98c3713adf8480e06183b9cf4b724c2acd3fe8be5ecc11ee954'}
 
@@ -441,6 +486,16 @@ def verify_runtime_support_manifest(manifest, runtime, support_inputs):
 
 AUDIO_CADENCE_HELPER_SHA = "f7745651fd8b4f1131fbdee2a4b5e181975e342db243edac7c92875584dec4ff"
 
+DISPLAY_RUNTIME_FILES = {'src/host/host_menu_text.h': '3300bc3be58c42bb01bbffc70b71677d6f97bdf71d457102e348ecc3d3fe1908', 'src/host/pal_display_layout.h': '12334f5f041511565090bec740ffa5e45b554aa706916521fafc186afd30aadc', 'src/host/pal_pcm_batch.h': '9424f318d02e7f550672f4e456d0e5c776920df05153337348ae97be946b97f6', 'third_party/pal-menu-cjk/generate.py': '34eb925a658c4edeb1d0a8c88306232de62736af4fbf5c52763b97d292e8f444', 'third_party/pal-menu-cjk/glyphs.h': '25c40b40c32f90f0f312782b3e32bbc3130edcb595dfaf01f440fd53081e18b5', 'third_party/pal-menu-cjk/manifest.json': '74b10529dadd3f3e902e3073535c09baf312a050b6c0f85b13deb13e1ee90a8e', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': 'af6fc059e9bd7d36e19185dfa9b18101d1b0c4cfc6d0f0ee4d8c21272d24a881', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '207ac44956f01c852b96ac6afd29f185943048826db8ad0361b126614a2e1aa0', 'src/host/touch_pad.h': '62a522347f845c45a0dd20014249014bb6b5724a632ad5406bfb8fb226b95ce2', 'src/host/touch_split_pad.h': '7f5fcd5c44dd3829b572d5aae532125184b750cf0887ba12cbe9293fe7b7ff7d'}
+DISPLAY_RUNTIME_FILES.update({
+ 'src/host/host_menu_text.h': '7accf909d51ea5b26085861485ad217d7fdc70ee4200eb1ca8cc6e6a77e6317b',
+ 'src/host/pal_display_layout.h': '1e4353d7ca12ee12e776943cab2d52b8a75c5c7b8e30790db2395ab3f9ffedad',
+ 'third_party/pal-menu-cjk/glyphs.h': '1b905e2686e1cace920cb6c68bd842b959e01326cb49e40927a68d367fa8c6c4',
+ 'third_party/pal-menu-cjk/manifest.json': '1aaf668798900f93cada38f5d202d7c4e266419ce91590db67eaa446bd384d18',
+ 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': '8f31a44c57501ff65b3cb86a7b2d054d651fbed85e900b699c8fb3b8695e2e21',
+ 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '2bb7ba909ea8e2f10bb3ca5ea2ee3483ac1d9c03a06e53c17b3cfb528e82f711',
+})
+
 def runtime_support_inputs(runtime):
  """Read and verify one complete reviewed runtime support variant."""
  runtime=Path(runtime)
@@ -471,6 +526,11 @@ def runtime_support_inputs(runtime):
   expected.update(TAP_HOLD_RUNTIME_FILES)
  elif tap.exists() or tap.is_symlink():
   raise ValueError('Mixed tap-hold runtime variant; regenerate')
+ uses_display=b'#include "pal_display_layout.h"' in host.read_bytes()
+ display_settings=b'game_percent = 60' in settings.read_bytes()
+ if uses_display!=display_settings:raise ValueError('Mixed display runtime variant; regenerate')
+ if uses_display:expected.update(DISPLAY_RUNTIME_FILES)
+ elif any((runtime/name).exists() for name in ('src/host/pal_display_layout.h','src/host/pal_pcm_batch.h')):raise ValueError('Unexpected display helpers; regenerate')
  if b'pal_field_input_ledger.h' in host.read_bytes():
   expected.update({'src/host/pal_field_input_ledger.h': 'c910dc4141b58069899e6423d4cb08c2b120b7e7f26bbe237efaf1e17ed49609', 'include/pal_field_input_api.h': 'b6a368e24a637e40af2f3ab65ef9cc7dd9138d3cb3f287da27ea5382a47f205b',
    # 0018 requires both scene API and 0017's stub VBlank clock.

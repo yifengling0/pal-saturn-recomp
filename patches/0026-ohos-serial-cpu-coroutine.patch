@@ -1,0 +1,134 @@
+--- a/runtime/src/machine/machine.cpp
++++ b/runtime/src/machine/machine.cpp
+@@ -43,6 +43,10 @@
+ #include <filesystem>
+ #include <map>
+ #include <mutex>
++#include <exception>
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++#include "minicoro.h"
++#endif
+ #include <thread>
+ #include <vector>
+ 
+@@ -300,7 +304,61 @@
+ static bool g_slave_on, g_slave_idle = true, g_slave_reset, g_slave_thread;
+ static int g_slave_polls;
+ 
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++static mco_coro* g_slave_co;
++static std::exception_ptr g_slave_exc, g_slave_call_exc;
++static void (*g_slave_call)(void*);
++static void* g_slave_call_arg;
++static bool g_slave_host_dispatch;
++#endif
++
++// A slave host call must reach the actual thread stack, even when the master
++// itself is a guest-task coroutine. Keep its logical CPU identity throughout.
++bool slave_on_thread_stack(void (*fn)(void*), void* arg) {
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++    if (g_slave_co && g_cpu == &g_slave && !g_slave_host_dispatch) {
++        g_slave_call = fn;
++        g_slave_call_arg = arg;
++        if (mco_yield(g_slave_co) != MCO_SUCCESS) sat_fatal("slave host call cannot yield");
++        if (g_slave_call_exc) {
++            auto e = g_slave_call_exc;
++            g_slave_call_exc = nullptr;
++            std::rethrow_exception(e);
++        }
++        return true;
++    }
++#endif
++    return false;
++}
++
+ static void give(int to) {          // hand the CPU over and wait until it comes back
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++    if (g_slave_co) {
++        g_turn = to;
++        if (to == 1) {
++            do {
++                if (mco_resume(g_slave_co) != MCO_SUCCESS) sat_fatal("slave cannot resume");
++                if (g_slave_call) {
++                    auto fn = g_slave_call;
++                    auto arg = g_slave_call_arg;
++                    g_slave_call = nullptr;
++                    g_slave_host_dispatch = true;
++                    // A nested master task may yield to its root thread here.
++                    try { tasks_on_thread_stack(fn, arg); }
++                    catch (...) { g_slave_call_exc = std::current_exception(); }
++                    g_slave_host_dispatch = false;
++                } else break;
++            } while (true);
++            g_cpu = &g_master;
++            if (g_slave_exc) {
++                auto e = g_slave_exc;
++                g_slave_exc = nullptr;
++                std::rethrow_exception(e);
++            }
++        } else if (mco_yield(g_slave_co) != MCO_SUCCESS) sat_fatal("slave cannot yield");
++        return;
++    }
++#endif
+     std::unique_lock<std::mutex> lk(g_mu);
+     g_turn = to;
+     g_cv[to].notify_one();
+@@ -321,8 +379,13 @@
+ 
+ static void slave_main() {
+     {
+-        std::unique_lock<std::mutex> lk(g_mu);
+-        g_cv[1].wait(lk, [] { return g_turn == 1; });
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++        if (!g_slave_co)
++#endif
++        {
++            std::unique_lock<std::mutex> lk(g_mu);
++            g_cv[1].wait(lk, [] { return g_turn == 1; });
++        }
+     }
+     g_cpu = &g_slave;
+     for (;;) {
+@@ -349,6 +412,14 @@
+     }
+ }
+ 
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++static void slave_fiber_main(mco_coro*) {
++    try { slave_main(); }
++    catch (...) { g_slave_exc = std::current_exception(); }
++    // Exceptions cross coroutine stacks only through an exception_ptr.
++}
++#endif
++
+ // ---- the stall report ---------------------------------------------------------------------------
+ std::atomic<const char*> g_host_call{""};
+ std::atomic<int> g_host_paused;
+@@ -392,7 +463,14 @@
+ void slave_on() {
+     if (!g_slave_thread) {
+         g_slave_thread = true;
++#ifdef PAL_SERIAL_SLAVE_COROUTINE
++        mco_desc desc = mco_desc_init(slave_fiber_main, 4u << 20);
++        if (auto result = mco_create(&g_slave_co, &desc); result != MCO_SUCCESS)
++            sat_fatal("no slave coroutine: %s", mco_result_description(result));
++        sat_note("guest CPU handoff: serial-fiber-v1, original safe points and slave slice");
++#else
+         std::thread(slave_main).detach();
++#endif
+     }
+     if (g_slave_on) return;
+     g_slave_on = true;
+--- a/runtime/src/machine/tasks.cpp
++++ b/runtime/src/machine/tasks.cpp
+@@ -157,7 +157,10 @@
+     switch_to(t);
+ }
+ 
++bool slave_on_thread_stack(void (*fn)(void*), void* arg);
++
+ void tasks_on_thread_stack(void (*fn)(void*), void* arg) {
++    if (slave_on_thread_stack(fn, arg)) return;
+     if (g_cur == &g_main) return fn(arg);
+     g_call = fn;
+     g_call_arg = arg;

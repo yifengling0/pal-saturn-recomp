@@ -1,0 +1,29 @@
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -1108,6 +1108,7 @@
+ }
+ 
+ static void menu_close() {
++    if(g_menu_open)sat_note("host menu: closed");
+     field_boundary();
+     g_menu_open = false;
+     g_confirm_quit = false; g_confirm_layout = false;
+@@ -1276,6 +1277,7 @@
+     if (g_menu_open || g_quitting) return;
+     field_boundary();
+     g_menu_open = true;
++    sat_note("host menu: open");
+     g_confirm_quit = false; g_confirm_layout = false;
+     g_menu_page = 0;
+     g_menu_at = 0;
+--- a/runtime/src/host/settings.cpp
++++ b/runtime/src/host/settings.cpp
+@@ -21,7 +21,7 @@
+ #if defined(PAL_OHOS_DEFAULTS)
+ "fit"
+ #else
+-"original"
++"fit"
+ #endif
+ R"(
+ ; Harmony screen direction: landscape (default), portrait, or auto rotation
