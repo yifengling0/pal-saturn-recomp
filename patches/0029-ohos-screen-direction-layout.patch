@@ -68,6 +68,15 @@
      game.push_back({M_DISPLAY_LAYOUT,Control::Choice});
      const auto layout=g_settings.get("display","layout");
      if(layout=="below"||layout=="right")game.push_back({M_GAME_PERCENT,Control::Slider});
+@@ -1196,7 +1205,7 @@
+         break;
+     case M_CANCEL_QUIT: g_confirm_quit=false;g_menu_page=0;g_menu_at=0;break;
+     case M_CONFIRM_QUIT: if(g_confirm_quit) menu_quit(false);break;
+-    case M_DISPLAY_LAYOUT: case M_PAD: case M_STYLE: case M_PRESENT: choose(id, choice_at(id) + 1); break;
++    case M_ORIENTATION: case M_DISPLAY_LAYOUT: case M_PAD: case M_STYLE: case M_PRESENT: choose(id, choice_at(id) + 1); break;
+     case M_GAME_PERCENT: case M_SIZE: case M_OPACITY: case M_SPACING: {
+         int value=g_settings.number(slider_section(id),slider_key(id))+(id==M_GAME_PERCENT?5:10);
+         slider_set(id,value>slider_max(id)?slider_min(id):value);
 @@ -1203,7 +1212,7 @@
          break;
      }
@@ -77,6 +86,15 @@
      case M_RESET_TOUCH: touch_reset(); break;
      case M_EDIT_LAYOUT:
          if(!split_controls() && g_settings.number("touch","layout_version")<2) {
+@@ -1220,7 +1229,7 @@
+ // Left and right: a step along a choice or the slider, a switch set off or on.
+ static void menu_adjust(MenuId id, int dir) {
+-    if (id==M_DISPLAY_LAYOUT || id == M_PAD || id == M_STYLE || id == M_PRESENT) choose(id, choice_at(id) + dir);
++    if (id==M_ORIENTATION || id==M_DISPLAY_LAYOUT || id == M_PAD || id == M_STYLE || id == M_PRESENT) choose(id, choice_at(id) + dir);
+     else if (id==M_GAME_PERCENT || id == M_SIZE || id == M_OPACITY || id == M_SPACING)
+         slider_set(id,g_settings.number(slider_section(id),slider_key(id))+(id==M_GAME_PERCENT?5:10)*dir);
+     else if (id == M_EDGE_MENU) setting_change("edge_menu", dir > 0 ? "true" : "false");
+     else if (id == M_MENU_BUTTON) setting_change("menu_button", dir > 0 ? "true" : "false");
 @@ -1800,10 +1809,10 @@
          if ((int)i == g_menu_at) ui_fill_rounded({r.r.x - 2 * u, r.r.y - 2 * u, r.r.w + 4 * u, r.r.h + 4 * u}, 14 * u, ring);
          ui_fill_rounded(r.r, 12 * u, r.id == M_RESUME ? accent : row);

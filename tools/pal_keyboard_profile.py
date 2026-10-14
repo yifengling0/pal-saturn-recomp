@@ -448,10 +448,10 @@ RUNTIME_HASHES['host.cpp'].extend(['12bde94614f8eded14197dc0b88b710e5b4040c186ee
 RUNTIME_HASHES['settings.cpp'].append('1e0672f27de9e64f23cc26abe1ebf3cc4f535262a0a963cb6b40a11af17b0aeb')
 
 # 0029 Harmony orientation controls and manual separation following the surface.
-RUNTIME_HASHES['host.cpp'].extend(['a99b1ac4806643f44e5b5b703f32653895a34173ad8492c129ccca8d3f53a238', '330f3ac807733bd0ead2c50f609a3cc7473b88b2a90560774edf082fc2e9f36d'])
+RUNTIME_HASHES['host.cpp'].extend(['8c9937895723faf4ee6de5b90316cfa484ee4bfac098ba494f572076757046e8', 'f8936d6b0a3407d7cdf2c638544e335220b5ad34ffad4c90fe8c50edc2b427e0'])
 RUNTIME_HASHES['settings.cpp'].append('52c5c83fecbacf4e311a4334e350804ed1faa270568055f123d30bfa827f609c')
 # 0030 default fit and host menu boundary diagnostics; Windows reserves F10.
-RUNTIME_HASHES['host.cpp'].extend(['9bd3e7b899636283c28a699db5f0e2e7548c867b762320c118b7a58ec3efd521', 'b7711256d4e8a10546076eba03398264578a34ff67e94c01fbf89637af3aa839'])
+RUNTIME_HASHES['host.cpp'].extend(['42a042bb96b533aca432ed99ffa791c62aaa6b5e7bb4ea8b218d6752a4120734', '472ba48e74eafd9ede0cddbc42c598e678818962677f78338a54c9f5f53f62f3'])
 RUNTIME_HASHES['settings.cpp'].append('b5f4fb797ed7f3569aceb33bcf1a100829f7d80a5c07c5f710137adc7df4f2b2')
 
 MANIFEST = 'pal-keyboard-manifest.json'

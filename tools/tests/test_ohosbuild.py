@@ -758,16 +758,42 @@ class NativeIdentityContractTests(unittest.TestCase):
 
 
 class CurrentGenerationPinsTests(unittest.TestCase):
+    def test_orientation_dispatch_runtime_pins_reject_previous_hosts(self):
+        import pal_keyboard_profile as keyboard
+        import pal_paired_frame_queue as paired
+        # Raw and post-precise/paired 0029/0030 hosts from the sequential patch
+        # replay. The old variants have a visible but inert orientation row.
+        self.assertTrue({
+            '8c9937895723faf4ee6de5b90316cfa484ee4bfac098ba494f572076757046e8',
+            'f8936d6b0a3407d7cdf2c638544e335220b5ad34ffad4c90fe8c50edc2b427e0',
+            '42a042bb96b533aca432ed99ffa791c62aaa6b5e7bb4ea8b218d6752a4120734',
+            '472ba48e74eafd9ede0cddbc42c598e678818962677f78338a54c9f5f53f62f3',
+        }.issubset(keyboard.RUNTIME_HASHES['host.cpp']))
+        self.assertFalse(set(keyboard.RUNTIME_HASHES['host.cpp']) & {
+            'a99b1ac4806643f44e5b5b703f32653895a34173ad8492c129ccca8d3f53a238',
+            '330f3ac807733bd0ead2c50f609a3cc7473b88b2a90560774edf082fc2e9f36d',
+            '9bd3e7b899636283c28a699db5f0e2e7548c867b762320c118b7a58ec3efd521',
+            'b7711256d4e8a10546076eba03398264578a34ff67e94c01fbf89637af3aa839',
+        })
+        self.assertEqual(paired.HOST_DISPLAY_PIN,
+                         '5ad60b79602b47adaa8478eda042005cbc1e57b10a9e3a846f8f497f69026454')
+        self.assertIn(paired.HOST_DISPLAY_PIN, paired.HOST_INPUT_SHA256)
+        self.assertNotIn('5f8ef2f0179c52301cc2a2d2de30535ec7fedab20862a1b42cb716d52ba0919e',
+                         paired.HOST_INPUT_SHA256)
+
     def test_current_mapping_and_accelerated_exact_pins(self):
         # Independently replayed patch chain plus precise/paired, keyboard and
         # scoped prompt transforms, with explicit logical master input ownership.
         self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
-            '90d28263e77914c46362695bb35f83b76234ce4daf19f3c35974b3659231436e',
-            'ae0473569b0158d84ed40a6345f57a67217a3a288beb7ead66bb181e683223e5',
+            '7abfed1bdf0f00bebb5be7f9ab4610511053c45242383ac928eac4430a56e6dd',
+            'd147305395ed1b3f1c6f8358dc1f5fa34f90c3c03938904297b9d0605e418593',
         }))
 
     def test_previous_ui13_hosts_are_no_longer_accepted(self):
         self.assertFalse(driver.OHOS_HOST_UI_SHA256 & {
+            # Before the orientation choice gained keyboard/controller/row dispatch.
+            '90d28263e77914c46362695bb35f83b76234ce4daf19f3c35974b3659231436e',
+            'ae0473569b0158d84ed40a6345f57a67217a3a288beb7ead66bb181e683223e5',
             '6f7c1852106b97c05fcdc249326c46e83452039a94941fbf3e1af6a92b5d8630',
             '84ad5bfa29e649407276785db68d6d8229c9d3b7b4f07a35f31fa377d479a464',
             '8f6225b5d4ea4c430992016f62254e4608c8cfac686d7a2af45edfd5fb636fa3',

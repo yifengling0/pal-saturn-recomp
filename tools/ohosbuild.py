@@ -41,9 +41,9 @@ OHOS_HOST_UI_VERSION = 13
 # accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
     # Mapping + prompt/battle generation, explicit master input ownership for 0026.
-    '90d28263e77914c46362695bb35f83b76234ce4daf19f3c35974b3659231436e',
+    '7abfed1bdf0f00bebb5be7f9ab4610511053c45242383ac928eac4430a56e6dd',
     # Fresh precise/paired + keyboard + prompt edge + battle item generation.
-    'ae0473569b0158d84ed40a6345f57a67217a3a288beb7ead66bb181e683223e5',
+    'd147305395ed1b3f1c6f8358dc1f5fa34f90c3c03938904297b9d0605e418593',
 })
 
 # The accelerated generation is the one the Windows package ships, so the tablet gets the same
