@@ -50,4 +50,8 @@ class Helpers(unittest.TestCase):
   rt=ROOT/'third_party/saturn-recomp-pal/runtime'
   if not (rt/'src/host/pal_field_input_ledger.h').is_file():self.skipTest('Prepare pinned patched runtime first')
   self.assertIn('PASS',self.run_cpp('scene_continuity_ledger_test.cpp',[rt/'include',rt/'src/host']))
+ def test_guest_return_ledger(self):
+  rt=ROOT/'third_party/saturn-recomp-pal/runtime'
+  if not (rt/'src/host/pal_field_input_ledger.h').is_file():self.skipTest('Prepare pinned patched runtime first')
+  self.assertEqual(self.run_cpp('guest_return_ledger_test.cpp',[rt/'include',rt/'src/host']).count('PASS'),8)
 if __name__=='__main__':unittest.main()

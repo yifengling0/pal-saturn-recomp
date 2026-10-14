@@ -1,0 +1,190 @@
+diff --git a/runtime/include/pal_field_input_api.h b/runtime/include/pal_field_input_api.h
+--- a/runtime/include/pal_field_input_api.h
++++ b/runtime/include/pal_field_input_api.h
+@@ -16,6 +16,12 @@
+ // Suspend capture without discarding during a synchronous guest callback;
+ // discard=true is a hard boundary and disarms contacts until their release.
+ void context(bool active, bool discard);
++// Guest dialogue/UI/loading drops taps, while retaining current physical levels.
++// Host focus/menu/cancel boundaries still require release and a fresh press.
++void guest_suspend();
++// Called only at the natural field decision after all guest scopes return.
++// Drains queued events before admitting current held levels; never replays taps.
++bool resume_held();
+ // Invalidate reads and pending taps but preserve eligible continuous holds.
+ // New or changed input while suspended is never eligible on resume.
+ // preserve_existing_only keeps only an already-authorized scene hold.
+diff --git a/runtime/src/host/pal_field_input_ledger.h b/runtime/src/host/pal_field_input_ledger.h
+--- a/runtime/src/host/pal_field_input_ledger.h
++++ b/runtime/src/host/pal_field_input_ledger.h
+@@ -32,12 +32,37 @@
+         if (discard) {
+             ++epoch_; ++read_seq_; pending_ = {};
+             for (auto& [id, s] : sources_) {
+-                if (s.raw) s.disarmed = true;
++                if (s.raw) s.disarmed = s.host_blocked = true;
+                 s.scene_held = false;
+             }
+         }
++        if (discard) guest_suspended_ = return_pending_ = false;
+         if (active || discard) scene_suspended_ = false;
+         active_ = active;
++    }
++    void guest_suspend() {
++        ++epoch_; ++read_seq_; pending_ = {};
++        for (auto& [id, s] : sources_) {
++            s.disarmed = true; s.scene_held = false;
++        }
++        active_ = false; scene_suspended_ = false;
++        guest_suspended_ = return_pending_ = true;
++    }
++    bool return_pending() const { return return_pending_; }
++    bool guest_suspended() const { return guest_suspended_; }
++    bool resume_held() {
++        if (!return_pending_ || !active_) return false;
++        ++epoch_; ++read_seq_; pending_ = {};
++        for (auto it = sources_.begin(); it != sources_.end();) {
++            auto& s = it->second;
++            if (!s.raw) { it = sources_.erase(it); continue; }
++            s.scene_held = false;
++            s.disarmed = s.host_blocked;
++            if (!s.disarmed) { s.direction = cardinal(s.raw); s.press = ++press_seq_; }
++            ++it;
++        }
++        guest_suspended_ = scene_suspended_ = return_pending_ = false;
++        return true;
+     }
+     // Called only for a verified scene-only boundary. Repeated calls may keep
+     // an existing survivor, but can never promote an inactive/UI contact.
+@@ -53,7 +78,7 @@
+             ++it;
+         }
+         active_ = false;
+-        scene_suspended_ = true;
++        scene_suspended_ = return_pending_ = true;
+     }
+     bool scene_suspended() const { return scene_suspended_; }
+     bool active() const { return active_; }
+@@ -69,16 +94,18 @@
+         s.raw = direction;
+         if (!direction || direction != before || explicit_down) s.scene_held = false;
+         if (!direction) {
+-            s.disarmed = false;
++            s.disarmed = s.host_blocked = false;
+             prune(source);
+             return;
+         }
+         if (!active_) {
++            if (!return_pending_) s.host_blocked = true;
++            else if (explicit_down) s.host_blocked = false;
+             if (before != direction || explicit_down) s.disarmed = true;
+             return;
+         }
+         if (s.disarmed && !explicit_down) return;
+-        if (explicit_down) s.disarmed = false;
++        if (explicit_down) s.disarmed = s.host_blocked = false;
+         if (s.direction != cardinal(direction) || explicit_down || !s.press) {
+             s.press = ++press_seq_;
+             s.direction = cardinal(direction);
+@@ -115,7 +142,7 @@
+         if (!active_ || !read.active || read.blocked || read.epoch != epoch_ || read.read_seq != read_seq_ || read.read_seq == acknowledged_read_) return false;
+         const Read now = choice();
+         if (now.source != read.source || now.press_seq != read.press_seq || now.direction != read.direction ||
+-            now.scene_held != read.scene_held) return false;
++            now.scene_held != read.scene_held || now.held != read.held) return false;
+         if (read.pending) {
+             if (pending_.source != read.source || pending_.press != read.press_seq || pending_.epoch != read.epoch || pending_.direction != read.direction) return false;
+             const auto source = pending_.source;
+@@ -126,12 +153,12 @@
+         return true;
+     }
+ private:
+-    struct Source { uint16_t raw = 0, direction = 0; uint64_t press = 0; bool disarmed = false, scene_held = false; };
++    struct Source { uint16_t raw = 0, direction = 0; uint64_t press = 0; bool disarmed = false, scene_held = false, host_blocked = false; };
+     struct Pending { uint64_t source = 0, press = 0, epoch = 0; uint16_t direction = 0; };
+     std::map<uint64_t, Source> sources_;
+     Pending pending_;
+     uint64_t epoch_ = 1, press_seq_ = 0, read_seq_ = 0, acknowledged_read_ = 0;
+-    bool active_ = false, scene_suspended_ = false;
++    bool active_ = false, scene_suspended_ = false, guest_suspended_ = false, return_pending_ = false;
+     void prune(uint64_t source) {
+         const auto it = sources_.find(source);
+         if (it != sources_.end() && !it->second.raw && pending_.source != source) sources_.erase(it);
+diff --git a/runtime/src/host/host.cpp b/runtime/src/host/host.cpp
+--- a/runtime/src/host/host.cpp
++++ b/runtime/src/host/host.cpp
+@@ -1462,7 +1462,7 @@
+         const uint64_t source = (uint64_t(3) << 60) | ++g_field_touch_serial;
+         const auto layout = pad_layout();
+         it = g_field_touches.insert_or_assign(key, FieldTouch{{x,y,touch_on_dpad(layout,x,y)},source,
+-            g_field_ledger.active() && g_field_focus && g_field_foreground && !g_menu_open}).first;
++            (g_field_ledger.active() || g_field_ledger.return_pending()) && g_field_focus && g_field_foreground && !g_menu_open}).first;
+     }
+     if (it == g_field_touches.end()) return;
+     auto& touch = it->second;
+@@ -1628,7 +1628,7 @@
+ void context(bool active, bool discard) {
+     if (!SDL_IsMainThread()) return;
+     if (!available()) { g_field_mode = false; g_field_ledger.context(false, true); return; }
+-    if (active && !discard && g_field_ledger.scene_suspended()) {
++    if (active && !discard && g_field_ledger.return_pending()) {
+         // Drain loading-time events while capture is still suspended. Arming
+         // first would turn a queued DOWN+UP into an owed field tap. A hard
+         // event during this drain must also veto the requested reactivation.
+@@ -1642,7 +1642,7 @@
+             context(false, true);
+             return;
+         }
+-        if (g_field_ledger.epoch() != epoch || !g_field_ledger.scene_suspended()) return;
++        if (g_field_ledger.epoch() != epoch || !g_field_ledger.return_pending()) return;
+     }
+     if (active && !g_field_mode) g_pal_taps[0].forget(kFieldDirections);
+     if (active) g_field_mode = true;
+@@ -1652,6 +1652,23 @@
+         g_field_touches.clear();
+     }
+     g_field_ledger.context(active && g_field_focus && g_field_foreground && !g_menu_open && !g_quitting, discard);
++}
++void guest_suspend() {
++    if (!(SDL_IsMainThread() && g_cpu == &g_master)) return;
++    if (!available() || g_field_servicing || !g_field_focus || !g_field_foreground || g_menu_open || g_quitting) {
++        context(false, true);
++        return;
++    }
++    g_field_mode = false;
++    g_field_ledger.guest_suspend();
++}
++bool resume_held() {
++    if (!(SDL_IsMainThread() && g_cpu == &g_master) || !available() || !g_field_ledger.return_pending()) return false;
++    context(true, false);
++    if (!g_field_ledger.active() || !g_field_ledger.return_pending()) return false;
++    // Poll keyboard/gamepad levels and retained touch contacts after the drain.
++    field_reconcile_inputs();
++    return g_field_ledger.resume_held();
+ }
+ void scene_suspend(bool preserve_existing_only) {
+     if (!SDL_IsMainThread()) return;
+diff --git a/runtime/src/host/host_null.cpp b/runtime/src/host/host_null.cpp
+--- a/runtime/src/host/host_null.cpp
++++ b/runtime/src/host/host_null.cpp
+@@ -29,6 +29,8 @@
+ namespace pal_field_host {
+ bool available() { return false; }
+ void context(bool, bool) {}
++void guest_suspend() {}
++bool resume_held() { return false; }
+ void scene_suspend(bool) {}
+ Read begin() { return {}; }
+ bool current(const Read&) { return false; }
+diff --git a/runtime/src/stub/services_stub.cpp b/runtime/src/stub/services_stub.cpp
+--- a/runtime/src/stub/services_stub.cpp
++++ b/runtime/src/stub/services_stub.cpp
+@@ -45,6 +45,8 @@
+ namespace pal_field_host {
+ bool available() { return false; }
+ void context(bool, bool) {}
++void guest_suspend() {}
++bool resume_held() { return false; }
+ void scene_suspend(bool) {}
+ Read begin() { return {}; }
+ bool current(const Read&) { return false; }

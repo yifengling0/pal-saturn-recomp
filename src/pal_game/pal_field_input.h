@@ -85,14 +85,17 @@ inline void invalidate_read() {
 }
 // Scope bookkeeping runs for FIELD0 and FIELD1. Only host capture and field
 // replacement are conditional on owns_input(). No scope hook changes guest RAM.
-inline void clear() {
+inline void clear(bool host_blocked = false) {
     pal_release_runtime::hard_boundary();
     state.cadence.reset();
     invalidate_read();
     state.field = false;
     state.scene = ld16(Scene);
     state.scene_known = true;
-    if (owns_input()) pal_field_host::context(false, true);
+    if (owns_input()) {
+        if (host_blocked || !pal_release_runtime::enabled()) pal_field_host::context(false, true);
+        else pal_field_host::guest_suspend();
+    }
 }
 struct FadeScope {
     explicit FadeScope(uint32_t caller) {
@@ -161,6 +164,10 @@ inline void begin() {
     if (ld16(SceneChange)) { scene_clear(); return; }
     resume_field();
     if (!owns_input()) return;
+    // Only this natural decision witnesses a completed guest UI/script/load.
+    // Current held levels may return; released UI taps must never be replayed.
+    if (pal_release_runtime::enabled() && pal_field_host::resume_held())
+        pal_release_runtime::field_returned();
     state.read = pal_field_host::begin();
     state.read_state = ReadState::Ready;
 }
@@ -199,7 +206,7 @@ inline void apply(SH2Context& c) {
     if (has_read && read.blocked) {
         ++state.blocked;
         suppress(c, true);
-        clear();
+        clear(true);
         state.read_state = ReadState::Applied;
         return;
     }
@@ -356,8 +363,8 @@ inline void ui_after() {
     pal_release_runtime::ui_after();
     if (!state.ui_depth) return;
     if (--state.ui_depth) return;
-    // Also discard contacts that were first pressed inside the UI. A clear
-    // only on entry would let a new UI-held direction escape on return.
+    // Drop UI taps on exit. A direction still physically held is sampled only
+    // at the next natural field decision, after queued releases are drained.
     clear();
     resume_field();
 }

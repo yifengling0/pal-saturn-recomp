@@ -9,9 +9,15 @@ manifest idempotence, and CMake runtime selection. Repeated raw planning fails.
 from pathlib import Path
 import hashlib,re
 VERSION='pal-keyboard-profile-v1-mapping-13-battle-tap-ack'
+# 0031 raw host: current held levels resume only at field re-entry.
+RUNTIME_GUEST_RETURN_RAW = '37963a24f6be293a1563cda9f103d36385fea8493de0728ef301640aa464ec69'
+
 def sha(s):return hashlib.sha256(s.encode() if isinstance(s,str) else s).hexdigest()
 RUNTIME_HASHES = {'host.cpp': ['6b82aaa5f9720e3ad9a53db35e6dda8ef08198d4dbcacf7f3f0f6b25f2a9518d', '9af5f2ac245114cb7cdf858c69a90ecb0c217a29f423c9168c353558bf0222a4', '16fd0b06648fb3f3c1dda96b3200aa7bf8baaff1f2aca9d0b4e0ffa720055937', 'f4c957d90193478ac77588f6592b1061226686b062bbd3e7561ba7a236da94a1'], 'settings.cpp': ['4da2c93a0eec58ca861c972076961eaf4d64d4ecb471b4d29d94af73f1705b66', '6dd16bf8b13057ddd35aa50a474aaf958df2515e94e877a533b99f5430df9cfb'], 'launcher.cpp': ['23d65e3b6f854823fd33a1f3b1373584d22e98b9edf247125458648fad863e32']}
 RUNTIME_HASHES['host.cpp'].append('4b2c32d213a9a28823c214cbfe3f62ac166e238beb127105441e1baee1eef7ed')
+RUNTIME_HASHES['host.cpp'].append(RUNTIME_GUEST_RETURN_RAW)
+# 0031 after the unchanged precise-input and paired-queue transforms.
+RUNTIME_HASHES['host.cpp'].append('3ec652408f00a6aeb56fafe4b6bb629cea4bfa69c3e7e429d921ed53aca03dc6')
 RUNTIME_HASHES['host.cpp'].append('f3c49e658ea2e687bcf5734e935d698f0e012654882141f108ba9c87aa4af49b')
 RUNTIME_HASHES['host.cpp'].append('d388ef17f964c9ef1f46278d1155dbf0fed4e349fcfdc4850bc106019c206ac7')
 RUNTIME_HASHES['host.cpp'].append('40ad654e2f837a291a0d27e254cab4f853f243eb4c50457c32e7b078c619b4bc')
@@ -532,16 +538,16 @@ def runtime_support_inputs(runtime):
  if uses_display:expected.update(DISPLAY_RUNTIME_FILES)
  elif any((runtime/name).exists() for name in ('src/host/pal_display_layout.h','src/host/pal_pcm_batch.h')):raise ValueError('Unexpected display helpers; regenerate')
  if b'pal_field_input_ledger.h' in host.read_bytes():
-  expected.update({'src/host/pal_field_input_ledger.h': 'c910dc4141b58069899e6423d4cb08c2b120b7e7f26bbe237efaf1e17ed49609', 'include/pal_field_input_api.h': 'b6a368e24a637e40af2f3ab65ef9cc7dd9138d3cb3f287da27ea5382a47f205b',
+  expected.update({'src/host/pal_field_input_ledger.h': {'c910dc4141b58069899e6423d4cb08c2b120b7e7f26bbe237efaf1e17ed49609', 'ae4c6a502646ded98fb35bf731016943709519f2d12fd40bdb1295f8777d4efa'}, 'include/pal_field_input_api.h': {'b6a368e24a637e40af2f3ab65ef9cc7dd9138d3cb3f287da27ea5382a47f205b', 'b04bcc5f445ca6863309d1652663c8f13dbc0b0ab96adbd04f49f4a2bb1ead03'},
    # 0018 requires both scene API and 0017's stub VBlank clock.
-   'src/stub/services_stub.cpp': '9e19eaec08d8b24b1838351d458f17db25f0ad145a210b9bcb3ea61a52218263'})
+   'src/stub/services_stub.cpp': {'9e19eaec08d8b24b1838351d458f17db25f0ad145a210b9bcb3ea61a52218263', '4054c27f86505357f8cec28393fcebb73850802ccc9975695624d813536c588a'}})
   null=runtime/'src/host/host_null.cpp'
   if null.resolve()!=null or null.is_symlink() or not null.is_file():raise ValueError('Field no-host helper changed or missing; regenerate')
   null_edge=b'uint16_t pal_host_direction_edge() { return 0; }' in null.read_bytes()
   host_edge=b'#include "pal_host_edge.h"' in host.read_bytes()
   if null_edge!=host_edge:raise ValueError('Mixed field/precise no-host variant; regenerate')
-  expected['src/host/host_null.cpp']=('c32122f6bc455c9bb19521838713cf9f8a9a44257d43963e2bd4ae9634427655' if null_edge else
-                                     '05d40afa8bca0cf129173063661f357674375012733e545663bed5a911b0dace')
+  expected['src/host/host_null.cpp']=({'c32122f6bc455c9bb19521838713cf9f8a9a44257d43963e2bd4ae9634427655', '5fa1ae74dccfdf87dc2e6cbb899019c0baec6c996b2375df40d72e1ed9aab1bc'} if null_edge else
+                                     {'05d40afa8bca0cf129173063661f357674375012733e545663bed5a911b0dace', '4d50054a1de6890bda79dea9f9cc8e02b094b779785661aa267624de1ffcd3bc'})
  elif any((runtime/name).exists() or (runtime/name).is_symlink() for name in ('src/host/pal_field_input_ledger.h','include/pal_field_input_api.h')):
   raise ValueError('Mixed field-input runtime variant; regenerate')
  inputs={}

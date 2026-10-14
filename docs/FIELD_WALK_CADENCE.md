@@ -19,9 +19,38 @@ change. A pending short tap is still acknowledged and consumed only once.
 This is selected only after the original collision/mover has actually displaced
 the player, for an acknowledged live field hold in the current scene. Blocked
 movement, released contacts, new presses, guest UI, actual script waits, scene
-carry/reveal and unknown interval modes reset or bypass the cadence. The original
-scene negative-countdown displacement guard continues to use its original proof
-and interval. The host keeps keyboard, touch and controller ownership unchanged.
+carry/reveal and unknown interval modes reset or bypass the cadence. The
+negative-countdown displacement guard also covers a completed guest return that
+still has its release latch set. Each keyboard, touch and controller source keeps
+its own validated physical level and transaction identity.
+
+## Held directions after dialogue and loading
+
+Guest UI, dialogue waits and scene loading discard pending direction taps while
+retaining physical direction levels. At the next natural field decision, the
+host drains queued events and polls the current keyboard, gamepad and touch
+levels. A direction still held is admitted without requiring release/repress;
+this also applies to a direction first pressed or changed during the dialogue.
+A released tap or canceled contact cannot produce a deferred field step.
+
+Only completed guest scopes can reach this field decision. The original converter
+still owns nonmovement actions, and a latched return admits only current,
+direction-only input. Confirm/cancel/menu buttons do not become walking commands.
+The latch's native provenance can be retired at this exact return boundary;
+neither the guest latch byte nor its countdown is overwritten. Negative countdown
+debt still suppresses displacement, with no accumulated extra steps when it clears.
+After resumption the accepted live hold uses the same `5,4` walking cadence.
+
+Host focus loss, backgrounding, host menus, canceled touches and disconnected
+controllers retain their input invalidation. A host-blocked held contact cannot
+be revived by a later guest callback; a physical release and fresh press are
+required. New field transactions also reject a changed aggregate held snapshot.
+
+Portable checks cover 73 field/scene cases and eight guest-return ledger cases,
+including keyboard/gamepad/touch holds, dialogue-time presses, queued releases,
+held confirmation, host boundaries and the unchanged walking cadence. The older
+scene-only ledger API remains separately tested; the live field return explicitly
+reconciles current held levels after the complete guest boundary.
 
 ## Timing limits, explicitly
 
@@ -65,7 +94,28 @@ recorded below. They measured the previous cadence, not the current 9/2 cadence.
 SDL queue injection is not a physical OpenHarmony touchscreen/keyboard measurement;
 phone/tablet feel remains a device validation item.
 
-### Current 9/2 cadence: build and regression verification (2026-10-14)
+### Held-return revision: build and regression verification (2026-10-14)
+
+The user accepted the walking feel of master `9d6662e`. The held-return revision
+retains that cadence and passed 407 tool tests plus 201 subtests, with eight skips.
+Windows with SDL and the mapping-only headless target both compiled successfully;
+the new API also has unavailable/no-op implementations in the no-host and stub
+targets. Windows packaging passed its identity gate. HarmonyOS ARM64 and x86_64
+were packaged with the current host and guest header dependencies and `-O2`.
+The native libraries matched their stripped outputs; official signature
+verification passed. The HAP update on MLR-AL10 preserved application identity
+and first-install time. Physical dialogue/scene-return feel remains to be tested
+on the user's same scene.
+
+- Shared field helper SHA-256:
+  `300285c753c72c3438f3b2300ce7a1f718e8c56ea7c34735e894f5176ec8a84a`.
+- Windows package: `PAL-Saturn-Windows-9d6662e-held-return-r2.zip`;
+  executable SHA-256:
+  `6f733a9ddcd2bd6a080add6636ec8289a8d4acf00a51d534fe43d767638b1e4a`.
+- HarmonyOS package: `PAL-Saturn-9d6662e-held-return-r2-release-signed.hap`;
+  SHA-256: `64d4a6a854bcce38669968821dc024477db3adf3ef005073d926624adfa791c9`.
+
+### Walking-speed-only 9/2 revision: previous verification (2026-10-14)
 
 The shared-header change was built on master `adb7392`, including its HarmonyOS
 orientation-menu fix. The complete tool suite passed: 406 tests and 201 subtests,

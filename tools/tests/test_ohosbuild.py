@@ -785,8 +785,8 @@ class CurrentGenerationPinsTests(unittest.TestCase):
         # Independently replayed patch chain plus precise/paired, keyboard and
         # scoped prompt transforms, with explicit logical master input ownership.
         self.assertEqual(driver.OHOS_HOST_UI_SHA256, frozenset({
-            '7abfed1bdf0f00bebb5be7f9ab4610511053c45242383ac928eac4430a56e6dd',
-            'd147305395ed1b3f1c6f8358dc1f5fa34f90c3c03938904297b9d0605e418593',
+            'c5671677972bfb99fff1826e4b5eb6ef47b2d6c24cd3ca021350054b378aec69',
+            '0f3def87ffa2fc3491e583b8c38469cf22b02e5b8150eee37721c56d33e657a4',
         }))
 
     def test_previous_ui13_hosts_are_no_longer_accepted(self):

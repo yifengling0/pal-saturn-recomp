@@ -12,7 +12,7 @@ enum class WriteSite : uint32_t {
     Unknown = 0, Scene = 0x06026FACu, Resource = 0x060323B8u,
     Script = 0x0602C384u
 };
-enum class Origin : uint8_t { Unknown, Protected, Scene, Resource };
+enum class Origin : uint8_t { Unknown, Protected, Scene, Resource, FieldReturn };
 
 struct Writer {
     WriteSite site = WriteSite::Unknown;
@@ -72,7 +72,7 @@ public:
     void write_ff(const Writer& w, uint8_t previous_gate) {
         changed();
         const bool old_allowed = resumable_ &&
-            (origin_ == Origin::Scene || origin_ == Origin::Resource);
+            (origin_ == Origin::Scene || origin_ == Origin::Resource || origin_ == Origin::FieldReturn);
         const bool identified = w.field_scope && !w.protected_scope &&
             ((w.site == WriteSite::Resource && w.return_pc == 0x060327D4u &&
               resource_depth_ != 0) ||
@@ -98,6 +98,12 @@ public:
     // All actual hard boundaries invalidate frozen decisions, even if no FF
     // is currently present. A later observed 0->FF field resource may qualify.
     void hard_boundary() { changed(); protect(); }
+    // Exact natural field re-entry after the live host reconciled a completed
+    // guest boundary. This retires the guest release latch for CURRENT holds;
+    // permits_held_direction still excludes UI buttons, released taps and debt.
+    void field_returned(uint16_t scene) {
+        changed(); scene_ = scene; origin_ = Origin::FieldReturn; resumable_ = true;
+    }
     Snapshot freeze() const {
         return {revision_, scene_, origin_, resumable_ && resource_depth_ == 0};
     }

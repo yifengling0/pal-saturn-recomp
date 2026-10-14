@@ -16,7 +16,7 @@ EXTRA_FUNCTION_SHA256 = {
  '0602C288':'bfd9480ae844b72d213fe258d0b956bc872a29f26f774e3934b404c028f11d3e',
 }
 # Updated only after reviewing the exact portable policy and runtime wrapper.
-HELPER_SHA256 = {'pal_release_gate.h': '6903cb41f886a0ea0b4fd695e0f1236c00a8a6af35f78e270d1abd6bfbe519fe', 'pal_release_runtime.h': 'd1fe26134ca72109778da74abe1eebcbdeaeee3b98419809edd6d3ec218143a9'}
+HELPER_SHA256 = {'pal_release_gate.h': 'dd0064b8ed5b351c8fc35b6e3fbf6a11aae464eb77128d7a6ef5d96b1baf6c7f', 'pal_release_runtime.h': '8f8f8e192f33a96064fb481daad3bcf652d9256b75618834290834b6ee667a86'}
 
 def plan_scene_continuity(recomp, original, staged, helpers):
     if set(helpers) != set(HELPER_SHA256) or not helpers:

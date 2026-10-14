@@ -33,6 +33,7 @@ struct State {
     bool in_field=false, seen_slot=false, captured=false, converter_seen=false;
     bool script_waited=false, scene_pending=false, scene_token=false;
     bool loader_complete=false, carry_required=false;
+    bool field_return_pending=false, returned_debt=false;
     bool script_hard=false, fade_started=false, fade_waited=false, fade_authorized=false;
     bool scene_reveal_pending=false, reveal_started=false, reveal_authorized=false;
     bool reveal_requires_identity=false;
@@ -63,6 +64,7 @@ inline void hard_boundary() {
     state.in_field=state.seen_slot=false;
     state.scene_pending=state.scene_token=state.loader_complete=false;
     state.carry_required=false; state.scene_buttons=0;
+    state.field_return_pending=state.returned_debt=false;
     state.scene_reveal_pending=false;
 }
 inline void field_enter() {
@@ -274,13 +276,22 @@ inline void neutral_post() {
     if (ld8(Gate)!=0) { hard_boundary(); return; }
     state.gate.neutral_cleared(); reset_displacement_admission();
     state.carry_required=false; state.scene_buttons=0;
+    state.returned_debt=false;
 }
+inline void field_returned() { state.field_return_pending=true; }
 inline void capture_field_frame(uint32_t frame) {
     invalidate_read(); state.field_frame=frame;
     if (state.ui_depth || state.script_depth || state.script_waited ||
         state.scene_depth || ld16(SceneChange)) return;
     // Re-entry to the exact natural field decision is the mode witness in FIELD0.
     state.in_field=true; state.seen_slot=true;
+    if (state.field_return_pending && enabled() && !resource_active()) {
+        state.field_return_pending=false;
+        state.gate.field_returned(ld16(Scene));
+        state.returned_debt=ld8(Gate)==0xFF;
+        state.carry_required=false; state.scene_buttons=0;
+        reset_displacement_admission();
+    }
     state.frozen=state.gate.freeze(); state.captured=true;
 }
 inline uint16_t direction(int dx,int dy) {
@@ -301,7 +312,7 @@ inline pal_field_release::Decision decision(uint32_t return_pc,uint32_t dx_ptr,
 // Record only the permission actually established by the captured converter or
 // validated FIELD1 apply path. The later E6E hook cannot manufacture a source.
 inline bool record_displacement_permission(bool allowed, const pal_field_release::Decision& d) {
-    state.displacement_qualified=allowed && state.carry_required;
+    state.displacement_qualified=allowed && (state.carry_required || state.returned_debt);
     if (state.displacement_qualified) {
         state.displacement_direction=d.selected_direction;
         state.displacement_buttons=d.pressed_buttons;
@@ -343,9 +354,10 @@ inline bool permits_field(const SH2Context& c,uint16_t selected,
 // zero dx/dy on true, but must preserve action, r0/r1, facing, timer and the call.
 // FIELD1 has already acknowledged its read. Do not acknowledge or clear again.
 inline bool should_defer_displacement(const SH2Context& c,uint64_t now) {
-    if (!enabled() || !state.carry_required || !state.displacement_qualified ||
+    if (!enabled() || !(state.carry_required || state.returned_debt) || !state.displacement_qualified ||
         !state.captured || !state.converter_seen || c.r[14]!=state.field_frame ||
-        ld16(Scene)!=state.target_scene || ld16(SceneChange) || protected_scope()) return false;
+        ld16(Scene)!=(state.carry_required ? state.target_scene : state.frozen.scene) ||
+        ld16(SceneChange) || protected_scope()) return false;
     const uint16_t selected=direction(int16_t(ld16(pal_field_release::DeltaX)),
         int16_t(ld16(pal_field_release::DeltaY)));
     // Rejected/stale FIELD1 apply leaves zero deltas: it must neither move nor

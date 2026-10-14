@@ -40,6 +40,9 @@ HOST_INPUT_SHA256.add('6c16924bf27a3b197f01818e4b61aead2b4929c9f880b2b6542425136
 # Exact 0027 after the unchanged precise-input transform.
 HOST_INPUT_SHA256.add('259fca8a0ce494fd3099318079a0ff5de812b7f65e87b5f868c48f76ba773d5c')
 
+# 0031 after the unchanged precise-input transform.
+HOST_INPUT_SHA256.add('fb125442836fd99a36e3b220bc831fa252858a29434bf4a1c1ebb447dfe5dd9c')
+
 # 0024 preserves RGB composition while caching frame-local decode work.
 VDP2_INPUT_SHA256 = {EXPECTED['runtime_sha256']['src/video/vdp2.cpp'],
  'eb23040fd2b53af5ca16f15cf776239c5cccf199e2503289c4849a702fadf08f'}
