@@ -1,0 +1,42 @@
+{
+  "method": "Actual complete Linux SDL game process. Mobile test rebuilds host.cpp and settings.cpp with PAL_OHOS_DEFAULTS + PAL_OHOS_DISPLAY, flat Fold{} bridge and no-op orientation request. LD_PRELOAD test-only hook injects real SDL_PushEvent touch/key events, calls SDL_SetWindowSize, captures actual renderer via SDL_RenderReadPixels. SDL offscreen/software/dummy audio. Not HarmonyOS or physical device verification.",
+  "checks": [
+    "Landscape below split, picture drag saved x21/y22/scale70",
+    "Same-orientation resize releases active drag but preserves draft",
+    "Landscape dpad drag saved split_dpad_x2521/y5080",
+    "Rotation during touch draft cancels unsaved draft without portrait pollution",
+    "Portrait fixed right split saves picture x0/y80/scale70 independently",
+    "Return to landscape restores below split, x21/y22 and saved dpad",
+    "Full process restart reloads both profiles; settings file SHA256 unchanged",
+    "Official desktop binary ignores mobile profiles and remains full-window overlay in landscape and portrait; actual keyboard AC Back opens/closes menu"
+  ],
+  "limitations": [
+    "No physical DPI/high-density screen, hardware GPU, multitouch driver, fold bridge or HarmonyOS lifecycle verified",
+    "Screenshots show startup logo/movie, not completed gameplay or device acceptance",
+    "Xvfb socket creation unavailable in sandbox; offscreen driver is not desktop screenshot"
+  ],
+  "screenshots": {
+    "desktop-portrait.png": "a6e51c17cbb2c5846382bb0e71a6827e382f3bf038f44be8b502a294ff0f392e",
+    "menu-split.png": "bf4ff28a002b9803162ff33af8d1ac8e6e22dfedde036535b1144ba6dea7451c",
+    "picture-before.png": "d8a0d735bf64e51ae1c2e37d3e7f4c186255e193a18470e9b006b8e5cf8504df",
+    "game-later.png": "f59a30a2bd05d88305077af6202d87a56851f65525c6a49f008e198c7bcc7cd1",
+    "menu-landscape.png": "e95f1672d13c2544bba68ff1587ff62e453ec07a020dfaeb72ed4e0a3c466aee",
+    "portrait-cancelled.png": "98d7d004637d6b38c748518a785aa48edd56482effe393f529985bc2578cdbf7",
+    "game-next.png": "d192889fec5bc1d6bee94cebc2c684d2bd57a319681b594b0d8e8d9d2b4ae656",
+    "restart-portrait.png": "7d54dee4e1176b246e36e326fdabb0b0f12d9a429ceca39a193aeb72b7c24574",
+    "portrait-side-split.png": "1b3fb1c40b5a14ebce3e406a18d6d2ad44eb6d788d8e1296ac706eb46f1b75cc",
+    "landscape-restored.png": "1ca2b8ba48ecc3ac1c7e63023be4657a2fb1cc3e287d84f85d0f35e6eaa8caef",
+    "picture-resized.png": "cf80d1b52ca0e2a01946df272bce74ba1c6d827cab0ce963a6dbfd9c81b2a8af",
+    "portrait-picture.png": "577f7738c046d77f544cbc9087e00aae8df80c462efb835791d0f24c21a87584",
+    "desktop-menu.png": "a693359c5ec770cb9d18602223fa7f351966761f20363f805b3e49279b971039",
+    "picture-drag.png": "e14d8ab1fe35f3ea63495ef55b8fc93017c871c41da340361682624c1a207111",
+    "controls-drag.png": "453c5e8bb44f3948da0cb6e9efb1777d775fd3dface273b28d9c8c8d7c0e9825",
+    "restart-landscape.png": "dda265f6ac8c2556f54ec1128c52f88213a6369f5f05011d19bd7ad9bcc3ab15",
+    "menu-swipe.png": "f6660d8d95232230e0180e05b97f9607583d28d6db91127aa331b5525957069a",
+    "landscape-game.png": "3de4f19dccb1d484067ee9d6af5956a4796f27b4732232dc9d0d55ebde73daaa"
+  },
+  "binaries": {
+    "build/ui-mobile-host/saturn-mobile-test": "1ad26717a03264d8d1e4cd9c7e7cd60d0f9d0907dda4acf08dc36bf9a5ada173",
+    "build/linux-layout-options/recomp-build/saturn": "8d0913e36c29f7c459987d83ed920106f7d94bfbf0aa543633bea1bf863895e2"
+  }
+}

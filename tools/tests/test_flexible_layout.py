@@ -220,6 +220,38 @@ int main(){
     assert(g_edit_picture_x==0&&g_edit_picture_y==0);
     touch_edit_pointer(SDL_EVENT_FINGER_CANCELED,7,0,0);assert(!g_edit_dragging);
     prior=disk;touch_edit_finish(false);assert(disk==prior);
+    // Actual toolbar Reset changes only the open editor draft until Done.
+    const std::string other_display=display_section()=="display landscape"?"display portrait":"display landscape";
+    const std::string other_touch=touch_section()=="touch landscape"?"touch portrait":"touch landscape";
+    g_settings.set(other_display,"picture_x","23");
+    g_settings.set(other_touch,"split_dpad_x","5999");
+    disk=g_settings.write_over("");prior=disk;
+    const auto picture_before=g_settings.number(display_section(),"picture_x");
+    touch_edit_begin();g_edit_positions[0]={8888,7777};
+    auto toolbar=touch_edit_toolbar();
+    touch_edit_pointer(SDL_EVENT_FINGER_DOWN,1,toolbar.reset.x+1,toolbar.reset.y+1);
+    for(const auto& pos:g_edit_positions)assert(pos.x==-1&&pos.y==-1);
+    assert(disk==prior&&g_settings.number(display_section(),"picture_x")==picture_before);
+    touch_edit_finish(false);assert(disk==prior);
+    touch_edit_begin();
+    touch_edit_pointer(SDL_EVENT_FINGER_DOWN,1,toolbar.reset.x+1,toolbar.reset.y+1);
+    touch_edit_pointer(SDL_EVENT_FINGER_DOWN,1,toolbar.done.x+1,toolbar.done.y+1);
+    assert(!g_layout_edit&&g_settings.number(touch_section(),position_key(0,false))==-1);
+    assert(g_settings.number(display_section(),"picture_x")==picture_before);
+    assert(g_settings.number(other_display,"picture_x")==23&&g_settings.number(other_touch,"split_dpad_x")==5999);
+    prior=disk;
+    touch_edit_begin();g_picture_edit=true;g_edit_picture_x=7;g_edit_picture_y=8;g_edit_picture_scale=40;
+    touch_edit_pointer(SDL_EVENT_FINGER_DOWN,1,toolbar.reset.x+1,toolbar.reset.y+1);
+    assert(g_edit_picture_x==50&&g_edit_picture_y==50&&g_edit_picture_scale==100);
+    assert(disk==prior);
+    touch_edit_finish(false);assert(disk==prior);
+    touch_edit_begin();g_picture_edit=true;
+    touch_edit_pointer(SDL_EVENT_FINGER_DOWN,1,toolbar.reset.x+1,toolbar.reset.y+1);
+    touch_edit_pointer(SDL_EVENT_FINGER_DOWN,1,toolbar.done.x+1,toolbar.done.y+1);
+    assert(!g_layout_edit&&g_settings.number(display_section(),"picture_x")==50);
+    assert(g_settings.number(display_section(),"picture_y")==50&&g_settings.number(display_section(),"picture_scale")==100);
+    assert(g_settings.number(touch_section(),position_key(0,false))==-1);
+    assert(g_settings.number(other_display,"picture_x")==23&&g_settings.number(other_touch,"split_dpad_x")==5999);
     assert(boundaries>=3);
     std::cout<<"actual host editor save/cancel/failure and profile boundaries passed\n";
 }
