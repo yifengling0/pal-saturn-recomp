@@ -1,0 +1,127 @@
+{
+  "method": "Actual SDL software offscreen renderer with existing test-only mobile host and Fold{} shim; not physical HarmonyOS. Captured real startup movie, no artificial replacement image. No production changes.",
+  "previous_test_scale_was_70_not_default": true,
+  "production_default_picture_scale": 100,
+  "fit_semantics": "Largest aspect-preserving contain inside game area, no crop and no stretch; not cover. In fit mode texture is 320x224 (10:7). Internal black borders in the source movie are preserved. Original TV mode is separate 4:3; stretch mode fills both axes with distortion.",
+  "records": [
+    {
+      "mode": "split",
+      "window": [
+        960,
+        720
+      ],
+      "texture": [
+        320,
+        224
+      ],
+      "game_area": [
+        960,
+        432.0
+      ],
+      "dst": [
+        171.4,
+        0.0,
+        617.1,
+        432.0
+      ],
+      "maximum_contain_verified": true
+    },
+    {
+      "mode": "split",
+      "window": [
+        1200,
+        600
+      ],
+      "texture": [
+        320,
+        224
+      ],
+      "game_area": [
+        1200,
+        360.0
+      ],
+      "dst": [
+        342.9,
+        0.0,
+        514.3,
+        360.0
+      ],
+      "maximum_contain_verified": true
+    },
+    {
+      "mode": "split",
+      "window": [
+        1000,
+        600
+      ],
+      "texture": [
+        320,
+        224
+      ],
+      "game_area": [
+        1000,
+        360.0
+      ],
+      "dst": [
+        242.9,
+        0.0,
+        514.3,
+        360.0
+      ],
+      "maximum_contain_verified": true
+    },
+    {
+      "mode": "overlay",
+      "window": [
+        960,
+        720
+      ],
+      "texture": [
+        320,
+        224
+      ],
+      "game_area": [
+        960,
+        720
+      ],
+      "dst": [
+        0.0,
+        24.0,
+        960.0,
+        672.0
+      ],
+      "maximum_contain_verified": true
+    },
+    {
+      "mode": "overlay",
+      "window": [
+        1200,
+        600
+      ],
+      "texture": [
+        320,
+        224
+      ],
+      "game_area": [
+        1200,
+        600
+      ],
+      "dst": [
+        171.4,
+        0.0,
+        857.1,
+        600.0
+      ],
+      "maximum_contain_verified": true
+    }
+  ],
+  "config_after_resize": "scale100/x50/y50 unchanged",
+  "recommended_screenshots": [
+    "split100-visible-1.png",
+    "overlay100-visible-1.png"
+  ],
+  "sha256": {
+    "split100-visible-1.png": "ace88d71786d7e705300f64aea3d1008f1e6584e16202bb873543beb7cab50f0",
+    "overlay100-visible-1.png": "4705116db59f962dc7cb252406c87cb3ee7d22d17cb11ace5982253ae935e914"
+  }
+}
