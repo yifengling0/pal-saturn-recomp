@@ -54,7 +54,11 @@ struct SDL_Event { int type; struct { int scancode; bool repeat=false; int mod=0
 ''' + declarations + r'''
 Settings g_settings;
 static bool g_menu_open=true,g_confirm_quit=false,g_confirm_layout=false,g_slider_active=false;
-static bool g_layout_edit=false;
+static bool g_layout_edit=false,g_picture_edit=false;
+static int g_edit_picture_x=50,g_edit_picture_y=50;
+static std::string display_section(){return "display";}
+static std::string touch_section(){return "touch";}
+static bool picture_slider(MenuId id){return id==M_PICTURE_X||id==M_PICTURE_Y||id==M_PICTURE_SCALE;}
 static int g_menu_at=0,g_menu_page=0,g_out_w=1600,g_out_h=900;
 static MenuId g_slider_id=M_SIZE;
 static SDL_FingerID g_slider_finger=0;
@@ -62,6 +66,7 @@ static int g_win=0,g_edit_group=0;
 static float saves=0,refreshes=0;
 struct Position {float x,y;};
 static Position g_edit_positions[1]{};
+static const char* const kSplitAxes[]={"auto","below","right"};
 static const char* const kOrientations[]={"landscape","portrait","auto"};
 static const char* const kPresent[]={"original","fit","stretch"};
 static const char* const kPadModes[]={"auto","on","off"};

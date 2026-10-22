@@ -40,10 +40,9 @@ OHOS_HOST_UI_VERSION = 13
 # the two generations a HAP may be built from: the mapping-only host and the
 # accelerated (pal-options) host that adds the spell/effect hooks on top of it.
 OHOS_HOST_UI_SHA256: frozenset[str] = frozenset({
-    # Mapping + prompt/battle generation, explicit master input ownership for 0026.
-    'c5671677972bfb99fff1826e4b5eb6ef47b2d6c24cd3ca021350054b378aec69',
-    # Fresh precise/paired + keyboard + prompt edge + battle item generation.
-    '0f3def87ffa2fc3491e583b8c38469cf22b02e5b8150eee37721c56d33e657a4',
+    # 0032 final mapping and accelerated hosts, replayed with master input guard.
+    '1aaf33cd89ed087ee7fa06a4fd5a481310cee3efeb40b0814f17e7b335025f34',
+    'f6918bab15f6c4be2a1dc47cde5cf4e21f229b91e8f760dfb6502fb5ada65d51',
 })
 
 # The accelerated generation is the one the Windows package ships, so the tablet gets the same

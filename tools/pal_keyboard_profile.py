@@ -460,6 +460,10 @@ RUNTIME_HASHES['settings.cpp'].append('52c5c83fecbacf4e311a4334e350804ed1faa2705
 RUNTIME_HASHES['host.cpp'].extend(['42a042bb96b533aca432ed99ffa791c62aaa6b5e7bb4ea8b218d6752a4120734', '472ba48e74eafd9ede0cddbc42c598e678818962677f78338a54c9f5f53f62f3'])
 RUNTIME_HASHES['settings.cpp'].append('b5f4fb797ed7f3569aceb33bcf1a100829f7d80a5c07c5f710137adc7df4f2b2')
 
+# 0032 independent orientation profiles and flexible picture/partition geometry.
+RUNTIME_HASHES['host.cpp'].extend(['58c4f5ebd140950c961e252c16442eba25828c7dfc971cfaedfdf405904c4472', '821d6304384bba56e617739fbd86a527ce8dc1bd569fc33222dbf19e4eb913fb'])
+RUNTIME_HASHES['settings.cpp'].append('32d1ed800e6c5188b8395c15d498dd82a5ea0f2ed9945c0122b88b743c87ff51')
+
 MANIFEST = 'pal-keyboard-manifest.json'
 HARMONY_RUNTIME_HELPERS = {'touch_ui_policy.h': '1972c4c2c38c19b151d8caff07cf165d9f5edf185529caaf9461bce175d7784e', 'touch_menu_paging.h': 'a05761a95eebe222e1c51602b44f75ea19c4a68daaa9cbdb047cfc84c78710e7', 'pal_audio_queue_policy.h': 'b873e70bc52a265c7f74626dc771a914774b86b76e36f0379a27f2bb0ae30c67', 'pal_audio_jitter_policy.h': '893d30bfdf8b9a3373881b510064e086d516989232a1946f735011fbd46c89d8', 'host_sdl.h': 'a02c549b334ae98c3713adf8480e06183b9cf4b724c2acd3fe8be5ecc11ee954'}
 
@@ -501,6 +505,9 @@ DISPLAY_RUNTIME_FILES.update({
  'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': '8f31a44c57501ff65b3cb86a7b2d054d651fbed85e900b699c8fb3b8695e2e21',
  'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': '2bb7ba909ea8e2f10bb3ca5ea2ee3483ac1d9c03a06e53c17b3cfb528e82f711',
 })
+
+# 0032 reviewed helpers and exact generated menu glyphs.
+DISPLAY_RUNTIME_FILES.update({'src/host/host_menu_text.h': 'a30130e929c982743a1b1056f0ae9e7752a8833489fd2f897d90d157407c1cff', 'src/host/pal_display_layout.h': '6694a6e888b518d0859bdb5d9749b33157676bbd34fe217fb0fff6e5e9aed051', 'third_party/pal-menu-cjk/glyphs.h': '77bf3626a4835ece6da9e2434dd6100278a2c1a66de938c3499eff5709e06a16', 'third_party/pal-menu-cjk/manifest.json': '09544ab15a2ebe68cf407ac4f4e2182c080f6d4ccec8e1777883a678176521ca', 'third_party/pal-menu-cjk/pal_menu_cjk_regular.h': '404d04cd740e662d322f7ae693cce28393bef841ba154226240814d29d7dfc6e', 'third_party/pal-menu-cjk/pal_menu_cjk_bold.h': 'a49095eb26ab119b2f8d1944764576df528f47d7f462c0ee1c5778896bf5650f'})
 
 def runtime_support_inputs(runtime):
  """Read and verify one complete reviewed runtime support variant."""

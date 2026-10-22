@@ -35,8 +35,8 @@ def replay(host):
     exec(textwrap.dedent(source[a:z]), {'edit': edit})
     paired = box[0]
     stages = {'raw': host, 'precise': precise, 'paired': paired,
-              'mapping_final': prompt.host(keyboard.guard_host(keyboard.host(host))),
-              'accelerated_final': prompt.host(keyboard.guard_host(keyboard.host(paired)))}
+              'mapping_final': keyboard.guard_master_input(prompt.host(keyboard.guard_host(keyboard.host(host)))),
+              'accelerated_final': keyboard.guard_master_input(prompt.host(keyboard.guard_host(keyboard.host(paired))))}
     return {name: hashlib.sha256(text.encode()).hexdigest() for name,text in stages.items()}
 
 if __name__ == '__main__':

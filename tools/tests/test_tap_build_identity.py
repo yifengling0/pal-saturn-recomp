@@ -154,7 +154,7 @@ class PatchNumberIdentityTests(unittest.TestCase):
         # 0023 adds PCM output; 0024-0026 reduce video decode and handoff cost;
         # 0027 stops background production while servicing SDL lifecycle events.
         # 0031 resumes currently held directions after guest dialogue/loading.
-        self.assertEqual(setup.NUMBERS[-16:], (14, 15, 16, 17, 18, 19, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31))
+        self.assertEqual(setup.NUMBERS[-17:], (14, 15, 16, 17, 18, 19, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))
         self.assertEqual(len(setup.NUMBERS), len(set(setup.NUMBERS)))
 
     def test_resolves_unique_numbered_files(self):
