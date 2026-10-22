@@ -1,0 +1,187 @@
+{
+  "built": true,
+  "status": "actual-new-dual-abi-unsigned-hap",
+  "source_commit": "c5985c6eaba069f791ed66553435cbeffec6541a",
+  "build_exit_code": 0,
+  "hvigor_tasks": {
+    "executed": 34,
+    "up_to_date": 0
+  },
+  "elapsed": "3 min 5 s 929 ms",
+  "sdk_download": {
+    "official_page": "https://developer.huawei.com/consumer/cn/download/command-line-tools-for-hmos",
+    "download_time_utc": "2026-10-22T13:39:24Z",
+    "artifact": "command-line-tools-linux-x86-26.0.0.851.zip",
+    "bytes": 2348063309,
+    "sha256": "ab604bd92721d5cbcafd154e6461d46b9f1b105e7b89eab04a9d046681198082",
+    "official_sha_verified": true,
+    "official_sha_source": "Linux 26.0.0.851 SHA-256 copy control; pasted into plain local text editor and observed",
+    "zip_entries": 114666,
+    "crc_extraction_pass": true,
+    "symlinks_restored": 128,
+    "sdk_version": "26.0.0.105",
+    "api": 26
+  },
+  "sdk_version": "26.0.0.105",
+  "sdk_api": 26,
+  "hvigor": "6.26.8",
+  "node": "24.14.1",
+  "ohpm": "26.0.0.630",
+  "java": "OpenJDK21.0.12.1 Debian",
+  "actual_flags": [
+    "-O2",
+    "-DNDEBUG"
+  ],
+  "arm64_compiler": "BiSheng Mobile CPU STD 205.1.0.1.B001 clang15.0.4",
+  "x86_64_compiler": "OHOS clang15.0.4",
+  "physical_device_test": false,
+  "signed": false,
+  "selftest": false,
+  "sdl_revision": "930cd0dbf8d1b6fdc5b91711d8d71542c1df0960",
+  "host_sha256": "f6918bab15f6c4be2a1dc47cde5cf4e21f229b91e8f760dfb6502fb5ada65d51",
+  "hap": {
+    "size": 29630574,
+    "sha256": "8e7e2f80524e7b0112ab262df2531a6678e590d325f7ce9ad3c540b2b1c08497"
+  },
+  "libraries": {
+    "libs/x86_64/libSDL3.so": {
+      "sha256": "ab45eb07336e63f5c101595445c5bb77454518c58d65d5c1e5302853b01dd63e",
+      "bytes": 2247712,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           Advanced Micro Devices X86-64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          2245920 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         28\n  Section header string table index: 27\n",
+      "dynamic": "\nDynamic section at offset 0x21ced0 contains 44 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libace_napi.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libace_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libdeviceinfo_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [librawfile.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libhilog_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohcommonevent.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libability_runtime.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohbattery_info.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohcamera.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohimage.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libimage_receiver.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libnative_image.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libnative_buffer.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libnative_display_manager.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libpasteboard.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libudmf.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libSDL3.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x18e70\n 0x0000000000000008 (RELASZ)             37680 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          1562\n 0x0000000000000017 (JMPREL)             0x221a0\n 0x0000000000000002 (PLTRELSZ)           22152 (bytes)\n 0x0000000000000003 (PLTGOT)             0x21f1e0\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x4b0\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x105bc\n 0x000000000000000a (STRSZ)              34989 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0xaf70\n 0x0000000000000004 (HASH)               0xd13c\n 0x0000000000000019 (INIT_ARRAY)         0x21a260\n 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x21a270\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0x21588b\n 0x000000000000000d (FINI)               0x21588e\n 0x000000006ffffff0 (VERSYM)             0xa218\n 0x000000006ffffffc (VERDEF)             0xaf38\n 0x000000006ffffffd (VERDEFNUM)          2\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/x86_64/libmain.so": {
+      "sha256": "3d8baa523ef3bcea156a53429fffb305b7ae1317b3442898eddeb1a1c15e0d95",
+      "bytes": 10677768,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           Advanced Micro Devices X86-64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          10675976 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         28\n  Section header string table index: 27\n",
+      "dynamic": "\nDynamic section at offset 0xa27e80 contains 34 entries:\n  Tag        Type                         Name/Value\n 0x000000000000001d (RUNPATH)            Library runpath: [/workspace/scratch/1afc2db30ae6/pal-layout-20261022/harmony/pal-saturn-openharmony/entry/build/default/intermediates/cmake/default/obj/x86_64]\n 0x0000000000000001 (NEEDED)             Shared library: [libhilog_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libability_runtime.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libSDL3.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libpal_display.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc++_shared.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libmain.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x5ea10\n 0x0000000000000008 (RELASZ)             126984 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          2685\n 0x0000000000000017 (JMPREL)             0x7da18\n 0x0000000000000002 (PLTRELSZ)           71352 (bytes)\n 0x0000000000000003 (PLTGOT)             0xa2a4e0\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x2e8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x2f474\n 0x000000000000000a (STRSZ)              193943 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x1e8b8\n 0x0000000000000004 (HASH)               0x25efc\n 0x0000000000000019 (INIT_ARRAY)         0xa13640\n 0x000000000000001b (INIT_ARRAYSZ)       176 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xa136f0\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0xa06c4b\n 0x000000000000000d (FINI)               0xa06c4e\n 0x000000006ffffff0 (VERSYM)             0x1c338\n 0x000000006ffffffe (VERNEED)            0x1e894\n 0x000000006fffffff (VERNEEDNUM)         1\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/x86_64/libpal_display.so": {
+      "sha256": "52b983dd688b1e9bf5fedb85264e323b7c8678aa0ebeeea95a3e4ed5a5c7d3d3",
+      "bytes": 52656,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           Advanced Micro Devices X86-64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          50992 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         26\n  Section header string table index: 25\n",
+      "dynamic": "\nDynamic section at offset 0xc258 contains 27 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libace_napi.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc++_shared.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libpal_display.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x1428\n 0x0000000000000008 (RELASZ)             912 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          31\n 0x0000000000000017 (JMPREL)             0x17b8\n 0x0000000000000002 (PLTRELSZ)           1104 (bytes)\n 0x0000000000000003 (PLTGOT)             0xe438\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x2e8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0xe24\n 0x000000000000000a (STRSZ)              1535 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0xa98\n 0x0000000000000004 (HASH)               0xb8c\n 0x0000000000000019 (INIT_ARRAY)         0xe120\n 0x000000000000001b (INIT_ARRAYSZ)       24 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xe138\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0xce1b\n 0x000000000000000d (FINI)               0xce1e\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/x86_64/libc++_shared.so": {
+      "sha256": "a411fee450ad8e60ee12a3b282d3609f9623307b3f6d2b244e1428091cf54603",
+      "bytes": 1294904,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           Advanced Micro Devices X86-64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          1293240 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         26\n  Section header string table index: 25\n",
+      "dynamic": "\nDynamic section at offset 0x13a198 contains 25 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libc++_shared.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x34040\n 0x0000000000000008 (RELASZ)             86664 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          1457\n 0x0000000000000017 (JMPREL)             0x492c8\n 0x0000000000000002 (PLTRELSZ)           12120 (bytes)\n 0x0000000000000003 (PLTGOT)             0x13c940\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x2e8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x17d0c\n 0x000000000000000a (STRSZ)              115505 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0xefe8\n 0x0000000000000004 (HASH)               0x12e04\n 0x0000000000000019 (INIT_ARRAY)         0x1342e0\n 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x1342f0\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0x97434\n 0x000000000000000d (FINI)               0x97437\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/arm64-v8a/libSDL3.so": {
+      "sha256": "eab76584527cc14c804316b50a7b174a36e59c39da412524bea18e259decb5b1",
+      "bytes": 1936120,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          1934328 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         28\n  Section header string table index: 27\n",
+      "dynamic": "\nDynamic section at offset 0x1d0b30 contains 44 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libace_napi.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libace_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libdeviceinfo_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [librawfile.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libhilog_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohcommonevent.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libability_runtime.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohbattery_info.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohcamera.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libohimage.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libimage_receiver.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libnative_image.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libnative_buffer.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libnative_display_manager.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libpasteboard.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libudmf.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libSDL3.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x18d60\n 0x0000000000000008 (RELASZ)             39888 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          1653\n 0x0000000000000017 (JMPREL)             0x22930\n 0x0000000000000002 (PLTRELSZ)           21888 (bytes)\n 0x0000000000000003 (PLTGOT)             0x1d2140\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x4b0\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x104cc\n 0x000000000000000a (STRSZ)              34964 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0xaeb8\n 0x0000000000000004 (HASH)               0xd084\n 0x0000000000000019 (INIT_ARRAY)         0x1cd000\n 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x1cd010\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0x1c96ac\n 0x000000000000000d (FINI)               0x1c96c0\n 0x000000006ffffff0 (VERSYM)             0xa170\n 0x000000006ffffffc (VERDEF)             0xae80\n 0x000000006ffffffd (VERDEFNUM)          2\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/arm64-v8a/libmain.so": {
+      "sha256": "0dbca6e7a8e7aa02634a4bcf2bb9d2b7b9181d3542dc46947732c28c990edbb0",
+      "bytes": 10283528,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          10281736 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         28\n  Section header string table index: 27\n",
+      "dynamic": "\nDynamic section at offset 0x9c7af8 contains 34 entries:\n  Tag        Type                         Name/Value\n 0x000000000000001d (RUNPATH)            Library runpath: [/workspace/scratch/1afc2db30ae6/pal-layout-20261022/harmony/pal-saturn-openharmony/entry/build/default/intermediates/cmake/default/obj/arm64-v8a]\n 0x0000000000000001 (NEEDED)             Shared library: [libhilog_ndk.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libability_runtime.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libSDL3.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libpal_display.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc++_shared.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libmain.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x5e7c8\n 0x0000000000000008 (RELASZ)             127032 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          2686\n 0x0000000000000017 (JMPREL)             0x7d800\n 0x0000000000000002 (PLTRELSZ)           70968 (bytes)\n 0x0000000000000003 (PLTGOT)             0x9ca168\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x2e8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x2f210\n 0x000000000000000a (STRSZ)              193972 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x1e718\n 0x0000000000000004 (HASH)               0x25d18\n 0x0000000000000019 (INIT_ARRAY)         0x9b3350\n 0x000000000000001b (INIT_ARRAYSZ)       176 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x9b3400\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0x9a6a30\n 0x000000000000000d (FINI)               0x9a6a44\n 0x000000006ffffff0 (VERSYM)             0x1c1b8\n 0x000000006ffffffe (VERNEED)            0x1e6f4\n 0x000000006fffffff (VERNEEDNUM)         1\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/arm64-v8a/libpal_display.so": {
+      "sha256": "03626590036eef927d39e09c8d730312c870189fdfd4e87e7e1239d0d544586b",
+      "bytes": 52032,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          50368 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         26\n  Section header string table index: 25\n",
+      "dynamic": "\nDynamic section at offset 0xbfd0 contains 27 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libace_napi.z.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc++_shared.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libpal_display.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x14a8\n 0x0000000000000008 (RELASZ)             936 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          31\n 0x0000000000000017 (JMPREL)             0x1850\n 0x0000000000000002 (PLTRELSZ)           1152 (bytes)\n 0x0000000000000003 (PLTGOT)             0xe1b8\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x2e8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0xe84\n 0x000000000000000a (STRSZ)              1568 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0xae0\n 0x0000000000000004 (HASH)               0xbd4\n 0x0000000000000019 (INIT_ARRAY)         0xdea0\n 0x000000000000001b (INIT_ARRAYSZ)       24 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0xdeb8\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0xcb54\n 0x000000000000000d (FINI)               0xcb68\n 0x0000000000000000 (NULL)               0x0\n"
+    },
+    "libs/arm64-v8a/libc++_shared.so": {
+      "sha256": "965803c3fe53e02452e4c0479ad13c88f166c04207d27e3c531161a7c75a6c17",
+      "bytes": 1262504,
+      "elf_header": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 \n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           AArch64\n  Version:                           0x1\n  Entry point address:               0x0\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          1260840 (bytes into file)\n  Flags:                             0x0\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         11\n  Size of section headers:           64 (bytes)\n  Number of section headers:         26\n  Section header string table index: 25\n",
+      "dynamic": "\nDynamic section at offset 0x1322f8 contains 25 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so]\n 0x000000000000000e (SONAME)             Library soname: [libc++_shared.so]\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x0000000000000007 (RELA)               0x34050\n 0x0000000000000008 (RELASZ)             86880 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          1457\n 0x0000000000000017 (JMPREL)             0x493b0\n 0x0000000000000002 (PLTRELSZ)           12144 (bytes)\n 0x0000000000000003 (PLTGOT)             0x134aa8\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x2e8\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x17d68\n 0x000000000000000a (STRSZ)              115429 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0xf030\n 0x0000000000000004 (HASH)               0x12e48\n 0x0000000000000019 (INIT_ARRAY)         0x12c400\n 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x12c410\n 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)\n 0x000000000000000c (INIT)               0x922d0\n 0x000000000000000d (FINI)               0x922e4\n 0x0000000000000000 (NULL)               0x0\n"
+    }
+  },
+  "module": {
+    "app": {
+      "iconId": 16777219,
+      "buildVersion": "1",
+      "minPatchAPIVersion": 0,
+      "debug": false,
+      "targetPatchAPIVersion": 0,
+      "minMinorAPIVersion": 0,
+      "minAPIVersion": 50004016,
+      "icon": "$media:layered_image",
+      "buildMode": "release",
+      "label": "$string:app_name",
+      "bundleType": "app",
+      "versionName": "0.1.0-preview.5",
+      "versionCode": 1000005,
+      "appEnvironments": [],
+      "compileSdkType": "HarmonyOS",
+      "labelId": 16777216,
+      "compileSdkVersion": "26.0.0.105",
+      "targetAPIVersion": 60100023,
+      "vendor": "palhero",
+      "bundleName": "com.palhero.palsaturn",
+      "apiReleaseType": "Release",
+      "targetMinorAPIVersion": 0
+    },
+    "module": {
+      "virtualMachine": "ark12.0.6.0",
+      "mainElement": "EntryAbility",
+      "installationFree": false,
+      "deliveryWithInstall": true,
+      "requestPermissions": [],
+      "description": "$string:module_desc",
+      "extensionAbilities": [
+        {
+          "exported": false,
+          "metadata": [
+            {
+              "resourceId": 16777232,
+              "resource": "$profile:backup_config",
+              "name": "ohos.extension.backup"
+            }
+          ],
+          "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+          "name": "EntryBackupAbility",
+          "type": "backup"
+        }
+      ],
+      "compileMode": "esmodule",
+      "type": "entry",
+      "dependencies": [],
+      "abilities": [
+        {
+          "exported": true,
+          "iconId": 16777219,
+          "orientation": "$string:pal_start_orientation",
+          "startWindowIconId": 16777231,
+          "orientationId": 16777223,
+          "icon": "$media:layered_image",
+          "startWindowIcon": "$media:startIcon",
+          "startWindowBackgroundId": 16777229,
+          "description": "$string:EntryAbility_desc",
+          "label": "$string:EntryAbility_label",
+          "skills": [
+            {
+              "entities": [
+                "entity.system.home"
+              ],
+              "actions": [
+                "ohos.want.action.home"
+              ]
+            }
+          ],
+          "srcEntry": "./ets/entryability/EntryAbility.ets",
+          "descriptionId": 16777220,
+          "labelId": 16777221,
+          "startWindowBackground": "$color:start_window_background",
+          "name": "EntryAbility"
+        }
+      ],
+      "deviceTypes": [
+        "phone",
+        "tablet",
+        "2in1",
+        "tv"
+      ],
+      "pages": "$profile:main_pages",
+      "descriptionId": 16777222,
+      "name": "entry",
+      "packageName": "entry"
+    }
+  }
+}

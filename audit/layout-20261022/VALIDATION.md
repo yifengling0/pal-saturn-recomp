@@ -21,6 +21,11 @@ No production settings behavior was changed to make those tests pass.
   gameplay, audio quality, or end-to-end completion evidence.
 - Production Windows: optimized x86-64 PE cross-build and import inspection passed.
   No native Windows or Wine execution is claimed.
+- Production HarmonyOS: official SDK 26.0.0.105/API 26, hvigor 6.26.8,
+  actual dual-ABI Release build passed (34 tasks executed, exit 0). Both arm64-v8a
+  and x86_64 use `-O2 -DNDEBUG`; this is not a renamed prior HAP or a self-test build.
+  See `OHOS-BUILD-VERIFIED.json` for the official download checksum, compiler flags,
+  manifest, native library identities and dependency inspection.
 
 ## Actual SDL UI regression
 
@@ -51,6 +56,10 @@ Screenshot and executable SHA256 values are in `UI-EVIDENCE.json`. Screenshots s
 real startup logo/movie content, not an asserted gameplay milestone. UI screenshots
 are evidence of offscreen rendering, not of a physical desktop or HarmonyOS device.
 
+Default 100% maximum-contain rendering was separately checked against real
+320 x 224 frames, including window resize. `FIT-EVIDENCE.json` records the measured
+rectangles. The 70% value above was a deliberate drag-test setting, not the default.
+
 ## Remaining platform boundaries
 
 Physical DPI, multitouch drivers, actual folding hardware, HarmonyOS lifecycle,
@@ -58,6 +67,28 @@ physical-device GPU, Windows input/audio and full gameplay are not verified here
 The inherited mixed-input-source held-direction restore ordering is unchanged;
 this work does not claim to resolve its last-key-priority limitation.
 
-At this checkpoint the official HarmonyOS SDK download is blocked, so no new HAP
-or complete three-platform release is claimed. Final build provenance must record
-an actual successful new HAP before publication; old binaries must not substitute.
+## Build completion and package boundaries
+
+The SDK download blocker was resolved through the normal official download flow.
+The 2,348,063,309-byte archive matches the SHA-256 shown by Huawei:
+`ab604bd92721d5cbcafd154e6461d46b9f1b105e7b89eab04a9d046681198082`.
+Full extraction CRC validation passed. No browser security warning was bypassed.
+
+The new unsigned HAP is 29,630,574 bytes, SHA-256
+`8e7e2f80524e7b0112ab262df2531a6678e590d325f7ce9ad3c540b2b1c08497`.
+Its manifest identifies `0.1.0-preview.5`, versionCode `1000005`, debug=false,
+Release mode, and compile SDK 26.0.0.105. Both ABIs contain libmain, SDL3,
+the display bridge and libc++_shared. ZIP CRC, ELF architecture/dependencies,
+host source hash, and exclusion of original discs, private saves and signing
+secrets passed inspection. The recorded OHOS source/metadata commit is
+`c5985c6eaba069f791ed66553435cbeffec6541a`; subsequent validation-only changes do
+not alter production sources or app metadata.
+
+All three platforms now have new artifacts, but build success is not physical
+device validation or proof of publication. The HAP is **unsigned** and requires
+the user's own valid signing configuration before device installation. Its
+declared minimum API 16 / target API 23 are not a tested OS compatibility matrix.
+The Linux package requires **glibc 2.38 or newer** and X11/XWayland with its bundled
+SDL build; native Wayland support is not claimed. Windows remains a cross-build
+without native execution. Final published asset identities and URLs belong in
+the release provenance rather than being inferred from local files.
