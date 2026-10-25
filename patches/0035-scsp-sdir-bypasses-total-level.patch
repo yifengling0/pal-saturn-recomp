@@ -1,0 +1,14 @@
+diff --git a/runtime/src/sound/scsp.cpp b/runtime/src/sound/scsp.cpp
+--- a/runtime/src/sound/scsp.cpp
++++ b/runtime/src/sound/scsp.cpp
+@@ -664,7 +664,9 @@
+         int32_t stacked = 0;
+         if (s.active) {
+             int32_t v = slot_sample(s);
+-            float tl = g_tl_gain[s.tl()];
++            // SDIR bypasses both the envelope/ALFO and total-level attenuation.
++            // Sega SCSP manual 4.2.4: this applies before direct and DSP sends.
++            float tl = s.sdir() ? 1.0f : g_tl_gain[s.tl()];
+             float lv = (float)v * tl;
+             l += lv * g_sdl_gain[s.disdl()] * g_pan_l[s.dipan()];
+             r += lv * g_sdl_gain[s.disdl()] * g_pan_r[s.dipan()];

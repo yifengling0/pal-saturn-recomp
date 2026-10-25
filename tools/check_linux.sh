@@ -18,8 +18,12 @@ run dump-parser-build "$CXX" -std=c++20 -Wall -Wextra -Werror tools/test_pal_dum
 run dump-parser "$B/test-pal-dump"
 run wrapper-tests "$PY" -m unittest discover -s validation/tests -v
 run python-tests "$PY" -m pytest "$RT/tests" -q
+run scsp-audio "$PY" audit/scsp-audio/run.py --out "$B/scsp-audio" --jobs "$JOBS"
 run optest-generate "$PY" -m saturnrecomp.recomp --out "$B/optest" --optest
-run optest-configure cmake -S "$B/optest" -B "$B/optest-build" "${CMAKE[@]}" "-DSATURN_EXTRA=$ROOT/src/pal_game/pal_game.cmake"
+# This synthetic instruction corpus is not a PAL game target. The real game layer
+# correctly requires original modules/hooks; never attach it here or bypass its guard.
+# Clear the old cached extra when rerunning an existing synthetic build directory.
+run optest-configure cmake -S "$B/optest" -B "$B/optest-build" "${CMAKE[@]}" -USATURN_EXTRA
 run optest-build cmake --build "$B/optest-build" --parallel "$JOBS" --target selftest saturn
 run optest "$B/optest-build/selftest" "$B/optest/selftest/optest.txt"
 for variant in runtime runtime-gpl; do

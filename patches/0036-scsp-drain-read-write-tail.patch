@@ -1,0 +1,18 @@
+diff --git a/runtime/src/sound/scsp.cpp b/runtime/src/sound/scsp.cpp
+--- a/runtime/src/sound/scsp.cpp
++++ b/runtime/src/sound/scsp.cpp
+@@ -389,9 +389,11 @@
+ void dsp_step() {
+     Dsp& d = g_dsp;
+     DspCarry& c = g_carry;
+-    // The steps of 0s after the last one all set the accumulator alike, and the first does an access the
+-    // step before asked for, so that one stands for them all.
+-    for (int st = 0; st < std::min(d.last_step + 1, 128); ++st) {
++    // Trailing zero instructions update the same accumulator/input. Two are
++    // needed to drain a final combined MRD+MWT: the first performs the read,
++    // and the second performs the write left pending by dsp_access().
++    // At step 127 the unfinished access must carry into the next sample.
++    for (int st = 0; st < std::min(d.last_step + 2, 128); ++st) {
+         const uint16_t* ip = d.mpro + st * 4;
+         uint32_t tra = ip[0] >> 8 & 0x7F, twt = ip[0] >> 7 & 1, twa = ip[0] & 0x7F;
+         uint32_t xsel = ip[1] >> 15 & 1, ysel = ip[1] >> 13 & 3, ira = ip[1] >> 6 & 0x3F, iwt = ip[1] >> 5 & 1,
