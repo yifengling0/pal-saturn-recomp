@@ -526,3 +526,10 @@ at = 0x06021C1E
 [[hook]]
 module = "PROG"
 at = 0x06028700
+
+# Original manual mover: after its requested map/event step is blocked, before
+# neighbour fallback dispatch. Only manual caller 06026E74 selects original stop.
+# Scripted callers retain the disc policy. See docs/OBSTACLE_STOP.md.
+[[hook]]
+module = "PROG"
+at = 0x06033752

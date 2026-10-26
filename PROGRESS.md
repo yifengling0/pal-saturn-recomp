@@ -258,3 +258,24 @@ battle 65535→0，回到场景109(704,1456)，李/月如的生命灵力恢复�
   UBSan audio: 38 policy checks and 43 cases / 4613 checks. Both formal Linux
   modes passed; package identities and boundaries recorded in
   `docs/OHOS_MOBILE_INTEGRATION_20261013.md` and its linked evidence.
+
+## 2026-10-26 — manual obstacle stop (local, not published)
+
+- Verified original mover neighbour fallback as the cause of wall/object side
+  slides. Added a guarded game-layer hook selecting the original stop branch
+  for manual input only; script movement and all input/audio layers unchanged.
+- Actual original-disc replay: original-mode 5/5 screenshots match pre-change;
+  fixed mode stops at desk/chair instead of sidestepping. Live cloud SDL held
+  wall test and facing/cabinet interaction yielded 止血草 successfully.
+- Callback, linked-generation gates and generated mover scenario tests cover
+  original/fixed/manual/script paths; see `docs/OBSTACLE_STOP.md` for commands,
+  evidence boundaries and the explicit original-policy switch.
+- Final full regression: 421 tests + 201 subtests, zero skips; 176 generated
+  mover scenarios including bounds, no input and turning. Clean formal SDL build
+  passed; final-build pickup replay matched all three earlier screenshots.
+- This task does not publish commits, release binaries or private game assets.
+
+
+## 2026-10-26 battle casting voice audit
+
+Original/quick first Sword spell uses the same original Li Xiaoyao casting PCM and SCSP pitch. Ling'er Thunder and Yueru Qi Jian Zhi use their respective original samples. The reported female voice was **not reproduced**, so no voice substitution or pitch patch is included. See `docs/BATTLE_VOICE_AUDIT.md` for evidence and coverage limits.

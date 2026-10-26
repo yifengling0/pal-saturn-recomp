@@ -29,13 +29,16 @@ class MovieLinkage(unittest.TestCase):
    (layer/'pal_disc_identity.cmake').write_text('# target-attachment fixture only\n')
    # Full normal/probe/old/altered render gates have separate CMake regressions.
    (layer/'pal_render_returns.cmake').write_text('# target-attachment fixture only\n')
-   for f in ['pal_diag.cpp','pal_audio_stream_init.cpp','pal_medicine_chest.cpp']:(layer/f).write_text('')
+   # Obstacle generation validity is covered by test_obstacle_stop.py.
+   (layer/'pal_obstacle_stop.cmake').write_text('# target-attachment fixture only\n')
+   for f in ['pal_diag.cpp','pal_audio_stream_init.cpp','pal_medicine_chest.cpp','pal_obstacle_stop.cpp']:(layer/f).write_text('')
    (p/'dummy.cpp').write_text('int main(){return 0;}')
    (p/'CMakeLists.txt').write_text('cmake_minimum_required(VERSION 3.20)\nproject(test CXX)\nadd_library(saturn_machine STATIC dummy.cpp)\nadd_executable(saturn dummy.cpp)\ninclude(layer/pal_game.cmake)\nadd_library(main SHARED dummy.cpp)\nset(PAL_GAME_TARGET main)\ninclude(layer/pal_game.cmake)\nunset(PAL_GAME_TARGET)\nforeach(t saturn main)\nget_target_property(s ${t} SOURCES)\nfile(WRITE "${CMAKE_BINARY_DIR}/${t}.txt" "${s}")\nendforeach()\n')
    subprocess.run(['cmake','-S',str(p),'-B',str(p/'out')],check=True,capture_output=True)
    for t in ['saturn','main']:
     self.assertIn('pal_audio_stream_init.cpp',(p/'out'/f'{t}.txt').read_text())
     self.assertIn('pal_medicine_chest.cpp',(p/'out'/f'{t}.txt').read_text())
+    self.assertIn('pal_obstacle_stop.cpp',(p/'out'/f'{t}.txt').read_text())
  def test_real_callback_and_feature_link(self):
   with tempfile.TemporaryDirectory() as td:
    p=Path(td);(p/'saturn.h').write_text('void sat_note(const char*, ...);\n')
