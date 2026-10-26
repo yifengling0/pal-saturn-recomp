@@ -1,0 +1,17 @@
+来源与权利说明
+
+pal-saturn-recomp.nro 包含 saturn-recomp 运行时、本项目PAL适配层，以及从原版程序静态重编译生成的游戏逻辑。没有附带光盘镜像或资源文件，不等于没有原版程序的衍生内容。运行时的 MIT、SDL 的 zlib 等许可只覆盖相应部分，不能据此把整份 NRO 或原作逻辑称为 MIT 软件。原作及其衍生逻辑仍涉及原权利人的版权；本包不声称已获 Softstar 或其他权利人的授权。分享或再分发前应确认相关权利。
+
+运行时源：callumjenkins/saturn-recomp @086c372；本项目preview7 @d7d9306c7e7063dd136f468a0ba55a8aeb011573。
+SDL3：devkitPro/SDL @c329016c0e338ab4397ad930f83330c9fe058348（switch-sdl-3.4），zlib。SDL3为官方devkitPro开源fork，不是Nintendo NDA商业SDK。
+libnx 4.12.0：switchbrew/libnx，ISC-style许可。
+Mesa 20.1.0-rc3 + devkitPro switch-mesa20.1.0-5补丁：MIT及各源文件通知。
+libdrm_nouveau 1.0.1：devkitPro/libdrm_nouveau，MIT。
+Musashi：Karl Stenerud，MIT；其中SoftFloat含独立通知。
+ImGui：MIT；Inter/CJK字体：各字体许可；stb和minicoro：见附带各许可证。
+GCC16.1/libstdc++/libgcc：GPLv3及GCC运行时库例外；newlib：多份BSD/MIT等许可证见COPYING.NEWLIB。
+工具链devkitA64/switch-tools为构建工具，未把其可执行文件放入本包。
+
+本构建 SATURN_VDP1_GPL=OFF；这仅排除相应 Mednafen 派生 VDP1部件，不构成整包许可判断。
+不附原版光盘镜像、BIOS、光盘提取的图像音乐资源或用户存档。
+源码改动只在switch/，其中可选桌面ffmpeg MP4导出及ImGui外部shell功能关闭，未改SDL3源。详细上游许可在licenses/。SDL fork和Mesa补丁来源链接见README及toolchain-packages.json。

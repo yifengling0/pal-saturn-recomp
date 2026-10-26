@@ -1,0 +1,28 @@
+if(NOT NINTENDO_SWITCH)
+  message(FATAL_ERROR "Use the official devkitPro Switch.cmake toolchain")
+endif()
+if(NOT SDL3_FOUND OR NOT TARGET SDL3::SDL3)
+  message(FATAL_ERROR "Switch port requires real SDL3; headless fallback is forbidden")
+endif()
+include(${CMAKE_CURRENT_LIST_DIR}/../src/pal_game/pal_game.cmake)
+# Same single-threaded SH-2 schedule as the Windows/OHOS PAL ports.
+target_compile_definitions(saturn_machine PRIVATE PAL_SERIAL_SLAVE_COROUTINE=1)
+set_source_files_properties(${SATURN_RUNTIME}/src/app/main.cpp PROPERTIES COMPILE_DEFINITIONS "main=pal_runtime_main")
+target_sources(saturn PRIVATE ${CMAKE_CURRENT_LIST_DIR}/main.cpp)
+# NRO must contain the real application and renderer, not a headless selftest.
+set_target_properties(selftest PROPERTIES EXCLUDE_FROM_ALL TRUE)
+nx_generate_nacp(OUTPUT pal-saturn-recomp.nacp NAME "PAL Saturn Recomp" AUTHOR "PAL contributors" VERSION "preview7-switch")
+nx_create_nro(saturn OUTPUT pal-saturn-recomp.nro NACP pal-saturn-recomp.nacp)
+# Homebrew has no child-process/ffmpeg API. Disable only optional MP4 export,
+# never the emulator's video output or WAV/audio pipeline.
+get_target_property(_machine_sources saturn_machine SOURCES)
+set(_movie_sources "${_machine_sources}")
+list(FILTER _movie_sources INCLUDE REGEX "/video/movie\\.cpp$")
+list(LENGTH _movie_sources _movie_count)
+if(NOT _movie_count EQUAL 1)
+  message(FATAL_ERROR "Expected exactly one upstream movie.cpp; review Switch port")
+endif()
+list(FILTER _machine_sources EXCLUDE REGEX "/video/movie\\.cpp$")
+set_property(TARGET saturn_machine PROPERTY SOURCES "${_machine_sources}")
+target_sources(saturn_machine PRIVATE ${CMAKE_CURRENT_LIST_DIR}/movie_unsupported.cpp)
+target_compile_definitions(saturn_imgui PRIVATE IMGUI_DISABLE_DEFAULT_SHELL_FUNCTIONS=1)

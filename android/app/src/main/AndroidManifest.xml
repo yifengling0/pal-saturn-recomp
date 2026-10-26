@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+ <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+ <application android:icon="@drawable/pal_icon" android:label="仙剑奇侠传 土星版" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:enableOnBackInvokedCallback="false" android:supportsRtl="true">
+  <activity android:name=".LauncherActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+  </activity>
+  <activity android:name=".GameActivity" android:launchMode="singleTask" android:exported="false" android:process=":game" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|smallestScreenSize|density" />
+ </application>
+</manifest>

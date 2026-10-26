@@ -1,0 +1,206 @@
+{
+  "devkitA64": {
+    "VERSION": [
+      "r30-1"
+    ],
+    "FILENAME": [
+      "devkitA64-r30-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "66f100490dafe506495ee083bc932aa2c2f231b5dafaa2b203d1832389b700e9"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "devkita64-binutils": {
+    "VERSION": [
+      "2.46.0-1"
+    ],
+    "FILENAME": [
+      "devkita64-binutils-2.46.0-1-x86_64.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "0d61ad4946eb1080c6e645c41f0cfaac0a2eba5fec88426fef8f03363e933b5a"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/linux/x86_64/"
+  },
+  "devkita64-cmake": {
+    "VERSION": [
+      "1.1.3-1"
+    ],
+    "FILENAME": [
+      "devkita64-cmake-1.1.3-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "f2baa41f2b776ea5e7c5340464d2ba1bcccbc73a96c3293c91ae13df9ee5d467"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "devkita64-gcc": {
+    "VERSION": [
+      "16.1.0-1"
+    ],
+    "FILENAME": [
+      "devkita64-gcc-16.1.0-1-x86_64.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "8192b899f0a5fcfe10d11fa63a631b45310c0c8f0b98d88c7c283c16e9d6b0fa"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/linux/x86_64/"
+  },
+  "devkita64-newlib": {
+    "VERSION": [
+      "4.6.0.20260123-4"
+    ],
+    "FILENAME": [
+      "devkita64-newlib-4.6.0.20260123-4-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "fc97ba1009a94b68f8714c3cc548ef697ca82687b72fe0c05a7ca3df81beb53e"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "devkita64-rules": {
+    "VERSION": [
+      "1.1.1-1"
+    ],
+    "FILENAME": [
+      "devkita64-rules-1.1.1-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "2649cf7827243447070073acc2aa2fee152a0592fc30e827ceed803c565a1ede"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "dkp-cmake-common-utils": {
+    "VERSION": [
+      "1.5.3-1"
+    ],
+    "FILENAME": [
+      "dkp-cmake-common-utils-1.5.3-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "9ddb64ff16962e6532d2a2bce1d7ae8eef4f6f5b859f145c2e58b87b7b164701"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "dkp-toolchain-vars": {
+    "VERSION": [
+      "1.0.5-1"
+    ],
+    "FILENAME": [
+      "dkp-toolchain-vars-1.0.5-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "e6e26af3147061090572b61c576114ee9a45d5ed8c77c7d93cc5f5559198c288"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "general-tools": {
+    "VERSION": [
+      "1.4.4-1"
+    ],
+    "FILENAME": [
+      "general-tools-1.4.4-1-x86_64.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "b6b59bd3d22d4f83a7f0668f749df7cf97b1f05083031e629d43ca4f4377c7b5"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/linux/x86_64/"
+  },
+  "libnx": {
+    "VERSION": [
+      "4.12.0-1"
+    ],
+    "FILENAME": [
+      "libnx-4.12.0-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "c6950bdf8e4b872ece492225368c03e633776329548a7494f91aa1e8f239cd8a"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "switch-cmake": {
+    "VERSION": [
+      "1.5.2-1"
+    ],
+    "FILENAME": [
+      "switch-cmake-1.5.2-1-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "7eee6a98312991faac73246f93d88740fb234d90ac5bd19ca969d6e227a59c8f"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "switch-glad": {
+    "VERSION": [
+      "0.1.27-1"
+    ],
+    "FILENAME": [
+      "switch-glad-0.1.27-1-any.pkg.tar.xz"
+    ],
+    "SHA256SUM": [
+      "a2b159f7a483ec114066067a2e991e65a39ea8708c2cbcac7cfe1c9ec31ea8da"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "switch-libdrm_nouveau": {
+    "VERSION": [
+      "1.0.1-2"
+    ],
+    "FILENAME": [
+      "switch-libdrm_nouveau-1.0.1-2-any.pkg.tar.xz"
+    ],
+    "SHA256SUM": [
+      "c587c9c3114ad0b49e8b39c2f2c5238fc5c17bca1be1139996a10fce6c3026d8"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "switch-mesa": {
+    "VERSION": [
+      "20.1.0-5"
+    ],
+    "FILENAME": [
+      "switch-mesa-20.1.0-5-any.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "78328415d06bff75af07091243844ded5a63dc4d4520d2c708787b8d80ad386d"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "switch-pkg-config": {
+    "VERSION": [
+      "0.28-4"
+    ],
+    "FILENAME": [
+      "switch-pkg-config-0.28-4-any.pkg.tar.xz"
+    ],
+    "SHA256SUM": [
+      "ccba20970fcd151d0212b44913e04df76b5cf295c1d48df686aa9991f5490b2e"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/"
+  },
+  "switch-tools": {
+    "VERSION": [
+      "1.13.1-1"
+    ],
+    "FILENAME": [
+      "switch-tools-1.13.1-1-x86_64.pkg.tar.zst"
+    ],
+    "SHA256SUM": [
+      "de0a9473764d3c5205a7cc9b640e9e913c371b5684d526133384eb7e545c7dab"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/linux/x86_64/"
+  },
+  "uam": {
+    "VERSION": [
+      "1.1.0-1"
+    ],
+    "FILENAME": [
+      "uam-1.1.0-1-x86_64.pkg.tar.xz"
+    ],
+    "SHA256SUM": [
+      "ef1b6882021445c52f8b8feb2c1b20c973a0f8be49b0aa96895d643e1374fc62"
+    ],
+    "url": "https://pkg.devkitpro.org/packages/linux/x86_64/"
+  }
+}
